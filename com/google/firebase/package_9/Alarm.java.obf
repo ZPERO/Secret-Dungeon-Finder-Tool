@@ -1,0 +1,15 @@
+package com.google.firebase.iid;
+
+import android.content.Intent;
+
+final class zzc
+  implements Runnable
+{
+  zzc(zzb paramZzb, Intent paramIntent1, Intent paramIntent2) {}
+  
+  public final void run()
+  {
+    zzo.zzd(zzm);
+    zzb.zza(zzo, zzn);
+  }
+}

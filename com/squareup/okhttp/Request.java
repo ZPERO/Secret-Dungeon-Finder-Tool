@@ -1,0 +1,336 @@
+package com.squareup.okhttp;
+
+import com.squareup.okhttp.internal.http.HttpMethod;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.util.List;
+
+public final class Request
+{
+  private final RequestBody body;
+  private volatile CacheControl cacheControl;
+  private final Headers headers;
+  private volatile URI javaNetUri;
+  private volatile URL javaNetUrl;
+  private final String method;
+  private final Object tag;
+  private final HttpUrl url;
+  
+  private Request(Builder paramBuilder)
+  {
+    url = url;
+    method = method;
+    headers = headers.build();
+    body = body;
+    if (tag != null) {
+      paramBuilder = tag;
+    } else {
+      paramBuilder = this;
+    }
+    tag = paramBuilder;
+  }
+  
+  public RequestBody body()
+  {
+    return body;
+  }
+  
+  public CacheControl cacheControl()
+  {
+    CacheControl localCacheControl = cacheControl;
+    if (localCacheControl != null) {
+      return localCacheControl;
+    }
+    localCacheControl = CacheControl.parse(headers);
+    cacheControl = localCacheControl;
+    return localCacheControl;
+  }
+  
+  public String header(String paramString)
+  {
+    return headers.get(paramString);
+  }
+  
+  public Headers headers()
+  {
+    return headers;
+  }
+  
+  public List headers(String paramString)
+  {
+    return headers.values(paramString);
+  }
+  
+  public HttpUrl httpUrl()
+  {
+    return url;
+  }
+  
+  public boolean isHttps()
+  {
+    return url.isHttps();
+  }
+  
+  public String method()
+  {
+    return method;
+  }
+  
+  public Builder newBuilder()
+  {
+    return new Builder(this, null);
+  }
+  
+  public Object tag()
+  {
+    return tag;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Request{method=");
+    localStringBuilder.append(method);
+    localStringBuilder.append(", url=");
+    localStringBuilder.append(url);
+    localStringBuilder.append(", tag=");
+    Object localObject = tag;
+    if (localObject == this) {
+      localObject = null;
+    }
+    localStringBuilder.append(localObject);
+    localStringBuilder.append('}');
+    return localStringBuilder.toString();
+  }
+  
+  public URI uri()
+    throws IOException
+  {
+    Object localObject = javaNetUri;
+    if (localObject != null) {
+      return localObject;
+    }
+    localObject = url;
+    try
+    {
+      localObject = ((HttpUrl)localObject).uri();
+      javaNetUri = ((URI)localObject);
+      return localObject;
+    }
+    catch (IllegalStateException localIllegalStateException)
+    {
+      throw new IOException(localIllegalStateException.getMessage());
+    }
+  }
+  
+  public URL url()
+  {
+    URL localURL = javaNetUrl;
+    if (localURL != null) {
+      return localURL;
+    }
+    localURL = url.url();
+    javaNetUrl = localURL;
+    return localURL;
+  }
+  
+  public String urlString()
+  {
+    return url.toString();
+  }
+  
+  public static class Builder
+  {
+    private RequestBody body;
+    private Headers.Builder headers;
+    private String method;
+    private Object tag;
+    private HttpUrl url;
+    
+    public Builder()
+    {
+      method = "GET";
+      headers = new Headers.Builder();
+    }
+    
+    private Builder(Request paramRequest)
+    {
+      url = url;
+      method = method;
+      body = body;
+      tag = tag;
+      headers = headers.newBuilder();
+    }
+    
+    public Builder addHeader(String paramString1, String paramString2)
+    {
+      headers.add(paramString1, paramString2);
+      return this;
+    }
+    
+    public Request build()
+    {
+      if (url != null) {
+        return new Request(this, null);
+      }
+      throw new IllegalStateException("url == null");
+    }
+    
+    public Builder cacheControl(CacheControl paramCacheControl)
+    {
+      paramCacheControl = paramCacheControl.toString();
+      if (paramCacheControl.isEmpty()) {
+        return removeHeader("Cache-Control");
+      }
+      return header("Cache-Control", paramCacheControl);
+    }
+    
+    public Builder delete()
+    {
+      return delete(RequestBody.create(null, new byte[0]));
+    }
+    
+    public Builder delete(RequestBody paramRequestBody)
+    {
+      return method("DELETE", paramRequestBody);
+    }
+    
+    public Builder get()
+    {
+      return method("GET", null);
+    }
+    
+    public Builder head()
+    {
+      return method("HEAD", null);
+    }
+    
+    public Builder header(String paramString1, String paramString2)
+    {
+      headers.set(paramString1, paramString2);
+      return this;
+    }
+    
+    public Builder headers(Headers paramHeaders)
+    {
+      headers = paramHeaders.newBuilder();
+      return this;
+    }
+    
+    public Builder method(String paramString, RequestBody paramRequestBody)
+    {
+      if ((paramString != null) && (paramString.length() != 0))
+      {
+        if ((paramRequestBody != null) && (!HttpMethod.permitsRequestBody(paramString)))
+        {
+          paramRequestBody = new StringBuilder();
+          paramRequestBody.append("method ");
+          paramRequestBody.append(paramString);
+          paramRequestBody.append(" must not have a request body.");
+          throw new IllegalArgumentException(paramRequestBody.toString());
+        }
+        if ((paramRequestBody == null) && (HttpMethod.requiresRequestBody(paramString)))
+        {
+          paramRequestBody = new StringBuilder();
+          paramRequestBody.append("method ");
+          paramRequestBody.append(paramString);
+          paramRequestBody.append(" must have a request body.");
+          throw new IllegalArgumentException(paramRequestBody.toString());
+        }
+        method = paramString;
+        body = paramRequestBody;
+        return this;
+      }
+      throw new IllegalArgumentException("method == null || method.length() == 0");
+    }
+    
+    public Builder patch(RequestBody paramRequestBody)
+    {
+      return method("PATCH", paramRequestBody);
+    }
+    
+    public Builder post(RequestBody paramRequestBody)
+    {
+      return method("POST", paramRequestBody);
+    }
+    
+    public Builder put(RequestBody paramRequestBody)
+    {
+      return method("PUT", paramRequestBody);
+    }
+    
+    public Builder removeHeader(String paramString)
+    {
+      headers.removeAll(paramString);
+      return this;
+    }
+    
+    public Builder tag(Object paramObject)
+    {
+      tag = paramObject;
+      return this;
+    }
+    
+    public Builder url(HttpUrl paramHttpUrl)
+    {
+      if (paramHttpUrl != null)
+      {
+        url = paramHttpUrl;
+        return this;
+      }
+      throw new IllegalArgumentException("url == null");
+    }
+    
+    public Builder url(String paramString)
+    {
+      if (paramString != null)
+      {
+        Object localObject;
+        if (paramString.regionMatches(true, 0, "ws:", 0, 3))
+        {
+          localObject = new StringBuilder();
+          ((StringBuilder)localObject).append("http:");
+          ((StringBuilder)localObject).append(paramString.substring(3));
+          localObject = ((StringBuilder)localObject).toString();
+        }
+        else
+        {
+          localObject = paramString;
+          if (paramString.regionMatches(true, 0, "wss:", 0, 4))
+          {
+            localObject = new StringBuilder();
+            ((StringBuilder)localObject).append("https:");
+            ((StringBuilder)localObject).append(paramString.substring(4));
+            localObject = ((StringBuilder)localObject).toString();
+          }
+        }
+        paramString = HttpUrl.parse((String)localObject);
+        if (paramString != null) {
+          return url(paramString);
+        }
+        paramString = new StringBuilder();
+        paramString.append("unexpected url: ");
+        paramString.append((String)localObject);
+        throw new IllegalArgumentException(paramString.toString());
+      }
+      throw new IllegalArgumentException("url == null");
+    }
+    
+    public Builder url(URL paramURL)
+    {
+      if (paramURL != null)
+      {
+        Object localObject = HttpUrl.get(paramURL);
+        if (localObject != null) {
+          return url((HttpUrl)localObject);
+        }
+        localObject = new StringBuilder();
+        ((StringBuilder)localObject).append("unexpected url: ");
+        ((StringBuilder)localObject).append(paramURL);
+        throw new IllegalArgumentException(((StringBuilder)localObject).toString());
+      }
+      throw new IllegalArgumentException("url == null");
+    }
+  }
+}

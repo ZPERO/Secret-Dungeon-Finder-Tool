@@ -1,0 +1,38 @@
+package com.google.android.gms.tasks;
+
+public class TaskCompletionSource<TResult>
+{
+  private final zzu<TResult> zza = new zzu();
+  
+  public TaskCompletionSource() {}
+  
+  public TaskCompletionSource(CancellationToken paramCancellationToken)
+  {
+    paramCancellationToken.onCanceledRequested(new zzs(this));
+  }
+  
+  public Task<TResult> getTask()
+  {
+    return zza;
+  }
+  
+  public void setException(Exception paramException)
+  {
+    zza.setException(paramException);
+  }
+  
+  public void setResult(TResult paramTResult)
+  {
+    zza.setResult(paramTResult);
+  }
+  
+  public boolean trySetException(Exception paramException)
+  {
+    return zza.trySetException(paramException);
+  }
+  
+  public boolean trySetResult(TResult paramTResult)
+  {
+    return zza.trySetResult(paramTResult);
+  }
+}

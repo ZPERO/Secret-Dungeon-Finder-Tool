@@ -1,0 +1,103 @@
+package com.google.android.gms.internal.measurement;
+
+import java.io.IOException;
+
+public final class zzgh
+  extends zzza<zzgh>
+{
+  public zzgi[] zzawy = zzgi.zzms();
+  
+  public zzgh()
+  {
+    zzcfc = null;
+    zzcfm = -1;
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if (!(paramObject instanceof zzgh)) {
+      return false;
+    }
+    paramObject = (zzgh)paramObject;
+    if (!zzze.equals(zzawy, zzawy)) {
+      return false;
+    }
+    if ((zzcfc != null) && (!zzcfc.isEmpty())) {
+      return zzcfc.equals(zzcfc);
+    }
+    if (zzcfc != null) {
+      return zzcfc.isEmpty();
+    }
+    return true;
+  }
+  
+  public final int hashCode()
+  {
+    int j = getClass().getName().hashCode();
+    int k = zzze.hashCode(zzawy);
+    int i;
+    if ((zzcfc != null) && (!zzcfc.isEmpty())) {
+      i = zzcfc.hashCode();
+    } else {
+      i = 0;
+    }
+    return ((j + 527) * 31 + k) * 31 + i;
+  }
+  
+  public final void zza(zzyy paramZzyy)
+    throws IOException
+  {
+    Object localObject = zzawy;
+    if ((localObject != null) && (localObject.length > 0))
+    {
+      int i = 0;
+      for (;;)
+      {
+        localObject = zzawy;
+        if (i >= localObject.length) {
+          break;
+        }
+        localObject = localObject[i];
+        if (localObject != null) {
+          paramZzyy.zza(1, (zzzg)localObject);
+        }
+        i += 1;
+      }
+    }
+    super.zza(paramZzyy);
+  }
+  
+  protected final int zzf()
+  {
+    int i = super.zzf();
+    Object localObject = zzawy;
+    int k = i;
+    if (localObject != null)
+    {
+      k = i;
+      if (localObject.length > 0)
+      {
+        int j = 0;
+        for (;;)
+        {
+          localObject = zzawy;
+          k = i;
+          if (j >= localObject.length) {
+            break;
+          }
+          localObject = localObject[j];
+          k = i;
+          if (localObject != null) {
+            k = i + zzyy.zzb(1, (zzzg)localObject);
+          }
+          j += 1;
+          i = k;
+        }
+      }
+    }
+    return k;
+  }
+}

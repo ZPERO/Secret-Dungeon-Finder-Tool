@@ -1,0 +1,12 @@
+package com.google.firebase.internal;
+
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.GetTokenResult;
+
+@Deprecated
+public abstract interface InternalTokenProvider
+{
+  public abstract Task<GetTokenResult> getAccessToken(boolean paramBoolean);
+  
+  public abstract String getUid();
+}

@@ -1,0 +1,175 @@
+package com.google.firebase.database.core;
+
+import com.google.firebase.database.DatabaseException;
+import com.google.firebase.database.snapshot.ChildKey;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class ValidationPath
+{
+  public static final int MAX_PATH_DEPTH = 32;
+  public static final int MAX_PATH_LENGTH_BYTES = 768;
+  private int byteLength;
+  private final List<String> parts = new ArrayList();
+  
+  private ValidationPath(Path paramPath)
+    throws DatabaseException
+  {
+    int i = 0;
+    byteLength = 0;
+    paramPath = paramPath.iterator();
+    while (paramPath.hasNext())
+    {
+      ChildKey localChildKey = (ChildKey)paramPath.next();
+      parts.add(localChildKey.asString());
+    }
+    byteLength = Math.max(1, parts.size());
+    while (i < parts.size())
+    {
+      byteLength += utf8Bytes((CharSequence)parts.get(i));
+      i += 1;
+    }
+    checkValid();
+  }
+  
+  private void checkValid()
+    throws DatabaseException
+  {
+    if (byteLength <= 768)
+    {
+      if (parts.size() <= 32) {
+        return;
+      }
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Path specified exceeds the maximum depth that can be written (32) or object contains a cycle ");
+      localStringBuilder.append(toErrorString());
+      throw new DatabaseException(localStringBuilder.toString());
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Data has a key path longer than 768 bytes (");
+    localStringBuilder.append(byteLength);
+    localStringBuilder.append(").");
+    throw new DatabaseException(localStringBuilder.toString());
+  }
+  
+  private String getContent()
+  {
+    Object localObject = parts;
+    localObject = (String)((List)localObject).remove(((List)localObject).size() - 1);
+    byteLength -= utf8Bytes((CharSequence)localObject);
+    if (parts.size() > 0) {
+      byteLength -= 1;
+    }
+    return localObject;
+  }
+  
+  private static String joinStringList(String paramString, List paramList)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    int i = 0;
+    while (i < paramList.size())
+    {
+      if (i > 0) {
+        localStringBuilder.append(paramString);
+      }
+      localStringBuilder.append((String)paramList.get(i));
+      i += 1;
+    }
+    return localStringBuilder.toString();
+  }
+  
+  private void push(String paramString)
+    throws DatabaseException
+  {
+    if (parts.size() > 0) {
+      byteLength += 1;
+    }
+    parts.add(paramString);
+    byteLength += utf8Bytes(paramString);
+    checkValid();
+  }
+  
+  private String toErrorString()
+  {
+    if (parts.size() == 0) {
+      return "";
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("in path '");
+    localStringBuilder.append(joinStringList("/", parts));
+    localStringBuilder.append("'");
+    return localStringBuilder.toString();
+  }
+  
+  private static int utf8Bytes(CharSequence paramCharSequence)
+  {
+    int k = paramCharSequence.length();
+    int j = 0;
+    int i = 0;
+    while (j < k)
+    {
+      char c = paramCharSequence.charAt(j);
+      if (c <= '')
+      {
+        i += 1;
+      }
+      else if (c <= '?')
+      {
+        i += 2;
+      }
+      else if (Character.isHighSurrogate(c))
+      {
+        i += 4;
+        j += 1;
+      }
+      else
+      {
+        i += 3;
+      }
+      j += 1;
+    }
+    return i;
+  }
+  
+  public static void validateWithObject(Path paramPath, Object paramObject)
+    throws DatabaseException
+  {
+    new ValidationPath(paramPath).withObject(paramObject);
+  }
+  
+  private void withObject(Object paramObject)
+    throws DatabaseException
+  {
+    if ((paramObject instanceof Map))
+    {
+      paramObject = (Map)paramObject;
+      Iterator localIterator = paramObject.keySet().iterator();
+      while (localIterator.hasNext())
+      {
+        String str = (String)localIterator.next();
+        if (!str.startsWith("."))
+        {
+          push(str);
+          withObject(paramObject.get(str));
+          getContent();
+        }
+      }
+      return;
+    }
+    if ((paramObject instanceof List))
+    {
+      paramObject = (List)paramObject;
+      int i = 0;
+      while (i < paramObject.size())
+      {
+        push(Integer.toString(i));
+        withObject(paramObject.get(i));
+        getContent();
+        i += 1;
+      }
+    }
+  }
+}

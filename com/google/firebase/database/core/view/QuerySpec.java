@@ -1,0 +1,85 @@
+package com.google.firebase.database.core.view;
+
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.snapshot.Index;
+import java.util.Map;
+
+public class QuerySpec
+{
+  private final QueryParams params;
+  private final Path path;
+  
+  public QuerySpec(Path paramPath, QueryParams paramQueryParams)
+  {
+    path = paramPath;
+    params = paramQueryParams;
+  }
+  
+  public static QuerySpec defaultQueryAtPath(Path paramPath)
+  {
+    return new QuerySpec(paramPath, QueryParams.DEFAULT_PARAMS);
+  }
+  
+  public static QuerySpec fromPathAndQueryObject(Path paramPath, Map paramMap)
+  {
+    return new QuerySpec(paramPath, QueryParams.fromQueryObject(paramMap));
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject != null)
+    {
+      if (getClass() != paramObject.getClass()) {
+        return false;
+      }
+      paramObject = (QuerySpec)paramObject;
+      if (!path.equals(path)) {
+        return false;
+      }
+      return params.equals(params);
+    }
+    return false;
+  }
+  
+  public Index getIndex()
+  {
+    return params.getIndex();
+  }
+  
+  public QueryParams getParams()
+  {
+    return params;
+  }
+  
+  public Path getPath()
+  {
+    return path;
+  }
+  
+  public int hashCode()
+  {
+    return path.hashCode() * 31 + params.hashCode();
+  }
+  
+  public boolean isDefault()
+  {
+    return params.isDefault();
+  }
+  
+  public boolean loadsAllData()
+  {
+    return params.loadsAllData();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(path);
+    localStringBuilder.append(":");
+    localStringBuilder.append(params);
+    return localStringBuilder.toString();
+  }
+}

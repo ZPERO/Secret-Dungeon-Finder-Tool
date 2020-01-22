@@ -1,0 +1,31 @@
+package com.google.firebase.database.connection;
+
+import java.util.Collections;
+import java.util.List;
+
+public class CompoundHash
+{
+  private final List<String> hashes;
+  private final List<List<String>> posts;
+  
+  public CompoundHash(List<List<String>> paramList, List<String> paramList1)
+  {
+    if (paramList.size() == paramList1.size() - 1)
+    {
+      posts = paramList;
+      hashes = paramList1;
+      return;
+    }
+    throw new IllegalArgumentException("Number of posts need to be n-1 for n hashes in CompoundHash");
+  }
+  
+  public List<String> getHashes()
+  {
+    return Collections.unmodifiableList(hashes);
+  }
+  
+  public List<List<String>> getPosts()
+  {
+    return Collections.unmodifiableList(posts);
+  }
+}

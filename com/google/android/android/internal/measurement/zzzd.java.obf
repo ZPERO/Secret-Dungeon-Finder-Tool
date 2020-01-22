@@ -1,0 +1,317 @@
+package com.google.android.gms.internal.measurement;
+
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+
+final class zzzd
+  implements Cloneable
+{
+  private Object value;
+  private zzzb<?, ?> zzcfj;
+  private List<zzzi> zzcfk = new ArrayList();
+  
+  zzzd() {}
+  
+  private final byte[] toByteArray()
+    throws IOException
+  {
+    byte[] arrayOfByte = new byte[zzf()];
+    zza(zzyy.zzo(arrayOfByte));
+    return arrayOfByte;
+  }
+  
+  private final zzzd zzyv()
+  {
+    zzzd localZzzd = new zzzd();
+    AssertionError localAssertionError;
+    try
+    {
+      zzcfj = zzcfj;
+      if (zzcfk == null) {
+        zzcfk = null;
+      } else {
+        zzcfk.addAll(zzcfk);
+      }
+      if (value != null)
+      {
+        if ((value instanceof zzzg))
+        {
+          value = ((zzzg)((zzzg)value).clone());
+          return localZzzd;
+        }
+        if ((value instanceof byte[]))
+        {
+          value = ((byte[])value).clone();
+          return localZzzd;
+        }
+        boolean bool = value instanceof byte[][];
+        int j = 0;
+        int i = 0;
+        Object localObject1;
+        Object localObject2;
+        if (bool)
+        {
+          localObject1 = (byte[][])value;
+          localObject2 = new byte[localObject1.length][];
+          value = localObject2;
+          while (i < localObject1.length)
+          {
+            localObject2[i] = ((byte[])localObject1[i].clone());
+            i += 1;
+          }
+        }
+        if ((value instanceof boolean[]))
+        {
+          value = ((boolean[])value).clone();
+          return localZzzd;
+        }
+        if ((value instanceof int[]))
+        {
+          value = ((int[])value).clone();
+          return localZzzd;
+        }
+        if ((value instanceof long[]))
+        {
+          value = ((long[])value).clone();
+          return localZzzd;
+        }
+        if ((value instanceof float[]))
+        {
+          value = ((float[])value).clone();
+          return localZzzd;
+        }
+        if ((value instanceof double[]))
+        {
+          value = ((double[])value).clone();
+          return localZzzd;
+        }
+        if ((value instanceof zzzg[]))
+        {
+          localObject1 = (zzzg[])value;
+          localObject2 = new zzzg[localObject1.length];
+          value = localObject2;
+          i = j;
+          while (i < localObject1.length)
+          {
+            localObject2[i] = ((zzzg)localObject1[i].clone());
+            i += 1;
+          }
+        }
+      }
+      return localZzzd;
+    }
+    catch (CloneNotSupportedException localCloneNotSupportedException)
+    {
+      localAssertionError = new AssertionError(localCloneNotSupportedException);
+    }
+    for (;;)
+    {
+      throw localAssertionError;
+    }
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if (!(paramObject instanceof zzzd)) {
+      return false;
+    }
+    paramObject = (zzzd)paramObject;
+    if ((value != null) && (value != null))
+    {
+      localObject = zzcfj;
+      if (localObject != zzcfj) {
+        return false;
+      }
+      if (!zzcfd.isArray()) {
+        return value.equals(value);
+      }
+      localObject = value;
+      if ((localObject instanceof byte[])) {
+        return Arrays.equals((byte[])localObject, (byte[])value);
+      }
+      if ((localObject instanceof int[])) {
+        return Arrays.equals((int[])localObject, (int[])value);
+      }
+      if ((localObject instanceof long[])) {
+        return Arrays.equals((long[])localObject, (long[])value);
+      }
+      if ((localObject instanceof float[])) {
+        return Arrays.equals((float[])localObject, (float[])value);
+      }
+      if ((localObject instanceof double[])) {
+        return Arrays.equals((double[])localObject, (double[])value);
+      }
+      if ((localObject instanceof boolean[])) {
+        return Arrays.equals((boolean[])localObject, (boolean[])value);
+      }
+      return Arrays.deepEquals((Object[])localObject, (Object[])value);
+    }
+    Object localObject = zzcfk;
+    if (localObject != null)
+    {
+      List localList = zzcfk;
+      if (localList != null) {
+        return ((List)localObject).equals(localList);
+      }
+    }
+    try
+    {
+      boolean bool = Arrays.equals(toByteArray(), paramObject.toByteArray());
+      return bool;
+    }
+    catch (IOException paramObject)
+    {
+      throw new IllegalStateException(paramObject);
+    }
+  }
+  
+  public final int hashCode()
+  {
+    try
+    {
+      int i = Arrays.hashCode(toByteArray());
+      return i + 527;
+    }
+    catch (IOException localIOException)
+    {
+      throw new IllegalStateException(localIOException);
+    }
+  }
+  
+  final void zza(zzyy paramZzyy)
+    throws IOException
+  {
+    Object localObject1 = value;
+    Object localObject2;
+    if (localObject1 != null)
+    {
+      localObject2 = zzcfj;
+      if (zzcfe)
+      {
+        int j = Array.getLength(localObject1);
+        int i = 0;
+        while (i < j)
+        {
+          Object localObject3 = Array.get(localObject1, i);
+          if (localObject3 != null) {
+            ((zzzb)localObject2).zza(localObject3, paramZzyy);
+          }
+          i += 1;
+        }
+        return;
+      }
+      ((zzzb)localObject2).zza(localObject1, paramZzyy);
+      return;
+    }
+    localObject1 = zzcfk.iterator();
+    while (((Iterator)localObject1).hasNext())
+    {
+      localObject2 = (zzzi)((Iterator)localObject1).next();
+      paramZzyy.zzca(tag);
+      paramZzyy.zzp(zzbug);
+    }
+  }
+  
+  final void zza(zzzi paramZzzi)
+    throws IOException
+  {
+    Object localObject = zzcfk;
+    if (localObject != null)
+    {
+      ((List)localObject).add(paramZzzi);
+      return;
+    }
+    localObject = value;
+    if ((localObject instanceof zzzg))
+    {
+      paramZzzi = zzbug;
+      localObject = zzyx.zzj(paramZzzi, 0, paramZzzi.length);
+      int i = ((zzyx)localObject).zzuy();
+      if (i == paramZzzi.length - zzyy.zzbc(i)) {
+        paramZzzi = ((zzzg)value).zza((zzyx)localObject);
+      } else {
+        throw zzzf.zzyw();
+      }
+    }
+    else if ((localObject instanceof zzzg[]))
+    {
+      localObject = (zzzg[])zzcfj.zzah(Collections.singletonList(paramZzzi));
+      zzzg[] arrayOfZzzg = (zzzg[])value;
+      paramZzzi = (zzzg[])Arrays.copyOf(arrayOfZzzg, arrayOfZzzg.length + localObject.length);
+      System.arraycopy(localObject, 0, paramZzzi, arrayOfZzzg.length, localObject.length);
+    }
+    else
+    {
+      paramZzzi = zzcfj.zzah(Collections.singletonList(paramZzzi));
+    }
+    zzcfj = zzcfj;
+    value = paramZzzi;
+    zzcfk = null;
+  }
+  
+  final <T> T zzb(zzzb<?, T> paramZzzb)
+  {
+    if (value != null)
+    {
+      if (!zzcfj.equals(paramZzzb)) {
+        throw new IllegalStateException("Tried to getExtension with a different Extension.");
+      }
+    }
+    else
+    {
+      zzcfj = paramZzzb;
+      value = paramZzzb.zzah(zzcfk);
+      zzcfk = null;
+    }
+    return value;
+  }
+  
+  final int zzf()
+  {
+    Object localObject1 = value;
+    int j = 0;
+    Object localObject2;
+    int k;
+    if (localObject1 != null)
+    {
+      localObject2 = zzcfj;
+      if (zzcfe)
+      {
+        int m = Array.getLength(localObject1);
+        for (i = 0;; i = k)
+        {
+          k = i;
+          if (j >= m) {
+            break;
+          }
+          k = i;
+          if (Array.get(localObject1, j) != null) {
+            k = i + ((zzzb)localObject2).zzak(Array.get(localObject1, j));
+          }
+          j += 1;
+        }
+      }
+      return ((zzzb)localObject2).zzak(localObject1);
+    }
+    localObject1 = zzcfk.iterator();
+    int i = 0;
+    for (;;)
+    {
+      k = i;
+      if (!((Iterator)localObject1).hasNext()) {
+        break;
+      }
+      localObject2 = (zzzi)((Iterator)localObject1).next();
+      i += zzyy.zzbj(tag) + 0 + zzbug.length;
+    }
+    return k;
+  }
+}

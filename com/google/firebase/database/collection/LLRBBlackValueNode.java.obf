@@ -1,0 +1,61 @@
+package com.google.firebase.database.collection;
+
+public class LLRBBlackValueNode<K, V>
+  extends LLRBValueNode<K, V>
+{
+  private int size = -1;
+  
+  LLRBBlackValueNode(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    super(paramK, paramV, paramLLRBNode1, paramLLRBNode2);
+  }
+  
+  public boolean isRed()
+  {
+    return false;
+  }
+  
+  public int size()
+  {
+    if (size == -1) {
+      size = (getLeft().size() + 1 + getRight().size());
+    }
+    return size;
+  }
+  
+  protected final LLRBNode.Color zza()
+  {
+    return LLRBNode.Color.zzo;
+  }
+  
+  protected final LLRBValueNode<K, V> zza(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    Object localObject = paramK;
+    if (paramK == null) {
+      localObject = getKey();
+    }
+    paramK = paramV;
+    if (paramV == null) {
+      paramK = getValue();
+    }
+    paramV = paramLLRBNode1;
+    if (paramLLRBNode1 == null) {
+      paramV = getLeft();
+    }
+    paramLLRBNode1 = paramLLRBNode2;
+    if (paramLLRBNode2 == null) {
+      paramLLRBNode1 = getRight();
+    }
+    return new LLRBBlackValueNode(localObject, paramK, paramV, paramLLRBNode1);
+  }
+  
+  final void zza(LLRBNode<K, V> paramLLRBNode)
+  {
+    if (size == -1)
+    {
+      super.zza(paramLLRBNode);
+      return;
+    }
+    throw new IllegalStateException("Can't set left after using size");
+  }
+}

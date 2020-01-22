@@ -1,0 +1,94 @@
+package androidx.preference;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.util.AttributeSet;
+import android.view.View;
+import android.view.accessibility.AccessibilityManager;
+import android.widget.Checkable;
+import android.widget.CompoundButton;
+import android.widget.CompoundButton.OnCheckedChangeListener;
+import androidx.core.content.delay.TypedArrayUtils;
+
+public class CheckBoxPreference
+  extends TwoStatePreference
+{
+  private final Listener mListener = new Listener();
+  
+  public CheckBoxPreference(Context paramContext)
+  {
+    this(paramContext, null);
+  }
+  
+  public CheckBoxPreference(Context paramContext, AttributeSet paramAttributeSet)
+  {
+    this(paramContext, paramAttributeSet, TypedArrayUtils.getAttr(paramContext, R.attr.checkBoxPreferenceStyle, 16842895));
+  }
+  
+  public CheckBoxPreference(Context paramContext, AttributeSet paramAttributeSet, int paramInt)
+  {
+    this(paramContext, paramAttributeSet, paramInt, 0);
+  }
+  
+  public CheckBoxPreference(Context paramContext, AttributeSet paramAttributeSet, int paramInt1, int paramInt2)
+  {
+    super(paramContext, paramAttributeSet, paramInt1, paramInt2);
+    paramContext = paramContext.obtainStyledAttributes(paramAttributeSet, R.styleable.CheckBoxPreference, paramInt1, paramInt2);
+    setSummaryOn(TypedArrayUtils.getString(paramContext, R.styleable.CheckBoxPreference_summaryOn, R.styleable.CheckBoxPreference_android_summaryOn));
+    setSummaryOff(TypedArrayUtils.getString(paramContext, R.styleable.CheckBoxPreference_summaryOff, R.styleable.CheckBoxPreference_android_summaryOff));
+    setDisableDependentsState(TypedArrayUtils.getBoolean(paramContext, R.styleable.CheckBoxPreference_disableDependentsState, R.styleable.CheckBoxPreference_android_disableDependentsState, false));
+    paramContext.recycle();
+  }
+  
+  private void syncCheckboxView(View paramView)
+  {
+    boolean bool = paramView instanceof CompoundButton;
+    if (bool) {
+      ((CompoundButton)paramView).setOnCheckedChangeListener(null);
+    }
+    if ((paramView instanceof Checkable)) {
+      ((Checkable)paramView).setChecked(mChecked);
+    }
+    if (bool) {
+      ((CompoundButton)paramView).setOnCheckedChangeListener(mListener);
+    }
+  }
+  
+  private void syncViewIfAccessibilityEnabled(View paramView)
+  {
+    if (!((AccessibilityManager)getContext().getSystemService("accessibility")).isEnabled()) {
+      return;
+    }
+    syncCheckboxView(paramView.findViewById(16908289));
+    syncSummaryView(paramView.findViewById(16908304));
+  }
+  
+  public void onBindViewHolder(PreferenceViewHolder paramPreferenceViewHolder)
+  {
+    super.onBindViewHolder(paramPreferenceViewHolder);
+    syncCheckboxView(paramPreferenceViewHolder.findViewById(16908289));
+    syncSummaryView(paramPreferenceViewHolder);
+  }
+  
+  protected void performClick(View paramView)
+  {
+    super.performClick(paramView);
+    syncViewIfAccessibilityEnabled(paramView);
+  }
+  
+  private class Listener
+    implements CompoundButton.OnCheckedChangeListener
+  {
+    Listener() {}
+    
+    public void onCheckedChanged(CompoundButton paramCompoundButton, boolean paramBoolean)
+    {
+      if (!callChangeListener(Boolean.valueOf(paramBoolean)))
+      {
+        paramCompoundButton.setChecked(paramBoolean ^ true);
+        return;
+      }
+      setChecked(paramBoolean);
+    }
+  }
+}

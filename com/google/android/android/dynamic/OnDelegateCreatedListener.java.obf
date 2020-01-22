@@ -1,0 +1,6 @@
+package com.google.android.gms.dynamic;
+
+public abstract interface OnDelegateCreatedListener<T extends LifecycleDelegate>
+{
+  public abstract void onDelegateCreated(T paramT);
+}

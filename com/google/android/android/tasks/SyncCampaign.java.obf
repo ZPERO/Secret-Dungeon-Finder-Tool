@@ -1,0 +1,40 @@
+package com.google.android.gms.tasks;
+
+import java.util.concurrent.Executor;
+
+final class zzg<TResult>
+  implements zzq<TResult>
+{
+  private final Object mLock = new Object();
+  private final Executor zzd;
+  private OnCanceledListener zzj;
+  
+  public zzg(Executor paramExecutor, OnCanceledListener paramOnCanceledListener)
+  {
+    zzd = paramExecutor;
+    zzj = paramOnCanceledListener;
+  }
+  
+  public final void cancel()
+  {
+    synchronized (mLock)
+    {
+      zzj = null;
+      return;
+    }
+  }
+  
+  public final void onComplete(Task arg1)
+  {
+    if (???.isCanceled()) {
+      synchronized (mLock)
+      {
+        if (zzj == null) {
+          return;
+        }
+        zzd.execute(new zzh(this));
+        return;
+      }
+    }
+  }
+}

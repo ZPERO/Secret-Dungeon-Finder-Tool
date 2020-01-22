@@ -1,0 +1,135 @@
+package androidx.preference;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.util.AttributeSet;
+import android.view.View;
+import android.view.accessibility.AccessibilityManager;
+import android.widget.Checkable;
+import android.widget.CompoundButton;
+import android.widget.CompoundButton.OnCheckedChangeListener;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.res.TypedArrayUtils;
+
+public class SwitchPreferenceCompat
+  extends TwoStatePreference
+{
+  private final Listener mListener = new Listener();
+  private CharSequence mSwitchOff;
+  private CharSequence mSwitchOn;
+  
+  public SwitchPreferenceCompat(Context paramContext)
+  {
+    this(paramContext, null);
+  }
+  
+  public SwitchPreferenceCompat(Context paramContext, AttributeSet paramAttributeSet)
+  {
+    this(paramContext, paramAttributeSet, R.attr.switchPreferenceCompatStyle);
+  }
+  
+  public SwitchPreferenceCompat(Context paramContext, AttributeSet paramAttributeSet, int paramInt)
+  {
+    this(paramContext, paramAttributeSet, paramInt, 0);
+  }
+  
+  public SwitchPreferenceCompat(Context paramContext, AttributeSet paramAttributeSet, int paramInt1, int paramInt2)
+  {
+    super(paramContext, paramAttributeSet, paramInt1, paramInt2);
+    paramContext = paramContext.obtainStyledAttributes(paramAttributeSet, R.styleable.SwitchPreferenceCompat, paramInt1, paramInt2);
+    setSummaryOn(TypedArrayUtils.getString(paramContext, R.styleable.SwitchPreferenceCompat_summaryOn, R.styleable.SwitchPreferenceCompat_android_summaryOn));
+    setSummaryOff(TypedArrayUtils.getString(paramContext, R.styleable.SwitchPreferenceCompat_summaryOff, R.styleable.SwitchPreferenceCompat_android_summaryOff));
+    setSwitchTextOn(TypedArrayUtils.getString(paramContext, R.styleable.SwitchPreferenceCompat_switchTextOn, R.styleable.SwitchPreferenceCompat_android_switchTextOn));
+    setSwitchTextOff(TypedArrayUtils.getString(paramContext, R.styleable.SwitchPreferenceCompat_switchTextOff, R.styleable.SwitchPreferenceCompat_android_switchTextOff));
+    setDisableDependentsState(TypedArrayUtils.getBoolean(paramContext, R.styleable.SwitchPreferenceCompat_disableDependentsState, R.styleable.SwitchPreferenceCompat_android_disableDependentsState, false));
+    paramContext.recycle();
+  }
+  
+  private void syncSwitchView(View paramView)
+  {
+    boolean bool = paramView instanceof SwitchCompat;
+    if (bool) {
+      ((SwitchCompat)paramView).setOnCheckedChangeListener(null);
+    }
+    if ((paramView instanceof Checkable)) {
+      ((Checkable)paramView).setChecked(mChecked);
+    }
+    if (bool)
+    {
+      paramView = (SwitchCompat)paramView;
+      paramView.setTextOn(mSwitchOn);
+      paramView.setTextOff(mSwitchOff);
+      paramView.setOnCheckedChangeListener(mListener);
+    }
+  }
+  
+  private void syncViewIfAccessibilityEnabled(View paramView)
+  {
+    if (!((AccessibilityManager)getContext().getSystemService("accessibility")).isEnabled()) {
+      return;
+    }
+    syncSwitchView(paramView.findViewById(R.id.switchWidget));
+    syncSummaryView(paramView.findViewById(16908304));
+  }
+  
+  public CharSequence getSwitchTextOff()
+  {
+    return mSwitchOff;
+  }
+  
+  public CharSequence getSwitchTextOn()
+  {
+    return mSwitchOn;
+  }
+  
+  public void onBindViewHolder(PreferenceViewHolder paramPreferenceViewHolder)
+  {
+    super.onBindViewHolder(paramPreferenceViewHolder);
+    syncSwitchView(paramPreferenceViewHolder.findViewById(R.id.switchWidget));
+    syncSummaryView(paramPreferenceViewHolder);
+  }
+  
+  protected void performClick(View paramView)
+  {
+    super.performClick(paramView);
+    syncViewIfAccessibilityEnabled(paramView);
+  }
+  
+  public void setSwitchTextOff(int paramInt)
+  {
+    setSwitchTextOff(getContext().getString(paramInt));
+  }
+  
+  public void setSwitchTextOff(CharSequence paramCharSequence)
+  {
+    mSwitchOff = paramCharSequence;
+    notifyChanged();
+  }
+  
+  public void setSwitchTextOn(int paramInt)
+  {
+    setSwitchTextOn(getContext().getString(paramInt));
+  }
+  
+  public void setSwitchTextOn(CharSequence paramCharSequence)
+  {
+    mSwitchOn = paramCharSequence;
+    notifyChanged();
+  }
+  
+  private class Listener
+    implements CompoundButton.OnCheckedChangeListener
+  {
+    Listener() {}
+    
+    public void onCheckedChanged(CompoundButton paramCompoundButton, boolean paramBoolean)
+    {
+      if (!callChangeListener(Boolean.valueOf(paramBoolean)))
+      {
+        paramCompoundButton.setChecked(paramBoolean ^ true);
+        return;
+      }
+      setChecked(paramBoolean);
+    }
+  }
+}

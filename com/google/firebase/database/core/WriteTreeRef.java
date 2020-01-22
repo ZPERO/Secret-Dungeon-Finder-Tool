@@ -1,0 +1,66 @@
+package com.google.firebase.database.core;
+
+import com.google.firebase.database.core.view.CacheNode;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.Index;
+import com.google.firebase.database.snapshot.NamedNode;
+import com.google.firebase.database.snapshot.Node;
+import java.util.Collections;
+import java.util.List;
+
+public class WriteTreeRef
+{
+  private final Path treePath;
+  private final WriteTree writeTree;
+  
+  public WriteTreeRef(Path paramPath, WriteTree paramWriteTree)
+  {
+    treePath = paramPath;
+    writeTree = paramWriteTree;
+  }
+  
+  public Node calcCompleteChild(ChildKey paramChildKey, CacheNode paramCacheNode)
+  {
+    return writeTree.calcCompleteChild(treePath, paramChildKey, paramCacheNode);
+  }
+  
+  public Node calcCompleteEventCache(Node paramNode)
+  {
+    return calcCompleteEventCache(paramNode, Collections.emptyList());
+  }
+  
+  public Node calcCompleteEventCache(Node paramNode, List paramList)
+  {
+    return calcCompleteEventCache(paramNode, paramList, false);
+  }
+  
+  public Node calcCompleteEventCache(Node paramNode, List paramList, boolean paramBoolean)
+  {
+    return writeTree.calcCompleteEventCache(treePath, paramNode, paramList, paramBoolean);
+  }
+  
+  public Node calcCompleteEventChildren(Node paramNode)
+  {
+    return writeTree.calcCompleteEventChildren(treePath, paramNode);
+  }
+  
+  public Node calcEventCacheAfterServerOverwrite(Path paramPath, Node paramNode1, Node paramNode2)
+  {
+    return writeTree.calcEventCacheAfterServerOverwrite(treePath, paramPath, paramNode1, paramNode2);
+  }
+  
+  public NamedNode calcNextNodeAfterPost(Node paramNode, NamedNode paramNamedNode, boolean paramBoolean, Index paramIndex)
+  {
+    return writeTree.calcNextNodeAfterPost(treePath, paramNode, paramNamedNode, paramBoolean, paramIndex);
+  }
+  
+  public WriteTreeRef child(ChildKey paramChildKey)
+  {
+    return new WriteTreeRef(treePath.child(paramChildKey), writeTree);
+  }
+  
+  public Node shadowingWrite(Path paramPath)
+  {
+    return writeTree.shadowingWrite(treePath.child(paramPath));
+  }
+}

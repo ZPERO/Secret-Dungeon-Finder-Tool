@@ -1,0 +1,72 @@
+package com.google.firebase.database.connection;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+public class ConnectionUtils
+{
+  public ConnectionUtils() {}
+  
+  public static void hardAssert(boolean paramBoolean)
+  {
+    hardAssert(paramBoolean, "", new Object[0]);
+  }
+  
+  public static void hardAssert(boolean paramBoolean, String paramString, Object... paramVarArgs)
+  {
+    if (paramBoolean) {
+      return;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("hardAssert failed: ");
+    localStringBuilder.append(String.format(paramString, paramVarArgs));
+    throw new AssertionError(localStringBuilder.toString());
+  }
+  
+  public static Long longFromObject(Object paramObject)
+  {
+    if ((paramObject instanceof Integer)) {
+      return Long.valueOf(((Integer)paramObject).intValue());
+    }
+    if ((paramObject instanceof Long)) {
+      return (Long)paramObject;
+    }
+    return null;
+  }
+  
+  public static String pathToString(List paramList)
+  {
+    if (paramList.isEmpty()) {
+      return "/";
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    int i = 1;
+    paramList = paramList.iterator();
+    while (paramList.hasNext())
+    {
+      String str = (String)paramList.next();
+      if (i == 0) {
+        localStringBuilder.append("/");
+      }
+      i = 0;
+      localStringBuilder.append(str);
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public static List stringToPath(String paramString)
+  {
+    ArrayList localArrayList = new ArrayList();
+    paramString = paramString.split("/", -1);
+    int i = 0;
+    while (i < paramString.length)
+    {
+      if (!paramString[i].isEmpty()) {
+        localArrayList.add(paramString[i]);
+      }
+      i += 1;
+    }
+    return localArrayList;
+  }
+}

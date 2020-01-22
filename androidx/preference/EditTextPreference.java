@@ -1,0 +1,173 @@
+package androidx.preference;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.os.Parcelable.Creator;
+import android.text.TextUtils;
+import android.util.AttributeSet;
+import android.view.AbsSavedState;
+import android.widget.EditText;
+import androidx.core.content.delay.TypedArrayUtils;
+
+public class EditTextPreference
+  extends DialogPreference
+{
+  private OnBindEditTextListener mOnBindEditTextListener;
+  private String mText;
+  
+  public EditTextPreference(Context paramContext)
+  {
+    this(paramContext, null);
+  }
+  
+  public EditTextPreference(Context paramContext, AttributeSet paramAttributeSet)
+  {
+    this(paramContext, paramAttributeSet, TypedArrayUtils.getAttr(paramContext, R.attr.editTextPreferenceStyle, 16842898));
+  }
+  
+  public EditTextPreference(Context paramContext, AttributeSet paramAttributeSet, int paramInt)
+  {
+    this(paramContext, paramAttributeSet, paramInt, 0);
+  }
+  
+  public EditTextPreference(Context paramContext, AttributeSet paramAttributeSet, int paramInt1, int paramInt2)
+  {
+    super(paramContext, paramAttributeSet, paramInt1, paramInt2);
+    paramContext = paramContext.obtainStyledAttributes(paramAttributeSet, R.styleable.EditTextPreference, paramInt1, paramInt2);
+    if (TypedArrayUtils.getBoolean(paramContext, R.styleable.EditTextPreference_useSimpleSummaryProvider, R.styleable.EditTextPreference_useSimpleSummaryProvider, false)) {
+      setSummaryProvider(SimpleSummaryProvider.getInstance());
+    }
+    paramContext.recycle();
+  }
+  
+  OnBindEditTextListener getOnBindEditTextListener()
+  {
+    return mOnBindEditTextListener;
+  }
+  
+  public String getText()
+  {
+    return mText;
+  }
+  
+  protected Object onGetDefaultValue(TypedArray paramTypedArray, int paramInt)
+  {
+    return paramTypedArray.getString(paramInt);
+  }
+  
+  protected void onRestoreInstanceState(Parcelable paramParcelable)
+  {
+    if ((paramParcelable != null) && (paramParcelable.getClass().equals(SavedState.class)))
+    {
+      paramParcelable = (SavedState)paramParcelable;
+      super.onRestoreInstanceState(paramParcelable.getSuperState());
+      setText(mText);
+      return;
+    }
+    super.onRestoreInstanceState(paramParcelable);
+  }
+  
+  protected Parcelable onSaveInstanceState()
+  {
+    Object localObject = super.onSaveInstanceState();
+    if (isPersistent()) {
+      return localObject;
+    }
+    localObject = new SavedState((Parcelable)localObject);
+    mText = getText();
+    return localObject;
+  }
+  
+  protected void onSetInitialValue(Object paramObject)
+  {
+    setText(getPersistedString((String)paramObject));
+  }
+  
+  public void setOnBindEditTextListener(OnBindEditTextListener paramOnBindEditTextListener)
+  {
+    mOnBindEditTextListener = paramOnBindEditTextListener;
+  }
+  
+  public void setText(String paramString)
+  {
+    boolean bool1 = shouldDisableDependents();
+    mText = paramString;
+    persistString(paramString);
+    boolean bool2 = shouldDisableDependents();
+    if (bool2 != bool1) {
+      notifyDependencyChange(bool2);
+    }
+    notifyChanged();
+  }
+  
+  public boolean shouldDisableDependents()
+  {
+    return (TextUtils.isEmpty(mText)) || (super.shouldDisableDependents());
+  }
+  
+  public static abstract interface OnBindEditTextListener
+  {
+    public abstract void onBindEditText(EditText paramEditText);
+  }
+  
+  private static class SavedState
+    extends Preference.BaseSavedState
+  {
+    public static final Parcelable.Creator<SavedState> CREATOR = new Parcelable.Creator()
+    {
+      public EditTextPreference.SavedState createFromParcel(Parcel paramAnonymousParcel)
+      {
+        return new EditTextPreference.SavedState(paramAnonymousParcel);
+      }
+      
+      public EditTextPreference.SavedState[] newArray(int paramAnonymousInt)
+      {
+        return new EditTextPreference.SavedState[paramAnonymousInt];
+      }
+    };
+    String mText;
+    
+    SavedState(Parcel paramParcel)
+    {
+      super();
+      mText = paramParcel.readString();
+    }
+    
+    SavedState(Parcelable paramParcelable)
+    {
+      super();
+    }
+    
+    public void writeToParcel(Parcel paramParcel, int paramInt)
+    {
+      super.writeToParcel(paramParcel, paramInt);
+      paramParcel.writeString(mText);
+    }
+  }
+  
+  public static final class SimpleSummaryProvider
+    implements Preference.SummaryProvider<EditTextPreference>
+  {
+    private static SimpleSummaryProvider sSimpleSummaryProvider;
+    
+    private SimpleSummaryProvider() {}
+    
+    public static SimpleSummaryProvider getInstance()
+    {
+      if (sSimpleSummaryProvider == null) {
+        sSimpleSummaryProvider = new SimpleSummaryProvider();
+      }
+      return sSimpleSummaryProvider;
+    }
+    
+    public CharSequence provideSummary(EditTextPreference paramEditTextPreference)
+    {
+      if (TextUtils.isEmpty(paramEditTextPreference.getText())) {
+        return paramEditTextPreference.getContext().getString(R.string.not_set);
+      }
+      return paramEditTextPreference.getText();
+    }
+  }
+}

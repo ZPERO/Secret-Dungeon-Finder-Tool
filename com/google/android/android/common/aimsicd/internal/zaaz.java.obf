@@ -1,0 +1,16 @@
+package com.google.android.gms.common.api.internal;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.Status;
+
+final class zaaz
+  implements GoogleApiClient.OnConnectionFailedListener
+{
+  zaaz(zaaw paramZaaw, StatusPendingResult paramStatusPendingResult) {}
+  
+  public final void onConnectionFailed(ConnectionResult paramConnectionResult)
+  {
+    zahi.setResult(new Status(8));
+  }
+}

@@ -1,0 +1,197 @@
+package com.google.android.gms.internal.measurement;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map.Entry;
+
+final class zzwy<T>
+  implements zzxj<T>
+{
+  private final zzwt zzcbd;
+  private final boolean zzcbe;
+  private final zzyb<?, ?> zzcbn;
+  private final zzva<?> zzcbo;
+  
+  private zzwy(zzyb<?, ?> paramZzyb, zzva<?> paramZzva, zzwt paramZzwt)
+  {
+    zzcbn = paramZzyb;
+    zzcbe = paramZzva.zze(paramZzwt);
+    zzcbo = paramZzva;
+    zzcbd = paramZzwt;
+  }
+  
+  static <T> zzwy<T> zza(zzyb<?, ?> paramZzyb, zzva<?> paramZzva, zzwt paramZzwt)
+  {
+    return new zzwy(paramZzyb, paramZzva, paramZzwt);
+  }
+  
+  public final boolean equals(T paramT1, T paramT2)
+  {
+    if (!zzcbn.zzah(paramT1).equals(zzcbn.zzah(paramT2))) {
+      return false;
+    }
+    if (zzcbe) {
+      return zzcbo.zzs(paramT1).equals(zzcbo.zzs(paramT2));
+    }
+    return true;
+  }
+  
+  public final int hashCode(T paramT)
+  {
+    int j = zzcbn.zzah(paramT).hashCode();
+    int i = j;
+    if (zzcbe) {
+      i = j * 53 + zzcbo.zzs(paramT).hashCode();
+    }
+    return i;
+  }
+  
+  public final T newInstance()
+  {
+    return zzcbd.zzwe().zzwi();
+  }
+  
+  public final void zza(T paramT, zzxi paramZzxi, zzuz paramZzuz)
+    throws IOException
+  {
+    localZzyb = zzcbn;
+    zzva localZzva = zzcbo;
+    localObject2 = localZzyb.zzai(paramT);
+    zzvd localZzvd = localZzva.zzt(paramT);
+    do
+    {
+      do
+      {
+        for (;;)
+        {
+          try
+          {
+            i = paramZzxi.zzve();
+            if (i == Integer.MAX_VALUE)
+            {
+              localZzyb.zzg(paramT, localObject2);
+              return;
+            }
+            i = paramZzxi.getTag();
+            if (i == 11) {
+              continue;
+            }
+            if ((i & 0x7) == 2)
+            {
+              localObject1 = localZzva.zza(paramZzuz, zzcbd, i >>> 3);
+              if (localObject1 != null)
+              {
+                localZzva.zza(paramZzxi, localObject1, paramZzuz, localZzvd);
+                continue;
+              }
+              bool = localZzyb.zza(localObject2, paramZzxi);
+              continue;
+            }
+            bool = paramZzxi.zzvf();
+          }
+          finally
+          {
+            boolean bool;
+            int j;
+            localZzyb.zzg(paramT, localObject2);
+            continue;
+            throw paramZzxi;
+            continue;
+            int i = 0;
+            Object localObject1 = null;
+            zzud localZzud = null;
+            continue;
+          }
+          if (paramZzxi.zzve() == Integer.MAX_VALUE) {
+            continue;
+          }
+          j = paramZzxi.getTag();
+          if (j == 16)
+          {
+            i = paramZzxi.zzup();
+            localObject1 = localZzva.zza(paramZzuz, zzcbd, i);
+          }
+          else
+          {
+            if (j != 26) {
+              continue;
+            }
+            if (localObject1 != null) {
+              localZzva.zza(paramZzxi, localObject1, paramZzuz, localZzvd);
+            } else {
+              localZzud = paramZzxi.zzuo();
+            }
+          }
+        }
+      } while (paramZzxi.zzvf());
+      if (paramZzxi.getTag() != 12) {
+        break;
+      }
+      if (localZzud != null) {
+        if (localObject1 != null) {
+          localZzva.zza(localZzud, localObject1, paramZzuz, localZzvd);
+        } else {
+          localZzyb.zza(localObject2, i, localZzud);
+        }
+      }
+      bool = true;
+    } while (bool);
+    localZzyb.zzg(paramT, localObject2);
+    return;
+    throw zzvt.zzwn();
+  }
+  
+  public final void zza(T paramT, zzyw paramZzyw)
+    throws IOException
+  {
+    Object localObject = zzcbo.zzs(paramT).iterator();
+    while (((Iterator)localObject).hasNext())
+    {
+      Map.Entry localEntry = (Map.Entry)((Iterator)localObject).next();
+      zzvf localZzvf = (zzvf)localEntry.getKey();
+      if ((localZzvf.zzvx() == zzyv.zzcet) && (!localZzvf.zzvy()) && (!localZzvf.zzvz()))
+      {
+        if ((localEntry instanceof zzvy)) {
+          paramZzyw.zza(localZzvf.zzc(), ((zzvy)localEntry).zzwu().zztt());
+        } else {
+          paramZzyw.zza(localZzvf.zzc(), localEntry.getValue());
+        }
+      }
+      else {
+        throw new IllegalStateException("Found invalid MessageSet item.");
+      }
+    }
+    localObject = zzcbn;
+    ((zzyb)localObject).zzc(((zzyb)localObject).zzah(paramT), paramZzyw);
+  }
+  
+  public final int zzae(T paramT)
+  {
+    zzyb localZzyb = zzcbn;
+    int j = localZzyb.zzaj(localZzyb.zzah(paramT)) + 0;
+    int i = j;
+    if (zzcbe) {
+      i = j + zzcbo.zzs(paramT).zzvv();
+    }
+    return i;
+  }
+  
+  public final boolean zzaf(T paramT)
+  {
+    return zzcbo.zzs(paramT).isInitialized();
+  }
+  
+  public final void zzd(T paramT1, T paramT2)
+  {
+    zzxl.zza(zzcbn, paramT1, paramT2);
+    if (zzcbe) {
+      zzxl.zza(zzcbo, paramT1, paramT2);
+    }
+  }
+  
+  public final void zzu(T paramT)
+  {
+    zzcbn.zzu(paramT);
+    zzcbo.zzu(paramT);
+  }
+}

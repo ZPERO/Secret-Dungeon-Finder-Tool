@@ -1,0 +1,151 @@
+package com.google.firebase.database.collection;
+
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public abstract class ImmutableSortedMap<K, V>
+  implements Iterable<Map.Entry<K, V>>
+{
+  public ImmutableSortedMap() {}
+  
+  public abstract boolean containsKey(K paramK);
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (!(paramObject instanceof ImmutableSortedMap)) {
+      return false;
+    }
+    Object localObject = (ImmutableSortedMap)paramObject;
+    if (!getComparator().equals(((ImmutableSortedMap)localObject).getComparator())) {
+      return false;
+    }
+    if (size() != ((ImmutableSortedMap)localObject).size()) {
+      return false;
+    }
+    paramObject = iterator();
+    localObject = ((ImmutableSortedMap)localObject).iterator();
+    while (paramObject.hasNext()) {
+      if (!((Map.Entry)paramObject.next()).equals(((Iterator)localObject).next())) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  public abstract V get(K paramK);
+  
+  public abstract Comparator<K> getComparator();
+  
+  public abstract K getMaxKey();
+  
+  public abstract K getMinKey();
+  
+  public abstract K getPredecessorKey(K paramK);
+  
+  public abstract K getSuccessorKey(K paramK);
+  
+  public int hashCode()
+  {
+    int i = getComparator().hashCode();
+    Iterator localIterator = iterator();
+    while (localIterator.hasNext()) {
+      i = i * 31 + ((Map.Entry)localIterator.next()).hashCode();
+    }
+    return i;
+  }
+  
+  public abstract void inOrderTraversal(LLRBNode.NodeVisitor<K, V> paramNodeVisitor);
+  
+  public abstract int indexOf(K paramK);
+  
+  public abstract ImmutableSortedMap<K, V> insert(K paramK, V paramV);
+  
+  public abstract boolean isEmpty();
+  
+  public abstract Iterator<Map.Entry<K, V>> iterator();
+  
+  public abstract Iterator<Map.Entry<K, V>> iteratorFrom(K paramK);
+  
+  public abstract ImmutableSortedMap<K, V> remove(K paramK);
+  
+  public abstract Iterator<Map.Entry<K, V>> reverseIterator();
+  
+  public abstract Iterator<Map.Entry<K, V>> reverseIteratorFrom(K paramK);
+  
+  public abstract int size();
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(getClass().getSimpleName());
+    localStringBuilder.append("{");
+    Iterator localIterator = iterator();
+    int i = 1;
+    while (localIterator.hasNext())
+    {
+      Map.Entry localEntry = (Map.Entry)localIterator.next();
+      if (i != 0) {
+        i = 0;
+      } else {
+        localStringBuilder.append(", ");
+      }
+      localStringBuilder.append("(");
+      localStringBuilder.append(localEntry.getKey());
+      localStringBuilder.append("=>");
+      localStringBuilder.append(localEntry.getValue());
+      localStringBuilder.append(")");
+    }
+    localStringBuilder.append("};");
+    return localStringBuilder.toString();
+  }
+  
+  public static class Builder
+  {
+    private static final KeyTranslator<?, ?> zzh = new KeyTranslator()
+    {
+      public Object translate(Object paramAnonymousObject)
+      {
+        return paramAnonymousObject;
+      }
+    };
+    
+    public Builder() {}
+    
+    public static <A, B, C> ImmutableSortedMap<A, C> buildFrom(List<A> paramList, Map<B, C> paramMap, KeyTranslator<A, B> paramKeyTranslator, Comparator<A> paramComparator)
+    {
+      if (paramList.size() < 25) {
+        return zza.zza(paramList, paramMap, paramKeyTranslator, paramComparator);
+      }
+      return zze.zzb(paramList, paramMap, paramKeyTranslator, paramComparator);
+    }
+    
+    public static <K, V> ImmutableSortedMap<K, V> emptyMap(Comparator<K> paramComparator)
+    {
+      return new zza(paramComparator);
+    }
+    
+    public static <A, B> ImmutableSortedMap<A, B> fromMap(Map<A, B> paramMap, Comparator<A> paramComparator)
+    {
+      if (paramMap.size() < 25) {
+        return zza.zza(paramMap, paramComparator);
+      }
+      return zzc.zzb(paramMap, paramComparator);
+    }
+    
+    public static <A> KeyTranslator<A, A> identityTranslator()
+    {
+      return zzh;
+    }
+    
+    public static abstract interface KeyTranslator<C, D>
+    {
+      public abstract D translate(C paramC);
+    }
+  }
+}

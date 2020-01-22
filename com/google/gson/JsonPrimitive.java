@@ -1,0 +1,219 @@
+package com.google.gson;
+
+import com.google.gson.internal..Gson.Preconditions;
+import com.google.gson.internal.LazilyParsedNumber;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
+public final class JsonPrimitive
+  extends JsonElement
+{
+  private final Object value;
+  
+  public JsonPrimitive(Boolean paramBoolean)
+  {
+    value = .Gson.Preconditions.checkNotNull(paramBoolean);
+  }
+  
+  public JsonPrimitive(Character paramCharacter)
+  {
+    value = ((Character).Gson.Preconditions.checkNotNull(paramCharacter)).toString();
+  }
+  
+  public JsonPrimitive(Number paramNumber)
+  {
+    value = .Gson.Preconditions.checkNotNull(paramNumber);
+  }
+  
+  public JsonPrimitive(String paramString)
+  {
+    value = .Gson.Preconditions.checkNotNull(paramString);
+  }
+  
+  private static boolean isIntegral(JsonPrimitive paramJsonPrimitive)
+  {
+    paramJsonPrimitive = value;
+    if ((paramJsonPrimitive instanceof Number))
+    {
+      paramJsonPrimitive = (Number)paramJsonPrimitive;
+      if (((paramJsonPrimitive instanceof BigInteger)) || ((paramJsonPrimitive instanceof Long)) || ((paramJsonPrimitive instanceof Integer)) || ((paramJsonPrimitive instanceof Short)) || ((paramJsonPrimitive instanceof Byte))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  public JsonPrimitive deepCopy()
+  {
+    return this;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject != null)
+    {
+      if (getClass() != paramObject.getClass()) {
+        return false;
+      }
+      paramObject = (JsonPrimitive)paramObject;
+      if (value == null) {
+        return value == null;
+      }
+      if ((isIntegral(this)) && (isIntegral(paramObject))) {
+        return getAsNumber().longValue() == paramObject.getAsNumber().longValue();
+      }
+      if (((value instanceof Number)) && ((value instanceof Number)))
+      {
+        double d1 = getAsNumber().doubleValue();
+        double d2 = paramObject.getAsNumber().doubleValue();
+        if (d1 != d2) {
+          return (Double.isNaN(d1)) && (Double.isNaN(d2));
+        }
+      }
+      else
+      {
+        return value.equals(value);
+      }
+    }
+    else
+    {
+      return false;
+    }
+    return true;
+  }
+  
+  public BigDecimal getAsBigDecimal()
+  {
+    Object localObject = value;
+    if ((localObject instanceof BigDecimal)) {
+      return (BigDecimal)localObject;
+    }
+    return new BigDecimal(localObject.toString());
+  }
+  
+  public BigInteger getAsBigInteger()
+  {
+    Object localObject = value;
+    if ((localObject instanceof BigInteger)) {
+      return (BigInteger)localObject;
+    }
+    return new BigInteger(localObject.toString());
+  }
+  
+  public boolean getAsBoolean()
+  {
+    if (isBoolean()) {
+      return ((Boolean)value).booleanValue();
+    }
+    return Boolean.parseBoolean(getAsString());
+  }
+  
+  public byte getAsByte()
+  {
+    if (isNumber()) {
+      return getAsNumber().byteValue();
+    }
+    return Byte.parseByte(getAsString());
+  }
+  
+  public char getAsCharacter()
+  {
+    return getAsString().charAt(0);
+  }
+  
+  public double getAsDouble()
+  {
+    if (isNumber()) {
+      return getAsNumber().doubleValue();
+    }
+    return Double.parseDouble(getAsString());
+  }
+  
+  public float getAsFloat()
+  {
+    if (isNumber()) {
+      return getAsNumber().floatValue();
+    }
+    return Float.parseFloat(getAsString());
+  }
+  
+  public int getAsInt()
+  {
+    if (isNumber()) {
+      return getAsNumber().intValue();
+    }
+    return Integer.parseInt(getAsString());
+  }
+  
+  public long getAsLong()
+  {
+    if (isNumber()) {
+      return getAsNumber().longValue();
+    }
+    return Long.parseLong(getAsString());
+  }
+  
+  public Number getAsNumber()
+  {
+    Object localObject = value;
+    if ((localObject instanceof String)) {
+      return new LazilyParsedNumber((String)localObject);
+    }
+    return (Number)localObject;
+  }
+  
+  public short getAsShort()
+  {
+    if (isNumber()) {
+      return getAsNumber().shortValue();
+    }
+    return Short.parseShort(getAsString());
+  }
+  
+  public String getAsString()
+  {
+    if (isNumber()) {
+      return getAsNumber().toString();
+    }
+    if (isBoolean()) {
+      return ((Boolean)value).toString();
+    }
+    return (String)value;
+  }
+  
+  public int hashCode()
+  {
+    if (value == null) {
+      return 31;
+    }
+    if (isIntegral(this)) {}
+    Object localObject;
+    for (long l = getAsNumber().longValue();; l = Double.doubleToLongBits(getAsNumber().doubleValue()))
+    {
+      return (int)(l >>> 32 ^ l);
+      localObject = value;
+      if (!(localObject instanceof Number)) {
+        break;
+      }
+    }
+    return localObject.hashCode();
+  }
+  
+  public boolean isBoolean()
+  {
+    return value instanceof Boolean;
+  }
+  
+  public boolean isNumber()
+  {
+    return value instanceof Number;
+  }
+  
+  public boolean isString()
+  {
+    return value instanceof String;
+  }
+}

@@ -1,0 +1,94 @@
+package com.google.firebase.database.collection;
+
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Comparator;
+import java.util.EmptyStackException;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
+import java.util.Stack;
+
+public class ImmutableSortedMapIterator<K, V>
+  implements Iterator<Map.Entry<K, V>>
+{
+  private final Stack<LLRBValueNode<K, V>> zzi = new Stack();
+  private final boolean zzj;
+  
+  ImmutableSortedMapIterator(LLRBNode<K, V> paramLLRBNode, K paramK, Comparator<K> paramComparator, boolean paramBoolean)
+  {
+    zzj = paramBoolean;
+    while (!paramLLRBNode.isEmpty())
+    {
+      int i;
+      if (paramK != null)
+      {
+        Object localObject = paramLLRBNode.getKey();
+        if (paramBoolean) {
+          i = paramComparator.compare(paramK, localObject);
+        } else {
+          i = paramComparator.compare(localObject, paramK);
+        }
+      }
+      else
+      {
+        i = 1;
+      }
+      if (i < 0)
+      {
+        if (paramBoolean) {}
+      }
+      else {
+        do
+        {
+          paramLLRBNode = paramLLRBNode.getRight();
+          break;
+          if (i == 0)
+          {
+            zzi.push((LLRBValueNode)paramLLRBNode);
+            return;
+          }
+          zzi.push((LLRBValueNode)paramLLRBNode);
+        } while (paramBoolean);
+      }
+      paramLLRBNode = paramLLRBNode.getLeft();
+    }
+  }
+  
+  public boolean hasNext()
+  {
+    return zzi.size() > 0;
+  }
+  
+  public Map.Entry<K, V> next()
+  {
+    try
+    {
+      localObject = (LLRBValueNode)zzi.pop();
+      AbstractMap.SimpleEntry localSimpleEntry = new AbstractMap.SimpleEntry(((LLRBValueNode)localObject).getKey(), ((LLRBValueNode)localObject).getValue());
+      if (zzj) {
+        for (localObject = ((LLRBValueNode)localObject).getLeft(); !((LLRBNode)localObject).isEmpty(); localObject = ((LLRBNode)localObject).getRight()) {
+          zzi.push((LLRBValueNode)localObject);
+        }
+      }
+      for (localObject = ((LLRBValueNode)localObject).getRight(); !((LLRBNode)localObject).isEmpty(); localObject = ((LLRBNode)localObject).getLeft()) {
+        zzi.push((LLRBValueNode)localObject);
+      }
+      return localSimpleEntry;
+    }
+    catch (EmptyStackException localEmptyStackException)
+    {
+      Object localObject;
+      for (;;) {}
+    }
+    localObject = new NoSuchElementException();
+    for (;;)
+    {
+      throw ((Throwable)localObject);
+    }
+  }
+  
+  public void remove()
+  {
+    throw new UnsupportedOperationException("remove called on immutable collection");
+  }
+}

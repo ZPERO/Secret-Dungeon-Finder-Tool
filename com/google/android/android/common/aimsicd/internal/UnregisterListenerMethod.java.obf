@@ -1,0 +1,23 @@
+package com.google.android.gms.common.api.internal;
+
+import android.os.RemoteException;
+import com.google.android.gms.common.api.Api.AnyClient;
+import com.google.android.gms.tasks.TaskCompletionSource;
+
+public abstract class UnregisterListenerMethod<A extends Api.AnyClient, L>
+{
+  private final ListenerHolder.ListenerKey<L> zajk;
+  
+  protected UnregisterListenerMethod(ListenerHolder.ListenerKey<L> paramListenerKey)
+  {
+    zajk = paramListenerKey;
+  }
+  
+  public ListenerHolder.ListenerKey<L> getListenerKey()
+  {
+    return zajk;
+  }
+  
+  protected abstract void unregisterListener(A paramA, TaskCompletionSource<Boolean> paramTaskCompletionSource)
+    throws RemoteException;
+}

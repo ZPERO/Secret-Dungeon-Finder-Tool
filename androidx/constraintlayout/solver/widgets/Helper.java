@@ -1,0 +1,30 @@
+package androidx.constraintlayout.solver.widgets;
+
+import java.util.Arrays;
+
+public class Helper
+  extends ConstraintWidget
+{
+  protected ConstraintWidget[] mWidgets = new ConstraintWidget[4];
+  protected int mWidgetsCount = 0;
+  
+  public Helper() {}
+  
+  public void getBytes(ConstraintWidget paramConstraintWidget)
+  {
+    int i = mWidgetsCount;
+    ConstraintWidget[] arrayOfConstraintWidget = mWidgets;
+    if (i + 1 > arrayOfConstraintWidget.length) {
+      mWidgets = ((ConstraintWidget[])Arrays.copyOf(arrayOfConstraintWidget, arrayOfConstraintWidget.length * 2));
+    }
+    arrayOfConstraintWidget = mWidgets;
+    i = mWidgetsCount;
+    arrayOfConstraintWidget[i] = paramConstraintWidget;
+    mWidgetsCount = (i + 1);
+  }
+  
+  public void removeAllIds()
+  {
+    mWidgetsCount = 0;
+  }
+}

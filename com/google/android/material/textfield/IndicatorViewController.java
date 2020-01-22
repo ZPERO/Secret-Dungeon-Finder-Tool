@@ -1,0 +1,531 @@
+package com.google.android.material.textfield;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.graphics.Typeface;
+import android.text.TextUtils;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.FrameLayout.LayoutParams;
+import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
+import android.widget.TextView;
+import androidx.appcompat.widget.AppCompatTextView;
+import androidx.core.view.ViewCompat;
+import androidx.core.widget.TextViewCompat;
+import androidx.legacy.widget.Space;
+import com.google.android.material.R.dimen;
+import com.google.android.material.R.id;
+import com.google.android.material.animation.AnimationUtils;
+import com.google.android.material.animation.AnimatorSetCompat;
+import java.util.ArrayList;
+import java.util.List;
+
+final class IndicatorViewController
+{
+  private static final int CAPTION_OPACITY_FADE_ANIMATION_DURATION = 167;
+  private static final int CAPTION_STATE_ERROR = 1;
+  private static final int CAPTION_STATE_HELPER_TEXT = 2;
+  private static final int CAPTION_STATE_NONE = 0;
+  private static final int CAPTION_TRANSLATE_Y_ANIMATION_DURATION = 217;
+  static final int COUNTER_INDEX = 2;
+  static final int ERROR_INDEX = 0;
+  static final int HELPER_INDEX = 1;
+  private Animator captionAnimator;
+  private FrameLayout captionArea;
+  private int captionDisplayed;
+  private int captionToShow;
+  private final float captionTranslationYPx;
+  private int captionViewsAdded;
+  private final Context context;
+  private boolean errorEnabled;
+  private CharSequence errorText;
+  private int errorTextAppearance;
+  private TextView errorView;
+  private CharSequence helperText;
+  private boolean helperTextEnabled;
+  private int helperTextTextAppearance;
+  private TextView helperTextView;
+  private LinearLayout indicatorArea;
+  private int indicatorsAdded;
+  private final TextInputLayout textInputView;
+  private Typeface typeface;
+  
+  public IndicatorViewController(TextInputLayout paramTextInputLayout)
+  {
+    context = paramTextInputLayout.getContext();
+    textInputView = paramTextInputLayout;
+    captionTranslationYPx = context.getResources().getDimensionPixelSize(R.dimen.design_textinput_caption_translate_y);
+  }
+  
+  private boolean canAdjustIndicatorPadding()
+  {
+    return (indicatorArea != null) && (textInputView.getEditText() != null);
+  }
+  
+  private void createCaptionAnimators(List paramList, boolean paramBoolean, TextView paramTextView, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (paramTextView != null)
+    {
+      if (!paramBoolean) {
+        return;
+      }
+      if ((paramInt1 == paramInt3) || (paramInt1 == paramInt2))
+      {
+        if (paramInt3 == paramInt1) {
+          paramBoolean = true;
+        } else {
+          paramBoolean = false;
+        }
+        paramList.add(createCaptionOpacityAnimator(paramTextView, paramBoolean));
+        if (paramInt3 == paramInt1) {
+          paramList.add(createCaptionTranslationYAnimator(paramTextView));
+        }
+      }
+    }
+  }
+  
+  private ObjectAnimator createCaptionOpacityAnimator(TextView paramTextView, boolean paramBoolean)
+  {
+    float f;
+    if (paramBoolean) {
+      f = 1.0F;
+    } else {
+      f = 0.0F;
+    }
+    paramTextView = ObjectAnimator.ofFloat(paramTextView, View.ALPHA, new float[] { f });
+    paramTextView.setDuration(167L);
+    paramTextView.setInterpolator(AnimationUtils.LINEAR_INTERPOLATOR);
+    return paramTextView;
+  }
+  
+  private ObjectAnimator createCaptionTranslationYAnimator(TextView paramTextView)
+  {
+    paramTextView = ObjectAnimator.ofFloat(paramTextView, View.TRANSLATION_Y, new float[] { -captionTranslationYPx, 0.0F });
+    paramTextView.setDuration(217L);
+    paramTextView.setInterpolator(AnimationUtils.LINEAR_OUT_SLOW_IN_INTERPOLATOR);
+    return paramTextView;
+  }
+  
+  private TextView getCaptionViewFromDisplayState(int paramInt)
+  {
+    if (paramInt != 1)
+    {
+      if (paramInt != 2) {
+        return null;
+      }
+      return helperTextView;
+    }
+    return errorView;
+  }
+  
+  private boolean isCaptionStateError(int paramInt)
+  {
+    return (paramInt == 1) && (errorView != null) && (!TextUtils.isEmpty(errorText));
+  }
+  
+  private boolean isCaptionStateHelperText(int paramInt)
+  {
+    return (paramInt == 2) && (helperTextView != null) && (!TextUtils.isEmpty(helperText));
+  }
+  
+  private void setCaptionViewVisibilities(int paramInt1, int paramInt2)
+  {
+    if (paramInt1 == paramInt2) {
+      return;
+    }
+    TextView localTextView;
+    if (paramInt2 != 0)
+    {
+      localTextView = getCaptionViewFromDisplayState(paramInt2);
+      if (localTextView != null)
+      {
+        localTextView.setVisibility(0);
+        localTextView.setAlpha(1.0F);
+      }
+    }
+    if (paramInt1 != 0)
+    {
+      localTextView = getCaptionViewFromDisplayState(paramInt1);
+      if (localTextView != null)
+      {
+        localTextView.setVisibility(4);
+        if (paramInt1 == 1) {
+          localTextView.setText(null);
+        }
+      }
+    }
+    captionDisplayed = paramInt2;
+  }
+  
+  private void setTextViewTypeface(TextView paramTextView, Typeface paramTypeface)
+  {
+    if (paramTextView != null) {
+      paramTextView.setTypeface(paramTypeface);
+    }
+  }
+  
+  private void setViewGroupGoneIfEmpty(ViewGroup paramViewGroup, int paramInt)
+  {
+    if (paramInt == 0) {
+      paramViewGroup.setVisibility(8);
+    }
+  }
+  
+  private boolean shouldAnimateCaptionView(TextView paramTextView, CharSequence paramCharSequence)
+  {
+    return (ViewCompat.isLaidOut(textInputView)) && (textInputView.isEnabled()) && ((captionToShow != captionDisplayed) || (paramTextView == null) || (!TextUtils.equals(paramTextView.getText(), paramCharSequence)));
+  }
+  
+  private void updateCaptionViewsVisibility(final int paramInt1, final int paramInt2, boolean paramBoolean)
+  {
+    if (paramBoolean)
+    {
+      AnimatorSet localAnimatorSet = new AnimatorSet();
+      captionAnimator = localAnimatorSet;
+      ArrayList localArrayList = new ArrayList();
+      createCaptionAnimators(localArrayList, helperTextEnabled, helperTextView, 2, paramInt1, paramInt2);
+      createCaptionAnimators(localArrayList, errorEnabled, errorView, 1, paramInt1, paramInt2);
+      AnimatorSetCompat.playTogether(localAnimatorSet, localArrayList);
+      localAnimatorSet.addListener(new AnimatorListenerAdapter()
+      {
+        public void onAnimationEnd(Animator paramAnonymousAnimator)
+        {
+          IndicatorViewController.access$002(IndicatorViewController.this, paramInt2);
+          IndicatorViewController.access$102(IndicatorViewController.this, null);
+          paramAnonymousAnimator = val$captionViewToHide;
+          if (paramAnonymousAnimator != null)
+          {
+            paramAnonymousAnimator.setVisibility(4);
+            if ((paramInt1 == 1) && (errorView != null)) {
+              errorView.setText(null);
+            }
+          }
+        }
+        
+        public void onAnimationStart(Animator paramAnonymousAnimator)
+        {
+          paramAnonymousAnimator = val$captionViewToShow;
+          if (paramAnonymousAnimator != null) {
+            paramAnonymousAnimator.setVisibility(0);
+          }
+        }
+      });
+      localAnimatorSet.start();
+    }
+    else
+    {
+      setCaptionViewVisibilities(paramInt1, paramInt2);
+    }
+    textInputView.updateEditTextBackground();
+    textInputView.updateLabelState(paramBoolean);
+    textInputView.updateTextInputBoxState();
+  }
+  
+  void addIndicator(TextView paramTextView, int paramInt)
+  {
+    if ((indicatorArea == null) && (captionArea == null))
+    {
+      indicatorArea = new LinearLayout(context);
+      indicatorArea.setOrientation(0);
+      textInputView.addView(indicatorArea, -1, -2);
+      captionArea = new FrameLayout(context);
+      indicatorArea.addView(captionArea, -1, new FrameLayout.LayoutParams(-2, -2));
+      Space localSpace = new Space(context);
+      LinearLayout.LayoutParams localLayoutParams = new LinearLayout.LayoutParams(0, 0, 1.0F);
+      indicatorArea.addView(localSpace, localLayoutParams);
+      if (textInputView.getEditText() != null) {
+        adjustIndicatorPadding();
+      }
+    }
+    if (isCaptionView(paramInt))
+    {
+      captionArea.setVisibility(0);
+      captionArea.addView(paramTextView);
+      captionViewsAdded += 1;
+    }
+    else
+    {
+      indicatorArea.addView(paramTextView, paramInt);
+    }
+    indicatorArea.setVisibility(0);
+    indicatorsAdded += 1;
+  }
+  
+  void adjustIndicatorPadding()
+  {
+    if (canAdjustIndicatorPadding()) {
+      ViewCompat.setPaddingRelative(indicatorArea, ViewCompat.getPaddingStart(textInputView.getEditText()), 0, ViewCompat.getPaddingEnd(textInputView.getEditText()), 0);
+    }
+  }
+  
+  void cancelCaptionAnimator()
+  {
+    Animator localAnimator = captionAnimator;
+    if (localAnimator != null) {
+      localAnimator.cancel();
+    }
+  }
+  
+  boolean errorIsDisplayed()
+  {
+    return isCaptionStateError(captionDisplayed);
+  }
+  
+  boolean errorShouldBeShown()
+  {
+    return isCaptionStateError(captionToShow);
+  }
+  
+  CharSequence getErrorText()
+  {
+    return errorText;
+  }
+  
+  int getErrorViewCurrentTextColor()
+  {
+    TextView localTextView = errorView;
+    if (localTextView != null) {
+      return localTextView.getCurrentTextColor();
+    }
+    return -1;
+  }
+  
+  ColorStateList getErrorViewTextColors()
+  {
+    TextView localTextView = errorView;
+    if (localTextView != null) {
+      return localTextView.getTextColors();
+    }
+    return null;
+  }
+  
+  CharSequence getHelperText()
+  {
+    return helperText;
+  }
+  
+  ColorStateList getHelperTextViewColors()
+  {
+    TextView localTextView = helperTextView;
+    if (localTextView != null) {
+      return localTextView.getTextColors();
+    }
+    return null;
+  }
+  
+  int getHelperTextViewCurrentTextColor()
+  {
+    TextView localTextView = helperTextView;
+    if (localTextView != null) {
+      return localTextView.getCurrentTextColor();
+    }
+    return -1;
+  }
+  
+  boolean helperTextIsDisplayed()
+  {
+    return isCaptionStateHelperText(captionDisplayed);
+  }
+  
+  boolean helperTextShouldBeShown()
+  {
+    return isCaptionStateHelperText(captionToShow);
+  }
+  
+  void hideError()
+  {
+    errorText = null;
+    cancelCaptionAnimator();
+    if (captionDisplayed == 1) {
+      if ((helperTextEnabled) && (!TextUtils.isEmpty(helperText))) {
+        captionToShow = 2;
+      } else {
+        captionToShow = 0;
+      }
+    }
+    updateCaptionViewsVisibility(captionDisplayed, captionToShow, shouldAnimateCaptionView(errorView, null));
+  }
+  
+  void hideHelperText()
+  {
+    cancelCaptionAnimator();
+    if (captionDisplayed == 2) {
+      captionToShow = 0;
+    }
+    updateCaptionViewsVisibility(captionDisplayed, captionToShow, shouldAnimateCaptionView(helperTextView, null));
+  }
+  
+  boolean isCaptionView(int paramInt)
+  {
+    if (paramInt != 0) {
+      return paramInt == 1;
+    }
+    return true;
+  }
+  
+  boolean isErrorEnabled()
+  {
+    return errorEnabled;
+  }
+  
+  boolean isHelperTextEnabled()
+  {
+    return helperTextEnabled;
+  }
+  
+  void removeIndicator(TextView paramTextView, int paramInt)
+  {
+    if (indicatorArea == null) {
+      return;
+    }
+    if (isCaptionView(paramInt))
+    {
+      FrameLayout localFrameLayout = captionArea;
+      if (localFrameLayout != null)
+      {
+        captionViewsAdded -= 1;
+        setViewGroupGoneIfEmpty(localFrameLayout, captionViewsAdded);
+        captionArea.removeView(paramTextView);
+        break label63;
+      }
+    }
+    indicatorArea.removeView(paramTextView);
+    label63:
+    indicatorsAdded -= 1;
+    setViewGroupGoneIfEmpty(indicatorArea, indicatorsAdded);
+  }
+  
+  void setErrorEnabled(boolean paramBoolean)
+  {
+    if (errorEnabled == paramBoolean) {
+      return;
+    }
+    cancelCaptionAnimator();
+    if (paramBoolean)
+    {
+      errorView = new AppCompatTextView(context);
+      errorView.setId(R.id.textinput_error);
+      Typeface localTypeface = typeface;
+      if (localTypeface != null) {
+        errorView.setTypeface(localTypeface);
+      }
+      setErrorTextAppearance(errorTextAppearance);
+      errorView.setVisibility(4);
+      ViewCompat.setAccessibilityLiveRegion(errorView, 1);
+      addIndicator(errorView, 0);
+    }
+    else
+    {
+      hideError();
+      removeIndicator(errorView, 0);
+      errorView = null;
+      textInputView.updateEditTextBackground();
+      textInputView.updateTextInputBoxState();
+    }
+    errorEnabled = paramBoolean;
+  }
+  
+  void setErrorTextAppearance(int paramInt)
+  {
+    errorTextAppearance = paramInt;
+    TextView localTextView = errorView;
+    if (localTextView != null) {
+      textInputView.setTextAppearanceCompatWithErrorFallback(localTextView, paramInt);
+    }
+  }
+  
+  void setErrorViewTextColor(ColorStateList paramColorStateList)
+  {
+    TextView localTextView = errorView;
+    if (localTextView != null) {
+      localTextView.setTextColor(paramColorStateList);
+    }
+  }
+  
+  void setHelperTextAppearance(int paramInt)
+  {
+    helperTextTextAppearance = paramInt;
+    TextView localTextView = helperTextView;
+    if (localTextView != null) {
+      TextViewCompat.setTextAppearance(localTextView, paramInt);
+    }
+  }
+  
+  void setHelperTextEnabled(boolean paramBoolean)
+  {
+    if (helperTextEnabled == paramBoolean) {
+      return;
+    }
+    cancelCaptionAnimator();
+    if (paramBoolean)
+    {
+      helperTextView = new AppCompatTextView(context);
+      helperTextView.setId(R.id.textinput_helper_text);
+      Typeface localTypeface = typeface;
+      if (localTypeface != null) {
+        helperTextView.setTypeface(localTypeface);
+      }
+      helperTextView.setVisibility(4);
+      ViewCompat.setAccessibilityLiveRegion(helperTextView, 1);
+      setHelperTextAppearance(helperTextTextAppearance);
+      addIndicator(helperTextView, 1);
+    }
+    else
+    {
+      hideHelperText();
+      removeIndicator(helperTextView, 1);
+      helperTextView = null;
+      textInputView.updateEditTextBackground();
+      textInputView.updateTextInputBoxState();
+    }
+    helperTextEnabled = paramBoolean;
+  }
+  
+  void setHelperTextViewTextColor(ColorStateList paramColorStateList)
+  {
+    TextView localTextView = helperTextView;
+    if (localTextView != null) {
+      localTextView.setTextColor(paramColorStateList);
+    }
+  }
+  
+  void setTypefaces(Typeface paramTypeface)
+  {
+    if (paramTypeface != typeface)
+    {
+      typeface = paramTypeface;
+      setTextViewTypeface(errorView, paramTypeface);
+      setTextViewTypeface(helperTextView, paramTypeface);
+    }
+  }
+  
+  void showError(CharSequence paramCharSequence)
+  {
+    cancelCaptionAnimator();
+    errorText = paramCharSequence;
+    errorView.setText(paramCharSequence);
+    if (captionDisplayed != 1) {
+      captionToShow = 1;
+    }
+    updateCaptionViewsVisibility(captionDisplayed, captionToShow, shouldAnimateCaptionView(errorView, paramCharSequence));
+  }
+  
+  void showHelper(CharSequence paramCharSequence)
+  {
+    cancelCaptionAnimator();
+    helperText = paramCharSequence;
+    helperTextView.setText(paramCharSequence);
+    if (captionDisplayed != 2) {
+      captionToShow = 2;
+    }
+    updateCaptionViewsVisibility(captionDisplayed, captionToShow, shouldAnimateCaptionView(helperTextView, paramCharSequence));
+  }
+}

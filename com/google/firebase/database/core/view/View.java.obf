@@ -1,0 +1,193 @@
+package com.google.firebase.database.core.view;
+
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.core.EventRegistration;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.WriteTreeRef;
+import com.google.firebase.database.core.operation.Operation;
+import com.google.firebase.database.core.operation.Operation.OperationType;
+import com.google.firebase.database.core.operation.OperationSource;
+import com.google.firebase.database.core.view.filter.IndexedFilter;
+import com.google.firebase.database.core.view.filter.NodeFilter;
+import com.google.firebase.database.snapshot.EmptyNode;
+import com.google.firebase.database.snapshot.IndexedNode;
+import com.google.firebase.database.snapshot.NamedNode;
+import com.google.firebase.database.snapshot.Node;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+
+public class View
+{
+  private final EventGenerator eventGenerator;
+  private final List<EventRegistration> eventRegistrations;
+  private final ViewProcessor processor;
+  private final QuerySpec query;
+  private ViewCache viewCache;
+  
+  public View(QuerySpec paramQuerySpec, ViewCache paramViewCache)
+  {
+    query = paramQuerySpec;
+    Object localObject = new IndexedFilter(paramQuerySpec.getIndex());
+    NodeFilter localNodeFilter = paramQuerySpec.getParams().getNodeFilter();
+    processor = new ViewProcessor(localNodeFilter);
+    CacheNode localCacheNode = paramViewCache.getServerCache();
+    paramViewCache = paramViewCache.getEventCache();
+    IndexedNode localIndexedNode2 = IndexedNode.from(EmptyNode.Empty(), paramQuerySpec.getIndex());
+    IndexedNode localIndexedNode1 = ((IndexedFilter)localObject).updateFullNode(localIndexedNode2, localCacheNode.getIndexedNode(), null);
+    localIndexedNode2 = localNodeFilter.updateFullNode(localIndexedNode2, paramViewCache.getIndexedNode(), null);
+    localObject = new CacheNode(localIndexedNode1, localCacheNode.isFullyInitialized(), ((IndexedFilter)localObject).filtersNodes());
+    viewCache = new ViewCache(new CacheNode(localIndexedNode2, paramViewCache.isFullyInitialized(), localNodeFilter.filtersNodes()), (CacheNode)localObject);
+    eventRegistrations = new ArrayList();
+    eventGenerator = new EventGenerator(paramQuerySpec);
+  }
+  
+  private List<DataEvent> generateEventsForChanges(List<Change> paramList, IndexedNode paramIndexedNode, EventRegistration paramEventRegistration)
+  {
+    if (paramEventRegistration == null) {
+      paramEventRegistration = eventRegistrations;
+    } else {
+      paramEventRegistration = Arrays.asList(new EventRegistration[] { paramEventRegistration });
+    }
+    return eventGenerator.generateEventsForChanges(paramList, paramIndexedNode, paramEventRegistration);
+  }
+  
+  public void addEventRegistration(EventRegistration paramEventRegistration)
+  {
+    eventRegistrations.add(paramEventRegistration);
+  }
+  
+  public OperationResult applyOperation(Operation paramOperation, WriteTreeRef paramWriteTreeRef, Node paramNode)
+  {
+    if (paramOperation.getType() == Operation.OperationType.Merge) {
+      paramOperation.getSource().getQueryParams();
+    }
+    ViewCache localViewCache = viewCache;
+    paramOperation = processor.applyOperation(localViewCache, paramOperation, paramWriteTreeRef, paramNode);
+    viewCache = viewCache;
+    return new OperationResult(generateEventsForChanges(changes, viewCache.getEventCache().getIndexedNode(), null), changes);
+  }
+  
+  public Node getCompleteNode()
+  {
+    return viewCache.getCompleteEventSnap();
+  }
+  
+  public Node getCompleteServerCache(Path paramPath)
+  {
+    Node localNode = viewCache.getCompleteServerSnap();
+    if ((localNode != null) && ((query.loadsAllData()) || ((!paramPath.isEmpty()) && (!localNode.getImmediateChild(paramPath.getFront()).isEmpty())))) {
+      return localNode.getChild(paramPath);
+    }
+    return null;
+  }
+  
+  public Node getEventCache()
+  {
+    return viewCache.getEventCache().getNode();
+  }
+  
+  List<EventRegistration> getEventRegistrations()
+  {
+    return eventRegistrations;
+  }
+  
+  public List<DataEvent> getInitialEvents(EventRegistration paramEventRegistration)
+  {
+    CacheNode localCacheNode = viewCache.getEventCache();
+    ArrayList localArrayList = new ArrayList();
+    Iterator localIterator = localCacheNode.getNode().iterator();
+    while (localIterator.hasNext())
+    {
+      NamedNode localNamedNode = (NamedNode)localIterator.next();
+      localArrayList.add(Change.childAddedChange(localNamedNode.getName(), localNamedNode.getNode()));
+    }
+    if (localCacheNode.isFullyInitialized()) {
+      localArrayList.add(Change.valueChange(localCacheNode.getIndexedNode()));
+    }
+    return generateEventsForChanges(localArrayList, localCacheNode.getIndexedNode(), paramEventRegistration);
+  }
+  
+  public QuerySpec getQuery()
+  {
+    return query;
+  }
+  
+  public Node getServerCache()
+  {
+    return viewCache.getServerCache().getNode();
+  }
+  
+  public boolean isEmpty()
+  {
+    return eventRegistrations.isEmpty();
+  }
+  
+  public List<Event> removeEventRegistration(EventRegistration paramEventRegistration, DatabaseError paramDatabaseError)
+  {
+    if (paramDatabaseError != null)
+    {
+      ArrayList localArrayList = new ArrayList();
+      Path localPath = query.getPath();
+      Iterator localIterator = eventRegistrations.iterator();
+      for (;;)
+      {
+        localObject = localArrayList;
+        if (!localIterator.hasNext()) {
+          break;
+        }
+        localArrayList.add(new CancelEvent((EventRegistration)localIterator.next(), paramDatabaseError, localPath));
+      }
+    }
+    Object localObject = Collections.emptyList();
+    if (paramEventRegistration != null)
+    {
+      int i = 0;
+      int j = -1;
+      while (i < eventRegistrations.size())
+      {
+        paramDatabaseError = (EventRegistration)eventRegistrations.get(i);
+        if (paramDatabaseError.isSameListener(paramEventRegistration))
+        {
+          if (paramDatabaseError.isZombied()) {
+            break label150;
+          }
+          j = i;
+        }
+        i += 1;
+      }
+      i = j;
+      label150:
+      if (i != -1)
+      {
+        paramEventRegistration = (EventRegistration)eventRegistrations.get(i);
+        eventRegistrations.remove(i);
+        paramEventRegistration.zombify();
+        return localObject;
+      }
+    }
+    else
+    {
+      paramEventRegistration = eventRegistrations.iterator();
+      while (paramEventRegistration.hasNext()) {
+        ((EventRegistration)paramEventRegistration.next()).zombify();
+      }
+      eventRegistrations.clear();
+    }
+    return localObject;
+  }
+  
+  public static class OperationResult
+  {
+    public final List<Change> changes;
+    public final List<DataEvent> events;
+    
+    public OperationResult(List<DataEvent> paramList, List<Change> paramList1)
+    {
+      events = paramList;
+      changes = paramList1;
+    }
+  }
+}

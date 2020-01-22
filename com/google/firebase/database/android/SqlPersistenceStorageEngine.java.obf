@@ -1,0 +1,1255 @@
+package com.google.firebase.database.android;
+
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteDatabaseLockedException;
+import android.database.sqlite.SQLiteException;
+import android.database.sqlite.SQLiteOpenHelper;
+import com.google.firebase.database.DatabaseException;
+import com.google.firebase.database.collection.ImmutableSortedMap;
+import com.google.firebase.database.core.CompoundWrite;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.persistence.PersistenceStorageEngine;
+import com.google.firebase.database.core.persistence.PruneForest;
+import com.google.firebase.database.core.persistence.TrackedQuery;
+import com.google.firebase.database.core.utilities.ImmutableTree;
+import com.google.firebase.database.core.utilities.ImmutableTree.TreeVisitor;
+import com.google.firebase.database.core.utilities.NodeSizeEstimator;
+import com.google.firebase.database.core.utilities.Pair;
+import com.google.firebase.database.core.utilities.Utilities;
+import com.google.firebase.database.core.view.QueryParams;
+import com.google.firebase.database.core.view.QuerySpec;
+import com.google.firebase.database.logging.LogWrapper;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.ChildrenNode;
+import com.google.firebase.database.snapshot.EmptyNode;
+import com.google.firebase.database.snapshot.NamedNode;
+import com.google.firebase.database.snapshot.Node;
+import com.google.firebase.database.snapshot.NodeUtilities;
+import com.google.firebase.database.util.JsonMapper;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class SqlPersistenceStorageEngine
+  implements PersistenceStorageEngine
+{
+  private static final int CHILDREN_NODE_SPLIT_SIZE_THRESHOLD = 16384;
+  private static final String CREATE_SERVER_CACHE = "CREATE TABLE serverCache (path TEXT PRIMARY KEY, value BLOB);";
+  private static final String CREATE_TRACKED_KEYS = "CREATE TABLE trackedKeys (id INTEGER, key TEXT);";
+  private static final String CREATE_TRACKED_QUERIES = "CREATE TABLE trackedQueries (id INTEGER PRIMARY KEY, path TEXT, queryParams TEXT, lastUse INTEGER, complete INTEGER, active INTEGER);";
+  private static final String CREATE_WRITES = "CREATE TABLE writes (id INTEGER, path TEXT, type TEXT, part INTEGER, node BLOB, UNIQUE (id, part));";
+  private static final String FIRST_PART_KEY = ".part-0000";
+  private static final String LOGGER_COMPONENT = "Persistence";
+  private static final String PART_KEY_FORMAT = ".part-%04d";
+  private static final String PART_KEY_PREFIX = ".part-";
+  private static final String PATH_COLUMN_NAME = "path";
+  private static final String ROW_ID_COLUMN_NAME = "rowid";
+  private static final int ROW_SPLIT_SIZE = 262144;
+  private static final String SERVER_CACHE_TABLE = "serverCache";
+  private static final String TRACKED_KEYS_ID_COLUMN_NAME = "id";
+  private static final String TRACKED_KEYS_KEY_COLUMN_NAME = "key";
+  private static final String TRACKED_KEYS_TABLE = "trackedKeys";
+  private static final String TRACKED_QUERY_ACTIVE_COLUMN_NAME = "active";
+  private static final String TRACKED_QUERY_COMPLETE_COLUMN_NAME = "complete";
+  private static final String TRACKED_QUERY_ID_COLUMN_NAME = "id";
+  private static final String TRACKED_QUERY_LAST_USE_COLUMN_NAME = "lastUse";
+  private static final String TRACKED_QUERY_PARAMS_COLUMN_NAME = "queryParams";
+  private static final String TRACKED_QUERY_PATH_COLUMN_NAME = "path";
+  private static final String TRACKED_QUERY_TABLE = "trackedQueries";
+  private static final Charset UTF8_CHARSET = Charset.forName("UTF-8");
+  private static final String VALUE_COLUMN_NAME = "value";
+  private static final String WRITES_TABLE = "writes";
+  private static final String WRITE_ID_COLUMN_NAME = "id";
+  private static final String WRITE_NODE_COLUMN_NAME = "node";
+  private static final String WRITE_PART_COLUMN_NAME = "part";
+  private static final String WRITE_TYPE_COLUMN_NAME = "type";
+  private static final String WRITE_TYPE_MERGE = "m";
+  private static final String WRITE_TYPE_OVERWRITE = "o";
+  private final SQLiteDatabase database;
+  private boolean insideTransaction;
+  private final LogWrapper logger;
+  private long transactionStart = 0L;
+  
+  public SqlPersistenceStorageEngine(android.content.Context paramContext, com.google.firebase.database.core.Context paramContext1, String paramString)
+  {
+    try
+    {
+      paramString = URLEncoder.encode(paramString, "utf-8");
+      logger = paramContext1.getLogger("Persistence");
+      database = openDatabase(paramContext, paramString);
+      return;
+    }
+    catch (IOException paramContext)
+    {
+      throw new RuntimeException(paramContext);
+    }
+  }
+  
+  private static String buildAncestorWhereClause(Path paramPath, String[] paramArrayOfString)
+  {
+    int i = 0;
+    StringBuilder localStringBuilder = new StringBuilder("(");
+    while (!paramPath.isEmpty())
+    {
+      localStringBuilder.append("path");
+      localStringBuilder.append(" = ? OR ");
+      paramArrayOfString[i] = pathToKey(paramPath);
+      paramPath = paramPath.getParent();
+      i += 1;
+    }
+    localStringBuilder.append("path");
+    localStringBuilder.append(" = ?)");
+    paramArrayOfString[i] = pathToKey(Path.getEmptyPath());
+    return localStringBuilder.toString();
+  }
+  
+  private String commaSeparatedList(Collection<Long> paramCollection)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    paramCollection = paramCollection.iterator();
+    int i = 1;
+    while (paramCollection.hasNext())
+    {
+      long l = ((Long)paramCollection.next()).longValue();
+      if (i == 0) {
+        localStringBuilder.append(",");
+      }
+      i = 0;
+      localStringBuilder.append(l);
+    }
+    return localStringBuilder.toString();
+  }
+  
+  private Node deserializeNode(byte[] paramArrayOfByte)
+  {
+    try
+    {
+      Node localNode = NodeUtilities.NodeFromJSON(JsonMapper.parseJsonValue(new String(paramArrayOfByte, UTF8_CHARSET)));
+      return localNode;
+    }
+    catch (IOException localIOException)
+    {
+      paramArrayOfByte = new String(paramArrayOfByte, UTF8_CHARSET);
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Could not deserialize node: ");
+      localStringBuilder.append(paramArrayOfByte);
+      throw new RuntimeException(localStringBuilder.toString(), localIOException);
+    }
+  }
+  
+  private byte[] joinBytes(List<byte[]> paramList)
+  {
+    Object localObject = paramList.iterator();
+    int i = 0;
+    while (((Iterator)localObject).hasNext()) {
+      i += ((byte[])((Iterator)localObject).next()).length;
+    }
+    localObject = new byte[i];
+    paramList = paramList.iterator();
+    i = 0;
+    while (paramList.hasNext())
+    {
+      byte[] arrayOfByte = (byte[])paramList.next();
+      System.arraycopy(arrayOfByte, 0, localObject, i, arrayOfByte.length);
+      i += arrayOfByte.length;
+    }
+    return localObject;
+  }
+  
+  private Node loadNested(Path paramPath)
+  {
+    ArrayList localArrayList2 = new ArrayList();
+    ArrayList localArrayList1 = new ArrayList();
+    long l3 = System.currentTimeMillis();
+    Object localObject1 = loadNestedQuery(paramPath, new String[] { "path", "value" });
+    long l1 = System.currentTimeMillis() - l3;
+    long l2 = System.currentTimeMillis();
+    try
+    {
+      while (((Cursor)localObject1).moveToNext())
+      {
+        localArrayList2.add(((Cursor)localObject1).getString(0));
+        localArrayList1.add(((Cursor)localObject1).getBlob(1));
+      }
+      ((Cursor)localObject1).close();
+      l2 = System.currentTimeMillis() - l2;
+      long l4 = System.currentTimeMillis();
+      localObject1 = EmptyNode.Empty();
+      HashMap localHashMap = new HashMap();
+      int i = 0;
+      int j = 0;
+      Object localObject3;
+      while (i < localArrayList1.size())
+      {
+        Object localObject4;
+        if (((String)localArrayList2.get(i)).endsWith(".part-0000"))
+        {
+          localObject2 = (String)localArrayList2.get(i);
+          localObject2 = new Path(((String)localObject2).substring(0, ((String)localObject2).length() - 10));
+          int k = splitNodeRunLength((Path)localObject2, localArrayList2, i);
+          if (logger.logsDebug())
+          {
+            localObject3 = logger;
+            localObject4 = new StringBuilder();
+            ((StringBuilder)localObject4).append("Loading split node with ");
+            ((StringBuilder)localObject4).append(k);
+            ((StringBuilder)localObject4).append(" parts.");
+            ((LogWrapper)localObject3).debug(((StringBuilder)localObject4).toString(), new Object[0]);
+          }
+          k += i;
+          localObject3 = deserializeNode(joinBytes(localArrayList1.subList(i, k)));
+          i = k - 1;
+          localObject4 = localObject2;
+        }
+        else
+        {
+          localObject2 = deserializeNode((byte[])localArrayList1.get(i));
+          localObject4 = new Path((String)localArrayList2.get(i));
+          localObject3 = localObject2;
+        }
+        if ((((Path)localObject4).getBack() != null) && (((Path)localObject4).getBack().isPriorityChildName())) {
+          localHashMap.put(localObject4, localObject3);
+        }
+        for (;;)
+        {
+          break;
+          if (((Path)localObject4).contains(paramPath))
+          {
+            Utilities.hardAssert(j ^ 0x1, "Descendants of path must come after ancestors.");
+            localObject1 = ((Node)localObject3).getChild(Path.getRelative((Path)localObject4, paramPath));
+          }
+          else
+          {
+            if (!paramPath.contains((Path)localObject4)) {
+              break label469;
+            }
+            localObject1 = ((Node)localObject1).updateChild(Path.getRelative(paramPath, (Path)localObject4), (Node)localObject3);
+            j = 1;
+          }
+        }
+        i += 1;
+        continue;
+        label469:
+        throw new IllegalStateException(String.format("Loading an unrelated row with path %s for %s", new Object[] { localObject4, paramPath }));
+      }
+      Object localObject2 = localHashMap.entrySet().iterator();
+      while (((Iterator)localObject2).hasNext())
+      {
+        localObject3 = (Map.Entry)((Iterator)localObject2).next();
+        localObject1 = ((Node)localObject1).updateChild(Path.getRelative(paramPath, (Path)((Map.Entry)localObject3).getKey()), (Node)((Map.Entry)localObject3).getValue());
+      }
+      long l5 = System.currentTimeMillis();
+      long l6 = System.currentTimeMillis();
+      if (logger.logsDebug()) {
+        logger.debug(String.format("Loaded a total of %d rows for a total of %d nodes at %s in %dms (Query: %dms, Loading: %dms, Serializing: %dms)", new Object[] { Integer.valueOf(localArrayList1.size()), Integer.valueOf(NodeSizeEstimator.nodeCount((Node)localObject1)), paramPath, Long.valueOf(l6 - l3), Long.valueOf(l1), Long.valueOf(l2), Long.valueOf(l5 - l4) }), new Object[0]);
+      }
+      return localObject1;
+    }
+    finally
+    {
+      ((Cursor)localObject1).close();
+    }
+    for (;;)
+    {
+      throw paramPath;
+    }
+  }
+  
+  private Cursor loadNestedQuery(Path paramPath, String[] paramArrayOfString)
+  {
+    String str1 = pathToKey(paramPath);
+    String str2 = pathPrefixStartToPrefixEnd(str1);
+    String[] arrayOfString = new String[paramPath.size() + 3];
+    String str3 = buildAncestorWhereClause(paramPath, arrayOfString);
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(str3);
+    localStringBuilder.append(" OR (path > ? AND path < ?)");
+    str3 = localStringBuilder.toString();
+    arrayOfString[(paramPath.size() + 1)] = str1;
+    arrayOfString[(paramPath.size() + 2)] = str2;
+    return database.query("serverCache", paramArrayOfString, str3, arrayOfString, null, null, "path");
+  }
+  
+  private SQLiteDatabase openDatabase(android.content.Context paramContext, String paramString)
+  {
+    paramContext = new PersistentCacheOpenHelper(paramContext, paramString);
+    try
+    {
+      paramContext = paramContext.getWritableDatabase();
+      paramContext.rawQuery("PRAGMA locking_mode = EXCLUSIVE", null).close();
+      paramContext.beginTransaction();
+      paramContext.endTransaction();
+      return paramContext;
+    }
+    catch (SQLiteException paramContext)
+    {
+      if ((paramContext instanceof SQLiteDatabaseLockedException)) {
+        throw new DatabaseException("Failed to gain exclusive lock to Firebase Database's offline persistence. This generally means you are using Firebase Database from multiple processes in your app. Keep in mind that multi-process Android apps execute the code in your Application class in all processes, so you may need to avoid initializing FirebaseDatabase in your Application class. If you are intentionally using Firebase Database from multiple processes, you can only enable offline persistence (i.e. call setPersistenceEnabled(true)) in one of them.", paramContext);
+      }
+      throw paramContext;
+    }
+  }
+  
+  private String partKey(Path paramPath, int paramInt)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(pathToKey(paramPath));
+    localStringBuilder.append(String.format(".part-%04d", new Object[] { Integer.valueOf(paramInt) }));
+    return localStringBuilder.toString();
+  }
+  
+  private static String pathPrefixStartToPrefixEnd(String paramString)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramString.substring(0, paramString.length() - 1));
+    localStringBuilder.append('0');
+    return localStringBuilder.toString();
+  }
+  
+  private static String pathToKey(Path paramPath)
+  {
+    if (paramPath.isEmpty()) {
+      return "/";
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramPath.toString());
+    localStringBuilder.append("/");
+    return localStringBuilder.toString();
+  }
+  
+  private void pruneTreeRecursive(Path paramPath1, final Path paramPath2, ImmutableTree<Long> paramImmutableTree1, final ImmutableTree<Long> paramImmutableTree2, PruneForest paramPruneForest, final List<Pair<Path, Node>> paramList)
+  {
+    if (paramImmutableTree1.getValue() != null)
+    {
+      int i = ((Integer)paramPruneForest.foldKeptNodes(Integer.valueOf(0), new ImmutableTree.TreeVisitor()
+      {
+        public Integer onNodeValue(Path paramAnonymousPath, Void paramAnonymousVoid, Integer paramAnonymousInteger)
+        {
+          int i;
+          if (paramImmutableTree2.get(paramAnonymousPath) == null) {
+            i = paramAnonymousInteger.intValue() + 1;
+          } else {
+            i = paramAnonymousInteger.intValue();
+          }
+          return Integer.valueOf(i);
+        }
+      })).intValue();
+      if (i > 0)
+      {
+        paramPath1 = paramPath1.child(paramPath2);
+        if (logger.logsDebug()) {
+          logger.debug(String.format("Need to rewrite %d nodes below path %s", new Object[] { Integer.valueOf(i), paramPath1 }), new Object[0]);
+        }
+        paramPruneForest.foldKeptNodes(null, new ImmutableTree.TreeVisitor()
+        {
+          public Void onNodeValue(Path paramAnonymousPath, Void paramAnonymousVoid1, Void paramAnonymousVoid2)
+          {
+            if (paramImmutableTree2.get(paramAnonymousPath) == null) {
+              paramList.add(new Pair(paramPath2.child(paramAnonymousPath), val$currentNode.getChild(paramAnonymousPath)));
+            }
+            return null;
+          }
+        });
+      }
+    }
+    else
+    {
+      paramImmutableTree1 = paramImmutableTree1.getChildren().iterator();
+      while (paramImmutableTree1.hasNext())
+      {
+        Map.Entry localEntry = (Map.Entry)paramImmutableTree1.next();
+        ChildKey localChildKey = (ChildKey)localEntry.getKey();
+        PruneForest localPruneForest = paramPruneForest.child((ChildKey)localEntry.getKey());
+        pruneTreeRecursive(paramPath1, paramPath2.child(localChildKey), (ImmutableTree)localEntry.getValue(), paramImmutableTree2.getChild(localChildKey), localPruneForest, paramList);
+      }
+    }
+  }
+  
+  private int removeNested(String paramString, Path paramPath)
+  {
+    paramPath = pathToKey(paramPath);
+    String str = pathPrefixStartToPrefixEnd(paramPath);
+    return database.delete(paramString, "path >= ? AND path < ?", new String[] { paramPath, str });
+  }
+  
+  private int saveNested(Path paramPath, Node paramNode)
+  {
+    long l = NodeSizeEstimator.estimateSerializedNodeSize(paramNode);
+    if (((paramNode instanceof ChildrenNode)) && (l > 16384L))
+    {
+      boolean bool = logger.logsDebug();
+      int i = 0;
+      if (bool) {
+        logger.debug(String.format("Node estimated serialized size at path %s of %d bytes exceeds limit of %d bytes. Splitting up.", new Object[] { paramPath, Long.valueOf(l), Integer.valueOf(16384) }), new Object[0]);
+      }
+      Iterator localIterator = paramNode.iterator();
+      while (localIterator.hasNext())
+      {
+        NamedNode localNamedNode = (NamedNode)localIterator.next();
+        i += saveNested(paramPath.child(localNamedNode.getName()), localNamedNode.getNode());
+      }
+      int j = i;
+      if (!paramNode.getPriority().isEmpty())
+      {
+        saveNode(paramPath.child(ChildKey.getPriorityKey()), paramNode.getPriority());
+        j = i + 1;
+      }
+      saveNode(paramPath, EmptyNode.Empty());
+      return j + 1;
+    }
+    saveNode(paramPath, paramNode);
+    return 1;
+  }
+  
+  private void saveNode(Path paramPath, Node paramNode)
+  {
+    paramNode = serializeObject(paramNode.getValue(true));
+    if (paramNode.length >= 262144)
+    {
+      paramNode = splitBytes(paramNode, 262144);
+      boolean bool = logger.logsDebug();
+      int j = 0;
+      int i = j;
+      if (bool)
+      {
+        localObject = logger;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("Saving huge leaf node with ");
+        localStringBuilder.append(paramNode.size());
+        localStringBuilder.append(" parts.");
+        ((LogWrapper)localObject).debug(localStringBuilder.toString(), new Object[0]);
+        i = j;
+      }
+      while (i < paramNode.size())
+      {
+        localObject = new ContentValues();
+        ((ContentValues)localObject).put("path", partKey(paramPath, i));
+        ((ContentValues)localObject).put("value", (byte[])paramNode.get(i));
+        database.insertWithOnConflict("serverCache", null, (ContentValues)localObject, 5);
+        i += 1;
+      }
+    }
+    Object localObject = new ContentValues();
+    ((ContentValues)localObject).put("path", pathToKey(paramPath));
+    ((ContentValues)localObject).put("value", paramNode);
+    database.insertWithOnConflict("serverCache", null, (ContentValues)localObject, 5);
+  }
+  
+  private void saveWrite(Path paramPath, long paramLong, String paramString, byte[] paramArrayOfByte)
+  {
+    verifyInsideTransaction();
+    Object localObject = database;
+    int i = 0;
+    ((SQLiteDatabase)localObject).delete("writes", "id = ?", new String[] { String.valueOf(paramLong) });
+    if (paramArrayOfByte.length >= 262144)
+    {
+      paramArrayOfByte = splitBytes(paramArrayOfByte, 262144);
+      while (i < paramArrayOfByte.size())
+      {
+        localObject = new ContentValues();
+        ((ContentValues)localObject).put("id", Long.valueOf(paramLong));
+        ((ContentValues)localObject).put("path", pathToKey(paramPath));
+        ((ContentValues)localObject).put("type", paramString);
+        ((ContentValues)localObject).put("part", Integer.valueOf(i));
+        ((ContentValues)localObject).put("node", (byte[])paramArrayOfByte.get(i));
+        database.insertWithOnConflict("writes", null, (ContentValues)localObject, 5);
+        i += 1;
+      }
+    }
+    localObject = new ContentValues();
+    ((ContentValues)localObject).put("id", Long.valueOf(paramLong));
+    ((ContentValues)localObject).put("path", pathToKey(paramPath));
+    ((ContentValues)localObject).put("type", paramString);
+    ((ContentValues)localObject).put("part", (Integer)null);
+    ((ContentValues)localObject).put("node", paramArrayOfByte);
+    database.insertWithOnConflict("writes", null, (ContentValues)localObject, 5);
+  }
+  
+  private byte[] serializeObject(Object paramObject)
+  {
+    try
+    {
+      paramObject = JsonMapper.serializeJsonValue(paramObject).getBytes(UTF8_CHARSET);
+      return paramObject;
+    }
+    catch (IOException paramObject)
+    {
+      throw new RuntimeException("Could not serialize leaf node", paramObject);
+    }
+  }
+  
+  private static List<byte[]> splitBytes(byte[] paramArrayOfByte, int paramInt)
+  {
+    int j = (paramArrayOfByte.length - 1) / paramInt + 1;
+    ArrayList localArrayList = new ArrayList(j);
+    int i = 0;
+    while (i < j)
+    {
+      int m = paramArrayOfByte.length;
+      int k = i * paramInt;
+      m = Math.min(paramInt, m - k);
+      byte[] arrayOfByte = new byte[m];
+      System.arraycopy(paramArrayOfByte, k, arrayOfByte, 0, m);
+      localArrayList.add(arrayOfByte);
+      i += 1;
+    }
+    return localArrayList;
+  }
+  
+  private int splitNodeRunLength(Path paramPath, List<String> paramList, int paramInt)
+  {
+    int i = paramInt + 1;
+    String str = pathToKey(paramPath);
+    if (((String)paramList.get(paramInt)).startsWith(str))
+    {
+      while ((i < paramList.size()) && (((String)paramList.get(i)).equals(partKey(paramPath, i - paramInt)))) {
+        i += 1;
+      }
+      if (i < paramList.size())
+      {
+        paramPath = (String)paramList.get(i);
+        paramList = new StringBuilder();
+        paramList.append(str);
+        paramList.append(".part-");
+        if (paramPath.startsWith(paramList.toString())) {
+          throw new IllegalStateException("Run did not finish with all parts");
+        }
+      }
+      return i - paramInt;
+    }
+    paramPath = new IllegalStateException("Extracting split nodes needs to start with path prefix");
+    for (;;)
+    {
+      throw paramPath;
+    }
+  }
+  
+  private void updateServerCache(Path paramPath, Node paramNode, boolean paramBoolean)
+  {
+    long l1 = System.currentTimeMillis();
+    int i;
+    int j;
+    if (!paramBoolean)
+    {
+      i = removeNested("serverCache", paramPath);
+      j = saveNested(paramPath, paramNode);
+    }
+    else
+    {
+      paramNode = paramNode.iterator();
+      i = 0;
+      j = 0;
+      while (paramNode.hasNext())
+      {
+        NamedNode localNamedNode = (NamedNode)paramNode.next();
+        i += removeNested("serverCache", paramPath.child(localNamedNode.getName()));
+        j += saveNested(paramPath.child(localNamedNode.getName()), localNamedNode.getNode());
+      }
+    }
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Persisted a total of %d rows and deleted %d rows for a set at %s in %dms", new Object[] { Integer.valueOf(j), Integer.valueOf(i), paramPath.toString(), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  private void verifyInsideTransaction()
+  {
+    Utilities.hardAssert(insideTransaction, "Transaction expected to already be in progress.");
+  }
+  
+  public void beginTransaction()
+  {
+    Utilities.hardAssert(insideTransaction ^ true, "runInTransaction called when an existing transaction is already in progress.");
+    if (logger.logsDebug()) {
+      logger.debug("Starting transaction.", new Object[0]);
+    }
+    database.beginTransaction();
+    insideTransaction = true;
+    transactionStart = System.currentTimeMillis();
+  }
+  
+  public void close()
+  {
+    database.close();
+  }
+  
+  public void deleteTrackedQuery(long paramLong)
+  {
+    verifyInsideTransaction();
+    String str = String.valueOf(paramLong);
+    database.delete("trackedQueries", "id = ?", new String[] { str });
+    database.delete("trackedKeys", "id = ?", new String[] { str });
+  }
+  
+  public void endTransaction()
+  {
+    database.endTransaction();
+    insideTransaction = false;
+    long l1 = System.currentTimeMillis();
+    long l2 = transactionStart;
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Transaction completed. Elapsed: %dms", new Object[] { Long.valueOf(l1 - l2) }), new Object[0]);
+    }
+  }
+  
+  public List<TrackedQuery> loadTrackedQueries()
+  {
+    long l1 = System.currentTimeMillis();
+    localCursor = database.query("trackedQueries", new String[] { "id", "path", "queryParams", "lastUse", "complete", "active" }, null, null, null, null, "id");
+    ArrayList localArrayList = new ArrayList();
+    for (;;)
+    {
+      try
+      {
+        if (!localCursor.moveToNext()) {
+          continue;
+        }
+        l2 = localCursor.getLong(0);
+        localObject2 = new Path(localCursor.getString(1));
+        localObject3 = localCursor.getString(2);
+      }
+      finally
+      {
+        long l2;
+        Object localObject2;
+        Object localObject3;
+        long l3;
+        localCursor.close();
+        continue;
+        throw localObject1;
+        continue;
+        boolean bool1 = false;
+        continue;
+        boolean bool2 = false;
+        continue;
+      }
+      try
+      {
+        localObject3 = JsonMapper.parseJson((String)localObject3);
+        localObject2 = QuerySpec.fromPathAndQueryObject((Path)localObject2, (Map)localObject3);
+        l3 = localCursor.getLong(3);
+        if (localCursor.getInt(4) == 0) {
+          continue;
+        }
+        bool1 = true;
+        if (localCursor.getInt(5) == 0) {
+          continue;
+        }
+        bool2 = true;
+        localArrayList.add(new TrackedQuery(l2, (QuerySpec)localObject2, l3, bool1, bool2));
+      }
+      catch (IOException localIOException)
+      {
+        throw new RuntimeException(localIOException);
+      }
+    }
+    l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Loaded %d tracked queries in %dms", new Object[] { Integer.valueOf(localIOException.size()), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+    localCursor.close();
+    return localIOException;
+  }
+  
+  public Set<ChildKey> loadTrackedQueryKeys(long paramLong)
+  {
+    return loadTrackedQueryKeys(Collections.singleton(Long.valueOf(paramLong)));
+  }
+  
+  public Set<ChildKey> loadTrackedQueryKeys(Set<Long> paramSet)
+  {
+    long l1 = System.currentTimeMillis();
+    Object localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("id IN (");
+    ((StringBuilder)localObject).append(commaSeparatedList(paramSet));
+    ((StringBuilder)localObject).append(")");
+    localObject = ((StringBuilder)localObject).toString();
+    localObject = database.query(true, "trackedKeys", new String[] { "key" }, (String)localObject, null, null, null, null, null);
+    HashSet localHashSet = new HashSet();
+    try
+    {
+      while (((Cursor)localObject).moveToNext()) {
+        localHashSet.add(ChildKey.fromString(((Cursor)localObject).getString(0)));
+      }
+      long l2 = System.currentTimeMillis();
+      if (logger.logsDebug()) {
+        logger.debug(String.format("Loaded %d tracked queries keys for tracked queries %s in %dms", new Object[] { Integer.valueOf(localHashSet.size()), paramSet.toString(), Long.valueOf(l2 - l1) }), new Object[0]);
+      }
+      ((Cursor)localObject).close();
+      return localHashSet;
+    }
+    finally
+    {
+      ((Cursor)localObject).close();
+    }
+    for (;;)
+    {
+      throw paramSet;
+    }
+  }
+  
+  /* Error */
+  public List<com.google.firebase.database.core.UserWriteRecord> loadUserWrites()
+  {
+    // Byte code:
+    //   0: invokestatic 275	java/lang/System:currentTimeMillis	()J
+    //   3: lstore_1
+    //   4: aload_0
+    //   5: getfield 155	com/google/firebase/database/android/SqlPersistenceStorageEngine:database	Landroid/database/sqlite/SQLiteDatabase;
+    //   8: ldc 89
+    //   10: iconst_5
+    //   11: anewarray 233	java/lang/String
+    //   14: dup
+    //   15: iconst_0
+    //   16: ldc 58
+    //   18: aastore
+    //   19: dup
+    //   20: iconst_1
+    //   21: ldc 47
+    //   23: aastore
+    //   24: dup
+    //   25: iconst_2
+    //   26: ldc 99
+    //   28: aastore
+    //   29: dup
+    //   30: iconst_3
+    //   31: ldc 96
+    //   33: aastore
+    //   34: dup
+    //   35: iconst_4
+    //   36: ldc 93
+    //   38: aastore
+    //   39: aconst_null
+    //   40: aconst_null
+    //   41: aconst_null
+    //   42: aconst_null
+    //   43: ldc_w 737
+    //   46: invokevirtual 452	android/database/sqlite/SQLiteDatabase:query	(Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;
+    //   49: astore 6
+    //   51: new 271	java/util/ArrayList
+    //   54: dup
+    //   55: invokespecial 272	java/util/ArrayList:<init>	()V
+    //   58: astore 7
+    //   60: aload 6
+    //   62: invokeinterface 284 1 0
+    //   67: ifeq +257 -> 324
+    //   70: aload 6
+    //   72: iconst_0
+    //   73: invokeinterface 678 2 0
+    //   78: lstore_3
+    //   79: new 171	com/google/firebase/database/core/Path
+    //   82: dup
+    //   83: aload 6
+    //   85: iconst_1
+    //   86: invokeinterface 288 2 0
+    //   91: invokespecial 328	com/google/firebase/database/core/Path:<init>	(Ljava/lang/String;)V
+    //   94: astore 9
+    //   96: aload 6
+    //   98: iconst_2
+    //   99: invokeinterface 288 2 0
+    //   104: astore 8
+    //   106: aload 6
+    //   108: iconst_3
+    //   109: invokeinterface 741 2 0
+    //   114: ifeq +16 -> 130
+    //   117: aload 6
+    //   119: iconst_4
+    //   120: invokeinterface 296 2 0
+    //   125: astore 5
+    //   127: goto +67 -> 194
+    //   130: new 271	java/util/ArrayList
+    //   133: dup
+    //   134: invokespecial 272	java/util/ArrayList:<init>	()V
+    //   137: astore 5
+    //   139: aload 5
+    //   141: aload 6
+    //   143: iconst_4
+    //   144: invokeinterface 296 2 0
+    //   149: invokeinterface 292 2 0
+    //   154: pop
+    //   155: aload 6
+    //   157: invokeinterface 284 1 0
+    //   162: ifeq +16 -> 178
+    //   165: aload 6
+    //   167: iconst_0
+    //   168: invokeinterface 678 2 0
+    //   173: lload_3
+    //   174: lcmp
+    //   175: ifeq -36 -> 139
+    //   178: aload 6
+    //   180: invokeinterface 744 1 0
+    //   185: pop
+    //   186: aload_0
+    //   187: aload 5
+    //   189: invokespecial 354	com/google/firebase/database/android/SqlPersistenceStorageEngine:joinBytes	(Ljava/util/List;)[B
+    //   192: astore 5
+    //   194: new 233	java/lang/String
+    //   197: dup
+    //   198: aload 5
+    //   200: getstatic 124	com/google/firebase/database/android/SqlPersistenceStorageEngine:UTF8_CHARSET	Ljava/nio/charset/Charset;
+    //   203: invokespecial 236	java/lang/String:<init>	([BLjava/nio/charset/Charset;)V
+    //   206: invokestatic 242	com/google/firebase/database/util/JsonMapper:parseJsonValue	(Ljava/lang/String;)Ljava/lang/Object;
+    //   209: astore 5
+    //   211: ldc 105
+    //   213: aload 8
+    //   215: invokevirtual 648	java/lang/String:equals	(Ljava/lang/Object;)Z
+    //   218: ifeq +24 -> 242
+    //   221: new 746	com/google/firebase/database/core/UserWriteRecord
+    //   224: dup
+    //   225: lload_3
+    //   226: aload 9
+    //   228: aload 5
+    //   230: invokestatic 248	com/google/firebase/database/snapshot/NodeUtilities:NodeFromJSON	(Ljava/lang/Object;)Lcom/google/firebase/database/snapshot/Node;
+    //   233: iconst_1
+    //   234: invokespecial 749	com/google/firebase/database/core/UserWriteRecord:<init>	(JLcom/google/firebase/database/core/Path;Lcom/google/firebase/database/snapshot/Node;Z)V
+    //   237: astore 5
+    //   239: goto +33 -> 272
+    //   242: ldc 102
+    //   244: aload 8
+    //   246: invokevirtual 648	java/lang/String:equals	(Ljava/lang/Object;)Z
+    //   249: ifeq +36 -> 285
+    //   252: new 746	com/google/firebase/database/core/UserWriteRecord
+    //   255: dup
+    //   256: lload_3
+    //   257: aload 9
+    //   259: aload 5
+    //   261: checkcast 367	java/util/Map
+    //   264: invokestatic 755	com/google/firebase/database/core/CompoundWrite:fromValue	(Ljava/util/Map;)Lcom/google/firebase/database/core/CompoundWrite;
+    //   267: invokespecial 758	com/google/firebase/database/core/UserWriteRecord:<init>	(JLcom/google/firebase/database/core/Path;Lcom/google/firebase/database/core/CompoundWrite;)V
+    //   270: astore 5
+    //   272: aload 7
+    //   274: aload 5
+    //   276: invokeinterface 292 2 0
+    //   281: pop
+    //   282: goto -222 -> 60
+    //   285: new 164	java/lang/StringBuilder
+    //   288: dup
+    //   289: invokespecial 201	java/lang/StringBuilder:<init>	()V
+    //   292: astore 5
+    //   294: aload 5
+    //   296: ldc_w 760
+    //   299: invokevirtual 179	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   302: pop
+    //   303: aload 5
+    //   305: aload 8
+    //   307: invokevirtual 179	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   310: pop
+    //   311: new 398	java/lang/IllegalStateException
+    //   314: dup
+    //   315: aload 5
+    //   317: invokevirtual 198	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   320: invokespecial 405	java/lang/IllegalStateException:<init>	(Ljava/lang/String;)V
+    //   323: athrow
+    //   324: invokestatic 275	java/lang/System:currentTimeMillis	()J
+    //   327: lstore_3
+    //   328: aload_0
+    //   329: getfield 149	com/google/firebase/database/android/SqlPersistenceStorageEngine:logger	Lcom/google/firebase/database/logging/LogWrapper;
+    //   332: invokevirtual 337	com/google/firebase/database/logging/LogWrapper:logsDebug	()Z
+    //   335: ifeq +46 -> 381
+    //   338: aload_0
+    //   339: getfield 149	com/google/firebase/database/android/SqlPersistenceStorageEngine:logger	Lcom/google/firebase/database/logging/LogWrapper;
+    //   342: ldc_w 762
+    //   345: iconst_2
+    //   346: anewarray 4	java/lang/Object
+    //   349: dup
+    //   350: iconst_0
+    //   351: aload 7
+    //   353: invokeinterface 312 1 0
+    //   358: invokestatic 428	java/lang/Integer:valueOf	(I)Ljava/lang/Integer;
+    //   361: aastore
+    //   362: dup
+    //   363: iconst_1
+    //   364: lload_3
+    //   365: lload_1
+    //   366: lsub
+    //   367: invokestatic 437	java/lang/Long:valueOf	(J)Ljava/lang/Long;
+    //   370: aastore
+    //   371: invokestatic 404	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   374: iconst_0
+    //   375: anewarray 4	java/lang/Object
+    //   378: invokevirtual 348	com/google/firebase/database/logging/LogWrapper:debug	(Ljava/lang/String;[Ljava/lang/Object;)V
+    //   381: aload 6
+    //   383: invokeinterface 299 1 0
+    //   388: aload 7
+    //   390: areturn
+    //   391: astore 5
+    //   393: goto +18 -> 411
+    //   396: astore 5
+    //   398: new 157	java/lang/RuntimeException
+    //   401: dup
+    //   402: ldc_w 764
+    //   405: aload 5
+    //   407: invokespecial 253	java/lang/RuntimeException:<init>	(Ljava/lang/String;Ljava/lang/Throwable;)V
+    //   410: athrow
+    //   411: aload 6
+    //   413: invokeinterface 299 1 0
+    //   418: goto +6 -> 424
+    //   421: aload 5
+    //   423: athrow
+    //   424: goto -3 -> 421
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	427	0	this	SqlPersistenceStorageEngine
+    //   3	363	1	l1	long
+    //   78	287	3	l2	long
+    //   125	191	5	localObject1	Object
+    //   391	1	5	localObject2	Object
+    //   396	26	5	localIOException	IOException
+    //   49	363	6	localCursor	Cursor
+    //   58	331	7	localArrayList	ArrayList
+    //   104	202	8	str	String
+    //   94	164	9	localPath	Path
+    // Exception table:
+    //   from	to	target	type
+    //   60	127	391	finally
+    //   130	139	391	finally
+    //   139	178	391	finally
+    //   178	194	391	finally
+    //   194	239	391	finally
+    //   242	272	391	finally
+    //   272	282	391	finally
+    //   285	324	391	finally
+    //   324	381	391	finally
+    //   398	411	391	finally
+    //   60	127	396	java/io/IOException
+    //   130	139	396	java/io/IOException
+    //   139	178	396	java/io/IOException
+    //   178	194	396	java/io/IOException
+    //   194	239	396	java/io/IOException
+    //   242	272	396	java/io/IOException
+    //   272	282	396	java/io/IOException
+    //   285	324	396	java/io/IOException
+    //   324	381	396	java/io/IOException
+  }
+  
+  public void mergeIntoServerCache(Path paramPath, CompoundWrite paramCompoundWrite)
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    paramCompoundWrite = paramCompoundWrite.iterator();
+    int j = 0;
+    int i = 0;
+    while (paramCompoundWrite.hasNext())
+    {
+      Map.Entry localEntry = (Map.Entry)paramCompoundWrite.next();
+      j += removeNested("serverCache", paramPath.child((Path)localEntry.getKey()));
+      i += saveNested(paramPath.child((Path)localEntry.getKey()), (Node)localEntry.getValue());
+    }
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Persisted a total of %d rows and deleted %d rows for a merge at %s in %dms", new Object[] { Integer.valueOf(i), Integer.valueOf(j), paramPath.toString(), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void mergeIntoServerCache(Path paramPath, Node paramNode)
+  {
+    verifyInsideTransaction();
+    updateServerCache(paramPath, paramNode, true);
+  }
+  
+  public void overwriteServerCache(Path paramPath, Node paramNode)
+  {
+    verifyInsideTransaction();
+    updateServerCache(paramPath, paramNode, false);
+  }
+  
+  public void pruneCache(Path paramPath, PruneForest paramPruneForest)
+  {
+    if (!paramPruneForest.prunesAnything()) {
+      return;
+    }
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    Object localObject3 = loadNestedQuery(paramPath, new String[] { "rowid", "path" });
+    Object localObject1 = new ImmutableTree(null);
+    Object localObject2 = new ImmutableTree(null);
+    while (((Cursor)localObject3).moveToNext())
+    {
+      l2 = ((Cursor)localObject3).getLong(0);
+      Path localPath = new Path(((Cursor)localObject3).getString(1));
+      Object localObject4;
+      StringBuilder localStringBuilder;
+      if (!paramPath.contains(localPath))
+      {
+        localObject4 = logger;
+        localStringBuilder = new StringBuilder();
+        localStringBuilder.append("We are pruning at ");
+        localStringBuilder.append(paramPath);
+        localStringBuilder.append(" but we have data stored higher up at ");
+        localStringBuilder.append(localPath);
+        localStringBuilder.append(". Ignoring.");
+        ((LogWrapper)localObject4).warn(localStringBuilder.toString());
+      }
+      else
+      {
+        localObject4 = Path.getRelative(paramPath, localPath);
+        if (paramPruneForest.shouldPruneUnkeptDescendants((Path)localObject4))
+        {
+          localObject1 = ((ImmutableTree)localObject1).set((Path)localObject4, Long.valueOf(l2));
+        }
+        else if (paramPruneForest.shouldKeep((Path)localObject4))
+        {
+          localObject2 = ((ImmutableTree)localObject2).set((Path)localObject4, Long.valueOf(l2));
+        }
+        else
+        {
+          localObject4 = logger;
+          localStringBuilder = new StringBuilder();
+          localStringBuilder.append("We are pruning at ");
+          localStringBuilder.append(paramPath);
+          localStringBuilder.append(" and have data at ");
+          localStringBuilder.append(localPath);
+          localStringBuilder.append(" that isn't marked for pruning or keeping. Ignoring.");
+          ((LogWrapper)localObject4).warn(localStringBuilder.toString());
+        }
+      }
+    }
+    int i;
+    int j;
+    if (!((ImmutableTree)localObject1).isEmpty())
+    {
+      localObject3 = new ArrayList();
+      pruneTreeRecursive(paramPath, Path.getEmptyPath(), (ImmutableTree)localObject1, (ImmutableTree)localObject2, paramPruneForest, (List)localObject3);
+      paramPruneForest = ((ImmutableTree)localObject1).values();
+      localObject1 = new StringBuilder();
+      ((StringBuilder)localObject1).append("rowid IN (");
+      ((StringBuilder)localObject1).append(commaSeparatedList(paramPruneForest));
+      ((StringBuilder)localObject1).append(")");
+      localObject1 = ((StringBuilder)localObject1).toString();
+      database.delete("serverCache", (String)localObject1, null);
+      localObject1 = ((List)localObject3).iterator();
+      while (((Iterator)localObject1).hasNext())
+      {
+        localObject2 = (Pair)((Iterator)localObject1).next();
+        saveNested(paramPath.child((Path)((Pair)localObject2).getFirst()), (Node)((Pair)localObject2).getSecond());
+      }
+      i = paramPruneForest.size();
+      j = ((List)localObject3).size();
+    }
+    else
+    {
+      i = 0;
+      j = 0;
+    }
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Pruned %d rows with %d nodes resaved in %dms", new Object[] { Integer.valueOf(i), Integer.valueOf(j), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void purgeCache()
+  {
+    verifyInsideTransaction();
+    database.delete("serverCache", null, null);
+    database.delete("writes", null, null);
+    database.delete("trackedQueries", null, null);
+    database.delete("trackedKeys", null, null);
+  }
+  
+  public void removeAllUserWrites()
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    int i = database.delete("writes", null, null);
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Deleted %d (all) write(s) in %dms", new Object[] { Integer.valueOf(i), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void removeUserWrite(long paramLong)
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    int i = database.delete("writes", "id = ?", new String[] { String.valueOf(paramLong) });
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Deleted %d write(s) with writeId %d in %dms", new Object[] { Integer.valueOf(i), Long.valueOf(paramLong), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void resetPreviouslyActiveTrackedQueries(long paramLong)
+  {
+    verifyInsideTransaction();
+    long l = System.currentTimeMillis();
+    ContentValues localContentValues = new ContentValues();
+    localContentValues.put("active", Boolean.valueOf(false));
+    localContentValues.put("lastUse", Long.valueOf(paramLong));
+    database.updateWithOnConflict("trackedQueries", localContentValues, "active = 1", new String[0], 5);
+    paramLong = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Reset active tracked queries in %dms", new Object[] { Long.valueOf(paramLong - l) }), new Object[0]);
+    }
+  }
+  
+  public void saveTrackedQuery(TrackedQuery paramTrackedQuery)
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    ContentValues localContentValues = new ContentValues();
+    localContentValues.put("id", Long.valueOf(id));
+    localContentValues.put("path", pathToKey(querySpec.getPath()));
+    localContentValues.put("queryParams", querySpec.getParams().toJSON());
+    localContentValues.put("lastUse", Long.valueOf(lastUse));
+    localContentValues.put("complete", Boolean.valueOf(complete));
+    localContentValues.put("active", Boolean.valueOf(active));
+    database.insertWithOnConflict("trackedQueries", null, localContentValues, 5);
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Saved new tracked query in %dms", new Object[] { Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void saveTrackedQueryKeys(long paramLong, Set<ChildKey> paramSet)
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    database.delete("trackedKeys", "id = ?", new String[] { String.valueOf(paramLong) });
+    Iterator localIterator = paramSet.iterator();
+    while (localIterator.hasNext())
+    {
+      ChildKey localChildKey = (ChildKey)localIterator.next();
+      ContentValues localContentValues = new ContentValues();
+      localContentValues.put("id", Long.valueOf(paramLong));
+      localContentValues.put("key", localChildKey.asString());
+      database.insertWithOnConflict("trackedKeys", null, localContentValues, 5);
+    }
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Set %d tracked query keys for tracked query %d in %dms", new Object[] { Integer.valueOf(paramSet.size()), Long.valueOf(paramLong), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  public void saveUserMerge(Path paramPath, CompoundWrite paramCompoundWrite, long paramLong)
+  {
+    verifyInsideTransaction();
+    long l = System.currentTimeMillis();
+    saveWrite(paramPath, paramLong, "m", serializeObject(paramCompoundWrite.getValue(true)));
+    paramLong = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Persisted user merge in %dms", new Object[] { Long.valueOf(paramLong - l) }), new Object[0]);
+    }
+  }
+  
+  public void saveUserOverwrite(Path paramPath, Node paramNode, long paramLong)
+  {
+    verifyInsideTransaction();
+    long l = System.currentTimeMillis();
+    saveWrite(paramPath, paramLong, "o", serializeObject(paramNode.getValue(true)));
+    paramLong = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Persisted user overwrite in %dms", new Object[] { Long.valueOf(paramLong - l) }), new Object[0]);
+    }
+  }
+  
+  public Node serverCache(Path paramPath)
+  {
+    return loadNested(paramPath);
+  }
+  
+  public long serverCacheEstimatedSizeInBytes()
+  {
+    Object localObject1 = String.format("SELECT sum(length(%s) + length(%s)) FROM %s", new Object[] { "value", "path", "serverCache" });
+    localObject1 = database.rawQuery((String)localObject1, null);
+    try
+    {
+      if (((Cursor)localObject1).moveToFirst())
+      {
+        long l = ((Cursor)localObject1).getLong(0);
+        return l;
+      }
+      throw new IllegalStateException("Couldn't read database result!");
+    }
+    finally
+    {
+      ((Cursor)localObject1).close();
+    }
+  }
+  
+  public void setTransactionSuccessful()
+  {
+    database.setTransactionSuccessful();
+  }
+  
+  public void updateTrackedQueryKeys(long paramLong, Set<ChildKey> paramSet1, Set<ChildKey> paramSet2)
+  {
+    verifyInsideTransaction();
+    long l1 = System.currentTimeMillis();
+    Iterator localIterator = paramSet2.iterator();
+    ChildKey localChildKey;
+    while (localIterator.hasNext())
+    {
+      localChildKey = (ChildKey)localIterator.next();
+      database.delete("trackedKeys", "id = ? AND key = ?", new String[] { String.valueOf(paramLong), localChildKey.asString() });
+    }
+    localIterator = paramSet1.iterator();
+    while (localIterator.hasNext())
+    {
+      localChildKey = (ChildKey)localIterator.next();
+      ContentValues localContentValues = new ContentValues();
+      localContentValues.put("id", Long.valueOf(paramLong));
+      localContentValues.put("key", localChildKey.asString());
+      database.insertWithOnConflict("trackedKeys", null, localContentValues, 5);
+    }
+    long l2 = System.currentTimeMillis();
+    if (logger.logsDebug()) {
+      logger.debug(String.format("Updated tracked query keys (%d added, %d removed) for tracked query id %d in %dms", new Object[] { Integer.valueOf(paramSet1.size()), Integer.valueOf(paramSet2.size()), Long.valueOf(paramLong), Long.valueOf(l2 - l1) }), new Object[0]);
+    }
+  }
+  
+  private static class PersistentCacheOpenHelper
+    extends SQLiteOpenHelper
+  {
+    private static final int DATABASE_VERSION = 2;
+    
+    public PersistentCacheOpenHelper(android.content.Context paramContext, String paramString)
+    {
+      super(paramString, null, 2);
+    }
+    
+    private void dropTable(SQLiteDatabase paramSQLiteDatabase, String paramString)
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("DROP TABLE IF EXISTS ");
+      localStringBuilder.append(paramString);
+      paramSQLiteDatabase.execSQL(localStringBuilder.toString());
+    }
+    
+    public void onCreate(SQLiteDatabase paramSQLiteDatabase)
+    {
+      paramSQLiteDatabase.execSQL("CREATE TABLE serverCache (path TEXT PRIMARY KEY, value BLOB);");
+      paramSQLiteDatabase.execSQL("CREATE TABLE writes (id INTEGER, path TEXT, type TEXT, part INTEGER, node BLOB, UNIQUE (id, part));");
+      paramSQLiteDatabase.execSQL("CREATE TABLE trackedQueries (id INTEGER PRIMARY KEY, path TEXT, queryParams TEXT, lastUse INTEGER, complete INTEGER, active INTEGER);");
+      paramSQLiteDatabase.execSQL("CREATE TABLE trackedKeys (id INTEGER, key TEXT);");
+    }
+    
+    public void onUpgrade(SQLiteDatabase paramSQLiteDatabase, int paramInt1, int paramInt2)
+    {
+      if (paramInt1 <= 1)
+      {
+        dropTable(paramSQLiteDatabase, "serverCache");
+        paramSQLiteDatabase.execSQL("CREATE TABLE serverCache (path TEXT PRIMARY KEY, value BLOB);");
+        dropTable(paramSQLiteDatabase, "complete");
+        paramSQLiteDatabase.execSQL("CREATE TABLE trackedKeys (id INTEGER, key TEXT);");
+        paramSQLiteDatabase.execSQL("CREATE TABLE trackedQueries (id INTEGER PRIMARY KEY, path TEXT, queryParams TEXT, lastUse INTEGER, complete INTEGER, active INTEGER);");
+        return;
+      }
+      paramSQLiteDatabase = new StringBuilder();
+      paramSQLiteDatabase.append("We don't handle upgrading to ");
+      paramSQLiteDatabase.append(paramInt2);
+      throw new AssertionError(paramSQLiteDatabase.toString());
+    }
+  }
+}

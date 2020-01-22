@@ -1,0 +1,33 @@
+package com.google.firebase.database.core;
+
+import com.google.firebase.database.connection.ConnectionContext;
+import com.google.firebase.database.connection.HostInfo;
+import com.google.firebase.database.connection.PersistentConnection;
+import com.google.firebase.database.connection.PersistentConnection.Delegate;
+import com.google.firebase.database.core.persistence.PersistenceManager;
+import com.google.firebase.database.logging.Logger;
+import com.google.firebase.database.logging.Logger.Level;
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+
+public abstract interface Platform
+{
+  public abstract PersistenceManager createPersistenceManager(Context paramContext, String paramString);
+  
+  public abstract String getPlatformVersion();
+  
+  public abstract File getSSLCacheDirectory();
+  
+  public abstract String getUserAgent(Context paramContext);
+  
+  public abstract AuthTokenProvider newAuthTokenProvider(ScheduledExecutorService paramScheduledExecutorService);
+  
+  public abstract EventTarget newEventTarget(Context paramContext);
+  
+  public abstract Logger newLogger(Context paramContext, Logger.Level paramLevel, List paramList);
+  
+  public abstract PersistentConnection newPersistentConnection(Context paramContext, ConnectionContext paramConnectionContext, HostInfo paramHostInfo, PersistentConnection.Delegate paramDelegate);
+  
+  public abstract RunLoop newRunLoop(Context paramContext);
+}

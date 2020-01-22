@@ -1,0 +1,51 @@
+package com.google.android.gms.tasks;
+
+import java.util.ArrayDeque;
+import java.util.Queue;
+
+final class zzr<TResult>
+{
+  private final Object mLock = new Object();
+  private Queue<zzq<TResult>> zzt;
+  private boolean zzu;
+  
+  zzr() {}
+  
+  public final void zza(Task<TResult> paramTask)
+  {
+    synchronized (mLock)
+    {
+      if ((zzt != null) && (!zzu))
+      {
+        zzu = true;
+        synchronized (mLock)
+        {
+          zzq localZzq = (zzq)zzt.poll();
+          if (localZzq == null)
+          {
+            zzu = false;
+            return;
+          }
+          localZzq.onComplete(paramTask);
+        }
+      }
+      return;
+    }
+    for (;;)
+    {
+      throw paramTask;
+    }
+  }
+  
+  public final void zza(zzq<TResult> paramZzq)
+  {
+    synchronized (mLock)
+    {
+      if (zzt == null) {
+        zzt = new ArrayDeque();
+      }
+      zzt.add(paramZzq);
+      return;
+    }
+  }
+}

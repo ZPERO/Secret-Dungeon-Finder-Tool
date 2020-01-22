@@ -1,0 +1,21 @@
+package com.google.firebase.database.collection;
+
+import java.util.Comparator;
+
+public class StandardComparator<A extends Comparable<A>>
+  implements Comparator<A>
+{
+  private static final StandardComparator<?> zzac = new StandardComparator();
+  
+  private StandardComparator() {}
+  
+  public static <T extends Comparable<T>> StandardComparator<T> getComparator(Class<T> paramClass)
+  {
+    return zzac;
+  }
+  
+  public int compare(A paramA1, A paramA2)
+  {
+    return paramA1.compareTo(paramA2);
+  }
+}

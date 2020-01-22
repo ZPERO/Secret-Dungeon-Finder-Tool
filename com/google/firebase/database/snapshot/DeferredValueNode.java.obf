@@ -1,0 +1,68 @@
+package com.google.firebase.database.snapshot;
+
+import java.util.Map;
+
+public class DeferredValueNode
+  extends LeafNode<DeferredValueNode>
+{
+  private Map<Object, Object> value;
+  
+  public DeferredValueNode(Map<Object, Object> paramMap, Node paramNode)
+  {
+    super(paramNode);
+    value = paramMap;
+  }
+  
+  protected int compareLeafValues(DeferredValueNode paramDeferredValueNode)
+  {
+    return 0;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    boolean bool1 = paramObject instanceof DeferredValueNode;
+    boolean bool2 = false;
+    if (!bool1) {
+      return false;
+    }
+    paramObject = (DeferredValueNode)paramObject;
+    bool1 = bool2;
+    if (value.equals(value))
+    {
+      bool1 = bool2;
+      if (priority.equals(priority)) {
+        bool1 = true;
+      }
+    }
+    return bool1;
+  }
+  
+  public String getHashRepresentation(Node.HashVersion paramHashVersion)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(getPriorityHash(paramHashVersion));
+    localStringBuilder.append("deferredValue:");
+    localStringBuilder.append(value);
+    return localStringBuilder.toString();
+  }
+  
+  protected LeafNode.LeafType getLeafType()
+  {
+    return LeafNode.LeafType.DeferredValue;
+  }
+  
+  public Object getValue()
+  {
+    return value;
+  }
+  
+  public int hashCode()
+  {
+    return value.hashCode() + priority.hashCode();
+  }
+  
+  public DeferredValueNode updatePriority(Node paramNode)
+  {
+    return new DeferredValueNode(value, paramNode);
+  }
+}

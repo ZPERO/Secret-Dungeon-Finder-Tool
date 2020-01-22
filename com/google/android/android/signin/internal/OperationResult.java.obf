@@ -1,0 +1,34 @@
+package com.google.android.gms.signin.internal;
+
+import android.os.Parcel;
+import android.os.Parcelable.Creator;
+import com.google.android.gms.common.internal.ResolveAccountRequest;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+
+public final class zah
+  extends AbstractSafeParcelable
+{
+  public static final Parcelable.Creator<zah> CREATOR = new zai();
+  private final int zale;
+  private final ResolveAccountRequest zasa;
+  
+  zah(int paramInt, ResolveAccountRequest paramResolveAccountRequest)
+  {
+    zale = paramInt;
+    zasa = paramResolveAccountRequest;
+  }
+  
+  public zah(ResolveAccountRequest paramResolveAccountRequest)
+  {
+    this(1, paramResolveAccountRequest);
+  }
+  
+  public final void writeToParcel(Parcel paramParcel, int paramInt)
+  {
+    int i = SafeParcelWriter.beginObjectHeader(paramParcel);
+    SafeParcelWriter.writeInt(paramParcel, 1, zale);
+    SafeParcelWriter.writeParcelable(paramParcel, 2, zasa, paramInt, false);
+    SafeParcelWriter.finishObjectHeader(paramParcel, i);
+  }
+}

@@ -1,0 +1,88 @@
+package com.google.firebase.database.core.utilities;
+
+public class Pair<T, U>
+{
+  private final T first;
+  private final U second;
+  
+  public Pair(T paramT, U paramU)
+  {
+    first = paramT;
+    second = paramU;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject != null)
+    {
+      if (getClass() != paramObject.getClass()) {
+        return false;
+      }
+      paramObject = (Pair)paramObject;
+      Object localObject = first;
+      if (localObject != null)
+      {
+        if (!localObject.equals(first)) {
+          return false;
+        }
+      }
+      else if (first != null) {
+        return false;
+      }
+      localObject = second;
+      paramObject = second;
+      if (localObject != null)
+      {
+        if (!localObject.equals(paramObject)) {
+          return false;
+        }
+      }
+      else if (paramObject != null) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  public T getFirst()
+  {
+    return first;
+  }
+  
+  public U getSecond()
+  {
+    return second;
+  }
+  
+  public int hashCode()
+  {
+    Object localObject = first;
+    int j = 0;
+    int i;
+    if (localObject != null) {
+      i = localObject.hashCode();
+    } else {
+      i = 0;
+    }
+    localObject = second;
+    if (localObject != null) {
+      j = localObject.hashCode();
+    }
+    return i * 31 + j;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Pair(");
+    localStringBuilder.append(first);
+    localStringBuilder.append(",");
+    localStringBuilder.append(second);
+    localStringBuilder.append(")");
+    return localStringBuilder.toString();
+  }
+}

@@ -1,0 +1,75 @@
+package okio;
+
+import java.io.IOException;
+
+final class PeekSource
+  implements Source
+{
+  private final Buffer buffer;
+  private boolean closed;
+  private int expectedPos;
+  private Segment expectedSegment;
+  private long ptr;
+  private final BufferedSource upstream;
+  
+  PeekSource(BufferedSource paramBufferedSource)
+  {
+    upstream = paramBufferedSource;
+    buffer = paramBufferedSource.buffer();
+    expectedSegment = buffer.head;
+    paramBufferedSource = expectedSegment;
+    int i;
+    if (paramBufferedSource != null) {
+      i = pos;
+    } else {
+      i = -1;
+    }
+    expectedPos = i;
+  }
+  
+  public void close()
+    throws IOException
+  {
+    closed = true;
+  }
+  
+  public long read(Buffer paramBuffer, long paramLong)
+    throws IOException
+  {
+    if (paramLong >= 0L)
+    {
+      if (!closed)
+      {
+        Segment localSegment = expectedSegment;
+        if ((localSegment != null) && ((localSegment != buffer.head) || (expectedPos != buffer.head.pos))) {
+          throw new IllegalStateException("Peek source is invalid because upstream source was used");
+        }
+        if (paramLong == 0L) {
+          return 0L;
+        }
+        if (!upstream.request(ptr + 1L)) {
+          return -1L;
+        }
+        if ((expectedSegment == null) && (buffer.head != null))
+        {
+          expectedSegment = buffer.head;
+          expectedPos = buffer.head.pos;
+        }
+        paramLong = Math.min(paramLong, buffer.size - ptr);
+        buffer.copyTo(paramBuffer, ptr, paramLong);
+        ptr += paramLong;
+        return paramLong;
+      }
+      throw new IllegalStateException("closed");
+    }
+    paramBuffer = new StringBuilder();
+    paramBuffer.append("byteCount < 0: ");
+    paramBuffer.append(paramLong);
+    throw new IllegalArgumentException(paramBuffer.toString());
+  }
+  
+  public Timeout timeout()
+  {
+    return upstream.timeout();
+  }
+}

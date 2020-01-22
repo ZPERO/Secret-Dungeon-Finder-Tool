@@ -1,0 +1,342 @@
+package com.airbnb.lottie.network;
+
+import android.content.Context;
+import androidx.core.util.Pair;
+import com.airbnb.lottie.LottieComposition;
+import com.airbnb.lottie.LottieCompositionFactory;
+import com.airbnb.lottie.LottieResult;
+import com.airbnb.lottie.utils.Logger;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.util.zip.ZipInputStream;
+
+public class NetworkFetcher
+{
+  private final Context appContext;
+  private final NetworkCache networkCache;
+  private final String url;
+  
+  private NetworkFetcher(Context paramContext, String paramString)
+  {
+    appContext = paramContext.getApplicationContext();
+    url = paramString;
+    networkCache = new NetworkCache(appContext, paramString);
+  }
+  
+  private LottieComposition fetchFromCache()
+  {
+    Object localObject2 = networkCache.fetch();
+    if (localObject2 == null) {
+      return null;
+    }
+    Object localObject1 = (FileExtension)first;
+    localObject2 = (InputStream)second;
+    if (localObject1 == FileExtension.ZIP) {
+      localObject1 = LottieCompositionFactory.fromZipStreamSync(new ZipInputStream((InputStream)localObject2), url);
+    } else {
+      localObject1 = LottieCompositionFactory.fromJsonInputStreamSync((InputStream)localObject2, url);
+    }
+    if (((LottieResult)localObject1).getValue() != null) {
+      return (LottieComposition)((LottieResult)localObject1).getValue();
+    }
+    return null;
+  }
+  
+  private LottieResult<LottieComposition> fetchFromNetwork()
+  {
+    try
+    {
+      LottieResult localLottieResult = fetchFromNetworkInternal();
+      return localLottieResult;
+    }
+    catch (IOException localIOException)
+    {
+      return new LottieResult(localIOException);
+    }
+  }
+  
+  /* Error */
+  private LottieResult fetchFromNetworkInternal()
+    throws IOException
+  {
+    // Byte code:
+    //   0: new 94	java/lang/StringBuilder
+    //   3: dup
+    //   4: invokespecial 95	java/lang/StringBuilder:<init>	()V
+    //   7: astore_2
+    //   8: aload_2
+    //   9: ldc 97
+    //   11: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   14: pop
+    //   15: aload_2
+    //   16: aload_0
+    //   17: getfield 25	com/airbnb/lottie/network/NetworkFetcher:url	Ljava/lang/String;
+    //   20: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   23: pop
+    //   24: aload_2
+    //   25: invokevirtual 105	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   28: invokestatic 111	com/airbnb/lottie/utils/Logger:debug	(Ljava/lang/String;)V
+    //   31: new 113	java/net/URL
+    //   34: dup
+    //   35: aload_0
+    //   36: getfield 25	com/airbnb/lottie/network/NetworkFetcher:url	Ljava/lang/String;
+    //   39: invokespecial 115	java/net/URL:<init>	(Ljava/lang/String;)V
+    //   42: invokevirtual 119	java/net/URL:openConnection	()Ljava/net/URLConnection;
+    //   45: checkcast 121	java/net/HttpURLConnection
+    //   48: astore_2
+    //   49: aload_2
+    //   50: ldc 123
+    //   52: invokevirtual 126	java/net/HttpURLConnection:setRequestMethod	(Ljava/lang/String;)V
+    //   55: aload_2
+    //   56: invokevirtual 129	java/net/HttpURLConnection:connect	()V
+    //   59: aload_2
+    //   60: invokevirtual 133	java/net/HttpURLConnection:getErrorStream	()Ljava/io/InputStream;
+    //   63: ifnonnull +72 -> 135
+    //   66: aload_2
+    //   67: invokevirtual 137	java/net/HttpURLConnection:getResponseCode	()I
+    //   70: sipush 200
+    //   73: if_icmpeq +6 -> 79
+    //   76: goto +59 -> 135
+    //   79: aload_0
+    //   80: aload_2
+    //   81: invokespecial 141	com/airbnb/lottie/network/NetworkFetcher:getResultFromConnection	(Ljava/net/HttpURLConnection;)Lcom/airbnb/lottie/LottieResult;
+    //   84: astore_3
+    //   85: new 94	java/lang/StringBuilder
+    //   88: dup
+    //   89: invokespecial 95	java/lang/StringBuilder:<init>	()V
+    //   92: astore 4
+    //   94: aload 4
+    //   96: ldc -113
+    //   98: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   101: pop
+    //   102: aload_3
+    //   103: invokevirtual 76	com/airbnb/lottie/LottieResult:getValue	()Ljava/lang/Object;
+    //   106: ifnull +147 -> 253
+    //   109: iconst_1
+    //   110: istore_1
+    //   111: goto +3 -> 114
+    //   114: aload 4
+    //   116: iload_1
+    //   117: invokevirtual 146	java/lang/StringBuilder:append	(Z)Ljava/lang/StringBuilder;
+    //   120: pop
+    //   121: aload 4
+    //   123: invokevirtual 105	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   126: invokestatic 111	com/airbnb/lottie/utils/Logger:debug	(Ljava/lang/String;)V
+    //   129: aload_2
+    //   130: invokevirtual 149	java/net/HttpURLConnection:disconnect	()V
+    //   133: aload_3
+    //   134: areturn
+    //   135: aload_0
+    //   136: aload_2
+    //   137: invokespecial 153	com/airbnb/lottie/network/NetworkFetcher:getErrorFromConnection	(Ljava/net/HttpURLConnection;)Ljava/lang/String;
+    //   140: astore_3
+    //   141: new 94	java/lang/StringBuilder
+    //   144: dup
+    //   145: invokespecial 95	java/lang/StringBuilder:<init>	()V
+    //   148: astore 4
+    //   150: aload 4
+    //   152: ldc -101
+    //   154: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   157: pop
+    //   158: aload 4
+    //   160: aload_0
+    //   161: getfield 25	com/airbnb/lottie/network/NetworkFetcher:url	Ljava/lang/String;
+    //   164: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   167: pop
+    //   168: aload 4
+    //   170: ldc -99
+    //   172: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   175: pop
+    //   176: aload 4
+    //   178: aload_2
+    //   179: invokevirtual 137	java/net/HttpURLConnection:getResponseCode	()I
+    //   182: invokevirtual 160	java/lang/StringBuilder:append	(I)Ljava/lang/StringBuilder;
+    //   185: pop
+    //   186: aload 4
+    //   188: ldc -94
+    //   190: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   193: pop
+    //   194: aload 4
+    //   196: aload_3
+    //   197: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   200: pop
+    //   201: new 72	com/airbnb/lottie/LottieResult
+    //   204: dup
+    //   205: new 164	java/lang/IllegalArgumentException
+    //   208: dup
+    //   209: aload 4
+    //   211: invokevirtual 105	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   214: invokespecial 165	java/lang/IllegalArgumentException:<init>	(Ljava/lang/String;)V
+    //   217: invokespecial 88	com/airbnb/lottie/LottieResult:<init>	(Ljava/lang/Throwable;)V
+    //   220: astore_3
+    //   221: aload_2
+    //   222: invokevirtual 149	java/net/HttpURLConnection:disconnect	()V
+    //   225: aload_3
+    //   226: areturn
+    //   227: astore_3
+    //   228: goto +19 -> 247
+    //   231: astore_3
+    //   232: new 72	com/airbnb/lottie/LottieResult
+    //   235: dup
+    //   236: aload_3
+    //   237: invokespecial 88	com/airbnb/lottie/LottieResult:<init>	(Ljava/lang/Throwable;)V
+    //   240: astore_3
+    //   241: aload_2
+    //   242: invokevirtual 149	java/net/HttpURLConnection:disconnect	()V
+    //   245: aload_3
+    //   246: areturn
+    //   247: aload_2
+    //   248: invokevirtual 149	java/net/HttpURLConnection:disconnect	()V
+    //   251: aload_3
+    //   252: athrow
+    //   253: iconst_0
+    //   254: istore_1
+    //   255: goto -141 -> 114
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	258	0	this	NetworkFetcher
+    //   110	145	1	bool	boolean
+    //   7	241	2	localObject1	Object
+    //   84	142	3	localObject2	Object
+    //   227	1	3	localObject3	Object
+    //   231	6	3	localException	Exception
+    //   240	12	3	localLottieResult	LottieResult
+    //   92	118	4	localStringBuilder	StringBuilder
+    // Exception table:
+    //   from	to	target	type
+    //   55	76	227	finally
+    //   79	109	227	finally
+    //   114	129	227	finally
+    //   135	221	227	finally
+    //   232	241	227	finally
+    //   55	76	231	java/lang/Exception
+    //   79	109	231	java/lang/Exception
+    //   114	129	231	java/lang/Exception
+    //   135	221	231	java/lang/Exception
+  }
+  
+  public static LottieResult<LottieComposition> fetchSync(Context paramContext, String paramString)
+  {
+    return new NetworkFetcher(paramContext, paramString).fetchSync();
+  }
+  
+  /* Error */
+  private String getErrorFromConnection(HttpURLConnection paramHttpURLConnection)
+    throws IOException
+  {
+    // Byte code:
+    //   0: aload_1
+    //   1: invokevirtual 137	java/net/HttpURLConnection:getResponseCode	()I
+    //   4: pop
+    //   5: new 174	java/io/BufferedReader
+    //   8: dup
+    //   9: new 176	java/io/InputStreamReader
+    //   12: dup
+    //   13: aload_1
+    //   14: invokevirtual 133	java/net/HttpURLConnection:getErrorStream	()Ljava/io/InputStream;
+    //   17: invokespecial 177	java/io/InputStreamReader:<init>	(Ljava/io/InputStream;)V
+    //   20: invokespecial 180	java/io/BufferedReader:<init>	(Ljava/io/Reader;)V
+    //   23: astore_1
+    //   24: new 94	java/lang/StringBuilder
+    //   27: dup
+    //   28: invokespecial 95	java/lang/StringBuilder:<init>	()V
+    //   31: astore_2
+    //   32: aload_1
+    //   33: invokevirtual 183	java/io/BufferedReader:readLine	()Ljava/lang/String;
+    //   36: astore_3
+    //   37: aload_3
+    //   38: ifnull +19 -> 57
+    //   41: aload_2
+    //   42: aload_3
+    //   43: invokevirtual 101	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   46: pop
+    //   47: aload_2
+    //   48: bipush 10
+    //   50: invokevirtual 186	java/lang/StringBuilder:append	(C)Ljava/lang/StringBuilder;
+    //   53: pop
+    //   54: goto -22 -> 32
+    //   57: aload_1
+    //   58: invokevirtual 189	java/io/BufferedReader:close	()V
+    //   61: aload_2
+    //   62: invokevirtual 105	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   65: areturn
+    //   66: astore_2
+    //   67: goto +6 -> 73
+    //   70: astore_2
+    //   71: aload_2
+    //   72: athrow
+    //   73: aload_1
+    //   74: invokevirtual 189	java/io/BufferedReader:close	()V
+    //   77: goto +5 -> 82
+    //   80: aload_2
+    //   81: athrow
+    //   82: goto -2 -> 80
+    //   85: astore_1
+    //   86: goto -25 -> 61
+    //   89: astore_1
+    //   90: goto -13 -> 77
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	93	0	this	NetworkFetcher
+    //   0	93	1	paramHttpURLConnection	HttpURLConnection
+    //   31	31	2	localStringBuilder	StringBuilder
+    //   66	1	2	localObject	Object
+    //   70	11	2	localException	Exception
+    //   36	7	3	str	String
+    // Exception table:
+    //   from	to	target	type
+    //   32	37	66	finally
+    //   41	54	66	finally
+    //   71	73	66	finally
+    //   32	37	70	java/lang/Exception
+    //   41	54	70	java/lang/Exception
+    //   57	61	85	java/lang/Exception
+    //   73	77	89	java/lang/Exception
+  }
+  
+  private LottieResult<LottieComposition> getResultFromConnection(HttpURLConnection paramHttpURLConnection)
+    throws IOException
+  {
+    Object localObject2 = paramHttpURLConnection.getContentType();
+    Object localObject1 = localObject2;
+    if (localObject2 == null) {
+      localObject1 = "application/json";
+    }
+    if (((String)localObject1).contains("application/zip"))
+    {
+      Logger.debug("Handling zip response.");
+      localObject1 = FileExtension.ZIP;
+      localObject2 = LottieCompositionFactory.fromZipStreamSync(new ZipInputStream(new FileInputStream(networkCache.writeTempCacheFile(paramHttpURLConnection.getInputStream(), (FileExtension)localObject1))), url);
+      paramHttpURLConnection = (HttpURLConnection)localObject1;
+      localObject1 = localObject2;
+    }
+    else
+    {
+      Logger.debug("Received json response.");
+      localObject2 = FileExtension.JSON;
+      localObject1 = LottieCompositionFactory.fromJsonInputStreamSync(new FileInputStream(new File(networkCache.writeTempCacheFile(paramHttpURLConnection.getInputStream(), (FileExtension)localObject2).getAbsolutePath())), url);
+      paramHttpURLConnection = (HttpURLConnection)localObject2;
+    }
+    if (((LottieResult)localObject1).getValue() != null) {
+      networkCache.renameTempFile(paramHttpURLConnection);
+    }
+    return localObject1;
+  }
+  
+  public LottieResult<LottieComposition> fetchSync()
+  {
+    Object localObject = fetchFromCache();
+    if (localObject != null) {
+      return new LottieResult(localObject);
+    }
+    localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("Animation for ");
+    ((StringBuilder)localObject).append(url);
+    ((StringBuilder)localObject).append(" not found in cache. Fetching from network.");
+    Logger.debug(((StringBuilder)localObject).toString());
+    return fetchFromNetwork();
+  }
+}

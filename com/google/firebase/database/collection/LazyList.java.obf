@@ -1,0 +1,284 @@
+package com.google.firebase.database.collection;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public final class zza<K, V>
+  extends ImmutableSortedMap<K, V>
+{
+  private final K[] zza;
+  private final V[] zzb;
+  private final Comparator<K> zzc;
+  
+  public zza(Comparator<K> paramComparator)
+  {
+    zza = new Object[0];
+    zzb = new Object[0];
+    zzc = paramComparator;
+  }
+  
+  private zza(Comparator<K> paramComparator, K[] paramArrayOfK, V[] paramArrayOfV)
+  {
+    zza = paramArrayOfK;
+    zzb = paramArrayOfV;
+    zzc = paramComparator;
+  }
+  
+  private final int zza(K paramK)
+  {
+    int i = 0;
+    for (;;)
+    {
+      Object[] arrayOfObject = zza;
+      if ((i >= arrayOfObject.length) || (zzc.compare(arrayOfObject[i], paramK) >= 0)) {
+        break;
+      }
+      i += 1;
+    }
+    return i;
+  }
+  
+  public static <A, B, C> zza<A, C> zza(List<A> paramList, Map<B, C> paramMap, ImmutableSortedMap.Builder.KeyTranslator<A, B> paramKeyTranslator, Comparator<A> paramComparator)
+  {
+    Collections.sort(paramList, paramComparator);
+    int i = paramList.size();
+    Object[] arrayOfObject1 = new Object[i];
+    Object[] arrayOfObject2 = new Object[i];
+    paramList = paramList.iterator();
+    i = 0;
+    while (paramList.hasNext())
+    {
+      Object localObject = paramList.next();
+      arrayOfObject1[i] = localObject;
+      arrayOfObject2[i] = paramMap.get(paramKeyTranslator.translate(localObject));
+      i += 1;
+    }
+    return new zza(paramComparator, arrayOfObject1, arrayOfObject2);
+  }
+  
+  public static <K, V> zza<K, V> zza(Map<K, V> paramMap, Comparator<K> paramComparator)
+  {
+    return zza(new ArrayList(paramMap.keySet()), paramMap, ImmutableSortedMap.Builder.identityTranslator(), paramComparator);
+  }
+  
+  private final Iterator<Map.Entry<K, V>> zza(int paramInt, boolean paramBoolean)
+  {
+    return new zzb(this, paramInt, paramBoolean);
+  }
+  
+  private static <T> T[] zza(T[] paramArrayOfT, int paramInt)
+  {
+    int i = paramArrayOfT.length - 1;
+    Object[] arrayOfObject = new Object[i];
+    System.arraycopy(paramArrayOfT, 0, arrayOfObject, 0, paramInt);
+    System.arraycopy(paramArrayOfT, paramInt + 1, arrayOfObject, paramInt, i - paramInt);
+    return arrayOfObject;
+  }
+  
+  private static <T> T[] zza(T[] paramArrayOfT, int paramInt, T paramT)
+  {
+    int i = paramArrayOfT.length + 1;
+    Object[] arrayOfObject = new Object[i];
+    System.arraycopy(paramArrayOfT, 0, arrayOfObject, 0, paramInt);
+    arrayOfObject[paramInt] = paramT;
+    System.arraycopy(paramArrayOfT, paramInt, arrayOfObject, paramInt + 1, i - paramInt - 1);
+    return arrayOfObject;
+  }
+  
+  private final int zzb(K paramK)
+  {
+    Object[] arrayOfObject = zza;
+    int k = arrayOfObject.length;
+    int i = 0;
+    int j = 0;
+    while (i < k)
+    {
+      Object localObject = arrayOfObject[i];
+      if (zzc.compare(paramK, localObject) == 0) {
+        return j;
+      }
+      j += 1;
+      i += 1;
+    }
+    return -1;
+  }
+  
+  private static <T> T[] zzb(T[] paramArrayOfT, int paramInt, T paramT)
+  {
+    int i = paramArrayOfT.length;
+    Object[] arrayOfObject = new Object[i];
+    System.arraycopy(paramArrayOfT, 0, arrayOfObject, 0, i);
+    arrayOfObject[paramInt] = paramT;
+    return arrayOfObject;
+  }
+  
+  public final boolean containsKey(K paramK)
+  {
+    return zzb(paramK) != -1;
+  }
+  
+  public final V get(K paramK)
+  {
+    int i = zzb(paramK);
+    if (i != -1) {
+      return zzb[i];
+    }
+    return null;
+  }
+  
+  public final Comparator<K> getComparator()
+  {
+    return zzc;
+  }
+  
+  public final K getMaxKey()
+  {
+    Object[] arrayOfObject = zza;
+    if (arrayOfObject.length > 0) {
+      return arrayOfObject[(arrayOfObject.length - 1)];
+    }
+    return null;
+  }
+  
+  public final K getMinKey()
+  {
+    Object[] arrayOfObject = zza;
+    if (arrayOfObject.length > 0) {
+      return arrayOfObject[0];
+    }
+    return null;
+  }
+  
+  public final K getPredecessorKey(K paramK)
+  {
+    int i = zzb(paramK);
+    if (i != -1)
+    {
+      if (i > 0) {
+        return zza[(i - 1)];
+      }
+      return null;
+    }
+    throw new IllegalArgumentException("Can't find predecessor of nonexistent key");
+  }
+  
+  public final K getSuccessorKey(K paramK)
+  {
+    int i = zzb(paramK);
+    if (i != -1)
+    {
+      paramK = zza;
+      if (i < paramK.length - 1) {
+        return paramK[(i + 1)];
+      }
+      return null;
+    }
+    throw new IllegalArgumentException("Can't find successor of nonexistent key");
+  }
+  
+  public final void inOrderTraversal(LLRBNode.NodeVisitor<K, V> paramNodeVisitor)
+  {
+    int i = 0;
+    for (;;)
+    {
+      Object[] arrayOfObject = zza;
+      if (i >= arrayOfObject.length) {
+        break;
+      }
+      paramNodeVisitor.visitEntry(arrayOfObject[i], zzb[i]);
+      i += 1;
+    }
+  }
+  
+  public final int indexOf(K paramK)
+  {
+    return zzb(paramK);
+  }
+  
+  public final ImmutableSortedMap<K, V> insert(K paramK, V paramV)
+  {
+    int i = zzb(paramK);
+    if (i != -1)
+    {
+      if ((zza[i] == paramK) && (zzb[i] == paramV)) {
+        return this;
+      }
+      paramK = zzb(zza, i, paramK);
+      paramV = zzb(zzb, i, paramV);
+      return new zza(zzc, paramK, paramV);
+    }
+    Object localObject = zza;
+    if (localObject.length > 25)
+    {
+      localObject = new HashMap(localObject.length + 1);
+      i = 0;
+      for (;;)
+      {
+        Object[] arrayOfObject = zza;
+        if (i >= arrayOfObject.length) {
+          break;
+        }
+        ((Map)localObject).put(arrayOfObject[i], zzb[i]);
+        i += 1;
+      }
+      ((Map)localObject).put(paramK, paramV);
+      return zzc.zzb((Map)localObject, zzc);
+    }
+    i = zza(paramK);
+    paramK = zza(zza, i, paramK);
+    paramV = zza(zzb, i, paramV);
+    return new zza(zzc, paramK, paramV);
+  }
+  
+  public final boolean isEmpty()
+  {
+    return zza.length == 0;
+  }
+  
+  public final Iterator<Map.Entry<K, V>> iterator()
+  {
+    return zza(0, false);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> iteratorFrom(K paramK)
+  {
+    return zza(zza(paramK), false);
+  }
+  
+  public final ImmutableSortedMap<K, V> remove(K paramK)
+  {
+    int i = zzb(paramK);
+    if (i == -1) {
+      return this;
+    }
+    paramK = zza(zza, i);
+    Object[] arrayOfObject = zza(zzb, i);
+    return new zza(zzc, paramK, arrayOfObject);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> reverseIterator()
+  {
+    return zza(zza.length - 1, true);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> reverseIteratorFrom(K paramK)
+  {
+    int i = zza(paramK);
+    Object[] arrayOfObject = zza;
+    if ((i < arrayOfObject.length) && (zzc.compare(arrayOfObject[i], paramK) == 0)) {
+      return zza(i, true);
+    }
+    return zza(i - 1, true);
+  }
+  
+  public final int size()
+  {
+    return zza.length;
+  }
+}

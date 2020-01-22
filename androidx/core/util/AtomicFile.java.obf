@@ -1,0 +1,182 @@
+package androidx.core.util;
+
+import android.util.Log;
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+public class AtomicFile
+{
+  private final File mBackupName;
+  private final File mBaseName;
+  
+  public AtomicFile(File paramFile)
+  {
+    mBaseName = paramFile;
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramFile.getPath());
+    localStringBuilder.append(".bak");
+    mBackupName = new File(localStringBuilder.toString());
+  }
+  
+  private static boolean sync(FileOutputStream paramFileOutputStream)
+  {
+    try
+    {
+      paramFileOutputStream.getFD().sync();
+      return true;
+    }
+    catch (IOException paramFileOutputStream)
+    {
+      for (;;) {}
+    }
+    return false;
+  }
+  
+  public void delete()
+  {
+    mBaseName.delete();
+    mBackupName.delete();
+  }
+  
+  public void failWrite(FileOutputStream paramFileOutputStream)
+  {
+    if (paramFileOutputStream != null)
+    {
+      sync(paramFileOutputStream);
+      try
+      {
+        paramFileOutputStream.close();
+        mBaseName.delete();
+        mBackupName.renameTo(mBaseName);
+        return;
+      }
+      catch (IOException paramFileOutputStream)
+      {
+        Log.w("AtomicFile", "failWrite: Got exception:", paramFileOutputStream);
+      }
+    }
+  }
+  
+  public void finishWrite(FileOutputStream paramFileOutputStream)
+  {
+    if (paramFileOutputStream != null)
+    {
+      sync(paramFileOutputStream);
+      try
+      {
+        paramFileOutputStream.close();
+        mBackupName.delete();
+        return;
+      }
+      catch (IOException paramFileOutputStream)
+      {
+        Log.w("AtomicFile", "finishWrite: Got exception:", paramFileOutputStream);
+      }
+    }
+  }
+  
+  public File getBaseFile()
+  {
+    return mBaseName;
+  }
+  
+  public FileInputStream openRead()
+    throws FileNotFoundException
+  {
+    if (mBackupName.exists())
+    {
+      mBaseName.delete();
+      mBackupName.renameTo(mBaseName);
+    }
+    return new FileInputStream(mBaseName);
+  }
+  
+  public byte[] readFully()
+    throws IOException
+  {
+    FileInputStream localFileInputStream = openRead();
+    try
+    {
+      Object localObject1 = new byte[localFileInputStream.available()];
+      int i = 0;
+      for (;;)
+      {
+        int j = localFileInputStream.read((byte[])localObject1, i, localObject1.length - i);
+        if (j <= 0)
+        {
+          localFileInputStream.close();
+          return localObject1;
+        }
+        j = i + j;
+        int k = localFileInputStream.available();
+        i = j;
+        if (k > localObject1.length - j)
+        {
+          byte[] arrayOfByte = new byte[k + j];
+          System.arraycopy(localObject1, 0, arrayOfByte, 0, j);
+          localObject1 = arrayOfByte;
+          i = j;
+        }
+      }
+      throw localObject2;
+    }
+    finally
+    {
+      localFileInputStream.close();
+    }
+    for (;;) {}
+  }
+  
+  public FileOutputStream startWrite()
+    throws IOException
+  {
+    if (mBaseName.exists()) {
+      if (!mBackupName.exists())
+      {
+        if (!mBaseName.renameTo(mBackupName))
+        {
+          localObject = new StringBuilder();
+          ((StringBuilder)localObject).append("Couldn't rename file ");
+          ((StringBuilder)localObject).append(mBaseName);
+          ((StringBuilder)localObject).append(" to backup file ");
+          ((StringBuilder)localObject).append(mBackupName);
+          Log.w("AtomicFile", ((StringBuilder)localObject).toString());
+        }
+      }
+      else {
+        mBaseName.delete();
+      }
+    }
+    try
+    {
+      localObject = new FileOutputStream(mBaseName);
+      return localObject;
+    }
+    catch (FileNotFoundException localFileNotFoundException1)
+    {
+      for (;;) {}
+    }
+    if (mBaseName.getParentFile().mkdirs()) {}
+    try
+    {
+      localObject = new FileOutputStream(mBaseName);
+      return localObject;
+    }
+    catch (FileNotFoundException localFileNotFoundException2)
+    {
+      for (;;) {}
+    }
+    Object localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("Couldn't create ");
+    ((StringBuilder)localObject).append(mBaseName);
+    throw new IOException(((StringBuilder)localObject).toString());
+    localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("Couldn't create directory ");
+    ((StringBuilder)localObject).append(mBaseName);
+    throw new IOException(((StringBuilder)localObject).toString());
+  }
+}

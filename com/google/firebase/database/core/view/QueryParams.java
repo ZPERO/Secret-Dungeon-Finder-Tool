@@ -1,0 +1,465 @@
+package com.google.firebase.database.core.view;
+
+import com.google.firebase.database.core.utilities.Utilities;
+import com.google.firebase.database.core.view.filter.IndexedFilter;
+import com.google.firebase.database.core.view.filter.LimitedFilter;
+import com.google.firebase.database.core.view.filter.NodeFilter;
+import com.google.firebase.database.core.view.filter.RangedFilter;
+import com.google.firebase.database.snapshot.BooleanNode;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.DoubleNode;
+import com.google.firebase.database.snapshot.EmptyNode;
+import com.google.firebase.database.snapshot.Index;
+import com.google.firebase.database.snapshot.LongNode;
+import com.google.firebase.database.snapshot.Node;
+import com.google.firebase.database.snapshot.NodeUtilities;
+import com.google.firebase.database.snapshot.PriorityIndex;
+import com.google.firebase.database.snapshot.PriorityUtilities;
+import com.google.firebase.database.snapshot.StringNode;
+import com.google.firebase.database.util.JsonMapper;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class QueryParams
+{
+  public static final QueryParams DEFAULT_PARAMS = new QueryParams();
+  private static final String INDEX = "i";
+  private static final String INDEX_END_NAME = "en";
+  private static final String INDEX_END_VALUE = "ep";
+  private static final String INDEX_START_NAME = "sn";
+  private static final String INDEX_START_VALUE = "sp";
+  private static final String LIMIT = "l";
+  private static final String VIEW_FROM = "vf";
+  private Index index = PriorityIndex.getInstance();
+  private ChildKey indexEndName = null;
+  private Node indexEndValue = null;
+  private ChildKey indexStartName = null;
+  private Node indexStartValue = null;
+  private String jsonSerialization = null;
+  private Integer limit;
+  private ViewFrom viewFrom;
+  
+  public QueryParams() {}
+  
+  private QueryParams copy()
+  {
+    QueryParams localQueryParams = new QueryParams();
+    limit = limit;
+    indexStartValue = indexStartValue;
+    indexStartName = indexStartName;
+    indexEndValue = indexEndValue;
+    indexEndName = indexEndName;
+    viewFrom = viewFrom;
+    index = index;
+    return localQueryParams;
+  }
+  
+  public static QueryParams fromQueryObject(Map paramMap)
+  {
+    QueryParams localQueryParams = new QueryParams();
+    limit = ((Integer)paramMap.get("l"));
+    if (paramMap.containsKey("sp"))
+    {
+      indexStartValue = normalizeValue(NodeUtilities.NodeFromJSON(paramMap.get("sp")));
+      localObject = (String)paramMap.get("sn");
+      if (localObject != null) {
+        indexStartName = ChildKey.fromString((String)localObject);
+      }
+    }
+    if (paramMap.containsKey("ep"))
+    {
+      indexEndValue = normalizeValue(NodeUtilities.NodeFromJSON(paramMap.get("ep")));
+      localObject = (String)paramMap.get("en");
+      if (localObject != null) {
+        indexEndName = ChildKey.fromString((String)localObject);
+      }
+    }
+    Object localObject = (String)paramMap.get("vf");
+    if (localObject != null)
+    {
+      if (((String)localObject).equals("l")) {
+        localObject = ViewFrom.LEFT;
+      } else {
+        localObject = ViewFrom.RIGHT;
+      }
+      viewFrom = ((ViewFrom)localObject);
+    }
+    paramMap = (String)paramMap.get("i");
+    if (paramMap != null) {
+      index = Index.fromQueryDefinition(paramMap);
+    }
+    return localQueryParams;
+  }
+  
+  private static Node normalizeValue(Node paramNode)
+  {
+    if ((!(paramNode instanceof StringNode)) && (!(paramNode instanceof BooleanNode)) && (!(paramNode instanceof DoubleNode)))
+    {
+      if ((paramNode instanceof EmptyNode)) {
+        return paramNode;
+      }
+      if ((paramNode instanceof LongNode)) {
+        return new DoubleNode(Double.valueOf(((Long)paramNode.getValue()).doubleValue()), PriorityUtilities.NullPriority());
+      }
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unexpected value passed to normalizeValue: ");
+      localStringBuilder.append(paramNode.getValue());
+      throw new IllegalStateException(localStringBuilder.toString());
+    }
+    return paramNode;
+  }
+  
+  public QueryParams endAt(Node paramNode, ChildKey paramChildKey)
+  {
+    Utilities.hardAssert(paramNode instanceof LongNode ^ true);
+    QueryParams localQueryParams = copy();
+    indexEndValue = paramNode;
+    indexEndName = paramChildKey;
+    return localQueryParams;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject != null)
+    {
+      if (getClass() != paramObject.getClass()) {
+        return false;
+      }
+      paramObject = (QueryParams)paramObject;
+      Object localObject = limit;
+      if (localObject != null)
+      {
+        if (!((Integer)localObject).equals(limit)) {
+          return false;
+        }
+      }
+      else if (limit != null) {
+        return false;
+      }
+      localObject = index;
+      if (localObject != null)
+      {
+        if (!localObject.equals(index)) {
+          return false;
+        }
+      }
+      else if (index != null) {
+        return false;
+      }
+      localObject = indexEndName;
+      if (localObject != null)
+      {
+        if (!((ChildKey)localObject).equals(indexEndName)) {
+          return false;
+        }
+      }
+      else if (indexEndName != null) {
+        return false;
+      }
+      localObject = indexEndValue;
+      if (localObject != null)
+      {
+        if (!localObject.equals(indexEndValue)) {
+          return false;
+        }
+      }
+      else if (indexEndValue != null) {
+        return false;
+      }
+      localObject = indexStartName;
+      if (localObject != null)
+      {
+        if (!((ChildKey)localObject).equals(indexStartName)) {
+          return false;
+        }
+      }
+      else if (indexStartName != null) {
+        return false;
+      }
+      localObject = indexStartValue;
+      if (localObject != null)
+      {
+        if (!localObject.equals(indexStartValue)) {
+          return false;
+        }
+      }
+      else if (indexStartValue != null) {
+        return false;
+      }
+      return isViewFromLeft() == paramObject.isViewFromLeft();
+    }
+    return false;
+  }
+  
+  public Index getIndex()
+  {
+    return index;
+  }
+  
+  public ChildKey getIndexEndName()
+  {
+    if (hasEnd())
+    {
+      ChildKey localChildKey = indexEndName;
+      if (localChildKey != null) {
+        return localChildKey;
+      }
+      return ChildKey.getMaxName();
+    }
+    throw new IllegalArgumentException("Cannot get index end name if start has not been set");
+  }
+  
+  public Node getIndexEndValue()
+  {
+    if (hasEnd()) {
+      return indexEndValue;
+    }
+    throw new IllegalArgumentException("Cannot get index end value if start has not been set");
+  }
+  
+  public ChildKey getIndexStartName()
+  {
+    if (hasStart())
+    {
+      ChildKey localChildKey = indexStartName;
+      if (localChildKey != null) {
+        return localChildKey;
+      }
+      return ChildKey.getMinName();
+    }
+    throw new IllegalArgumentException("Cannot get index start name if start has not been set");
+  }
+  
+  public Node getIndexStartValue()
+  {
+    if (hasStart()) {
+      return indexStartValue;
+    }
+    throw new IllegalArgumentException("Cannot get index start value if start has not been set");
+  }
+  
+  public int getLimit()
+  {
+    if (hasLimit()) {
+      return limit.intValue();
+    }
+    throw new IllegalArgumentException("Cannot get limit if limit has not been set");
+  }
+  
+  public NodeFilter getNodeFilter()
+  {
+    if (loadsAllData()) {
+      return new IndexedFilter(getIndex());
+    }
+    if (hasLimit()) {
+      return new LimitedFilter(this);
+    }
+    return new RangedFilter(this);
+  }
+  
+  public Map getWireProtocolParams()
+  {
+    HashMap localHashMap = new HashMap();
+    if (hasStart())
+    {
+      localHashMap.put("sp", indexStartValue.getValue());
+      localObject = indexStartName;
+      if (localObject != null) {
+        localHashMap.put("sn", ((ChildKey)localObject).asString());
+      }
+    }
+    if (hasEnd())
+    {
+      localHashMap.put("ep", indexEndValue.getValue());
+      localObject = indexEndName;
+      if (localObject != null) {
+        localHashMap.put("en", ((ChildKey)localObject).asString());
+      }
+    }
+    Object localObject = limit;
+    if (localObject != null)
+    {
+      localHashMap.put("l", localObject);
+      ViewFrom localViewFrom = viewFrom;
+      localObject = localViewFrom;
+      if (localViewFrom == null) {
+        if (hasStart()) {
+          localObject = ViewFrom.LEFT;
+        } else {
+          localObject = ViewFrom.RIGHT;
+        }
+      }
+      int i = 1.$SwitchMap$com$google$firebase$database$core$view$QueryParams$ViewFrom[localObject.ordinal()];
+      if (i != 1)
+      {
+        if (i == 2) {
+          localHashMap.put("vf", "r");
+        }
+      }
+      else {
+        localHashMap.put("vf", "l");
+      }
+    }
+    if (!index.equals(PriorityIndex.getInstance())) {
+      localHashMap.put("i", index.getQueryDefinition());
+    }
+    return localHashMap;
+  }
+  
+  public boolean hasAnchoredLimit()
+  {
+    return (hasLimit()) && (viewFrom != null);
+  }
+  
+  public boolean hasEnd()
+  {
+    return indexEndValue != null;
+  }
+  
+  public boolean hasLimit()
+  {
+    return limit != null;
+  }
+  
+  public boolean hasStart()
+  {
+    return indexStartValue != null;
+  }
+  
+  public int hashCode()
+  {
+    Object localObject = limit;
+    int i2 = 0;
+    int i;
+    if (localObject != null) {
+      i = ((Integer)localObject).intValue();
+    } else {
+      i = 0;
+    }
+    int j;
+    if (isViewFromLeft()) {
+      j = 1231;
+    } else {
+      j = 1237;
+    }
+    localObject = indexStartValue;
+    int k;
+    if (localObject != null) {
+      k = localObject.hashCode();
+    } else {
+      k = 0;
+    }
+    localObject = indexStartName;
+    int m;
+    if (localObject != null) {
+      m = ((ChildKey)localObject).hashCode();
+    } else {
+      m = 0;
+    }
+    localObject = indexEndValue;
+    int n;
+    if (localObject != null) {
+      n = localObject.hashCode();
+    } else {
+      n = 0;
+    }
+    localObject = indexEndName;
+    int i1;
+    if (localObject != null) {
+      i1 = ((ChildKey)localObject).hashCode();
+    } else {
+      i1 = 0;
+    }
+    localObject = index;
+    if (localObject != null) {
+      i2 = localObject.hashCode();
+    }
+    return (((((i * 31 + j) * 31 + k) * 31 + m) * 31 + n) * 31 + i1) * 31 + i2;
+  }
+  
+  public boolean isDefault()
+  {
+    return (loadsAllData()) && (index.equals(PriorityIndex.getInstance()));
+  }
+  
+  public boolean isValid()
+  {
+    return (!hasStart()) || (!hasEnd()) || (!hasLimit()) || (hasAnchoredLimit());
+  }
+  
+  public boolean isViewFromLeft()
+  {
+    ViewFrom localViewFrom = viewFrom;
+    if (localViewFrom != null) {
+      return localViewFrom == ViewFrom.LEFT;
+    }
+    return hasStart();
+  }
+  
+  public QueryParams limitToFirst(int paramInt)
+  {
+    QueryParams localQueryParams = copy();
+    limit = Integer.valueOf(paramInt);
+    viewFrom = ViewFrom.LEFT;
+    return localQueryParams;
+  }
+  
+  public QueryParams limitToLast(int paramInt)
+  {
+    QueryParams localQueryParams = copy();
+    limit = Integer.valueOf(paramInt);
+    viewFrom = ViewFrom.RIGHT;
+    return localQueryParams;
+  }
+  
+  public boolean loadsAllData()
+  {
+    return (!hasStart()) && (!hasEnd()) && (!hasLimit());
+  }
+  
+  public QueryParams orderBy(Index paramIndex)
+  {
+    QueryParams localQueryParams = copy();
+    index = paramIndex;
+    return localQueryParams;
+  }
+  
+  public QueryParams startAt(Node paramNode, ChildKey paramChildKey)
+  {
+    Utilities.hardAssert(paramNode instanceof LongNode ^ true);
+    QueryParams localQueryParams = copy();
+    indexStartValue = paramNode;
+    indexStartName = paramChildKey;
+    return localQueryParams;
+  }
+  
+  public String toJSON()
+  {
+    if (jsonSerialization == null) {
+      try
+      {
+        String str = JsonMapper.serializeJson(getWireProtocolParams());
+        jsonSerialization = str;
+      }
+      catch (IOException localIOException)
+      {
+        throw new RuntimeException(localIOException);
+      }
+    }
+    return jsonSerialization;
+  }
+  
+  public String toString()
+  {
+    return getWireProtocolParams().toString();
+  }
+  
+  private static enum ViewFrom
+  {
+    LEFT,  RIGHT;
+  }
+}

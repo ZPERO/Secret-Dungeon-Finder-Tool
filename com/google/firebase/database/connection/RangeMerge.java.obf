@@ -1,0 +1,32 @@
+package com.google.firebase.database.connection;
+
+import java.util.List;
+
+public class RangeMerge
+{
+  private final List<String> optExclusiveStart;
+  private final List<String> optInclusiveEnd;
+  private final Object snap;
+  
+  public RangeMerge(List<String> paramList1, List<String> paramList2, Object paramObject)
+  {
+    optExclusiveStart = paramList1;
+    optInclusiveEnd = paramList2;
+    snap = paramObject;
+  }
+  
+  public List<String> getOptExclusiveStart()
+  {
+    return optExclusiveStart;
+  }
+  
+  public List<String> getOptInclusiveEnd()
+  {
+    return optInclusiveEnd;
+  }
+  
+  public Object getSnap()
+  {
+    return snap;
+  }
+}

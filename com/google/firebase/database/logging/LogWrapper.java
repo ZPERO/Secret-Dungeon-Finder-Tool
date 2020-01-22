@@ -1,0 +1,114 @@
+package com.google.firebase.database.logging;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
+public class LogWrapper
+{
+  private final String component;
+  private final Logger logger;
+  private final String prefix;
+  
+  public LogWrapper(Logger paramLogger, String paramString)
+  {
+    this(paramLogger, paramString, null);
+  }
+  
+  public LogWrapper(Logger paramLogger, String paramString1, String paramString2)
+  {
+    logger = paramLogger;
+    component = paramString1;
+    prefix = paramString2;
+  }
+  
+  private static String exceptionStacktrace(Throwable paramThrowable)
+  {
+    StringWriter localStringWriter = new StringWriter();
+    paramThrowable.printStackTrace(new PrintWriter(localStringWriter));
+    return localStringWriter.toString();
+  }
+  
+  private long log()
+  {
+    return System.currentTimeMillis();
+  }
+  
+  private String toLog(String paramString, Object... paramVarArgs)
+  {
+    String str = paramString;
+    if (paramVarArgs.length > 0) {
+      str = String.format(paramString, paramVarArgs);
+    }
+    if (prefix == null) {
+      return str;
+    }
+    paramString = new StringBuilder();
+    paramString.append(prefix);
+    paramString.append(" - ");
+    paramString.append(str);
+    return paramString.toString();
+  }
+  
+  public void debug(String paramString, Throwable paramThrowable, Object... paramVarArgs)
+  {
+    if (logsDebug())
+    {
+      paramVarArgs = toLog(paramString, paramVarArgs);
+      paramString = paramVarArgs;
+      if (paramThrowable != null)
+      {
+        paramString = new StringBuilder();
+        paramString.append(paramVarArgs);
+        paramString.append("\n");
+        paramString.append(exceptionStacktrace(paramThrowable));
+        paramString = paramString.toString();
+      }
+      logger.onLogMessage(Logger.Level.DEBUG, component, paramString, log());
+    }
+  }
+  
+  public void debug(String paramString, Object... paramVarArgs)
+  {
+    debug(paramString, null, paramVarArgs);
+  }
+  
+  public void error(String paramString, Throwable paramThrowable)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(toLog(paramString, new Object[0]));
+    localStringBuilder.append("\n");
+    localStringBuilder.append(exceptionStacktrace(paramThrowable));
+    paramString = localStringBuilder.toString();
+    logger.onLogMessage(Logger.Level.ERROR, component, paramString, log());
+  }
+  
+  public void info(String paramString)
+  {
+    logger.onLogMessage(Logger.Level.INFO, component, toLog(paramString, new Object[0]), log());
+  }
+  
+  public boolean logsDebug()
+  {
+    return logger.getLogLevel().ordinal() <= Logger.Level.DEBUG.ordinal();
+  }
+  
+  public void warn(String paramString)
+  {
+    warn(paramString, null);
+  }
+  
+  public void warn(String paramString, Throwable paramThrowable)
+  {
+    String str = toLog(paramString, new Object[0]);
+    paramString = str;
+    if (paramThrowable != null)
+    {
+      paramString = new StringBuilder();
+      paramString.append(str);
+      paramString.append("\n");
+      paramString.append(exceptionStacktrace(paramThrowable));
+      paramString = paramString.toString();
+    }
+    logger.onLogMessage(Logger.Level.WARN, component, paramString, log());
+  }
+}

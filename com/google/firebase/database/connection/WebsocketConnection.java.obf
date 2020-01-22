@@ -1,0 +1,471 @@
+package com.google.firebase.database.connection;
+
+import com.google.firebase.database.connection.util.StringListReader;
+import com.google.firebase.database.logging.LogWrapper;
+import com.google.firebase.database.tubesock.WebSocket;
+import com.google.firebase.database.tubesock.WebSocketEventHandler;
+import com.google.firebase.database.tubesock.WebSocketException;
+import com.google.firebase.database.tubesock.WebSocketMessage;
+import com.google.firebase.database.util.JsonMapper;
+import java.io.EOFException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
+class WebsocketConnection
+{
+  private static final long CONNECT_TIMEOUT_MS = 30000L;
+  private static final long KEEP_ALIVE_TIMEOUT_MS = 45000L;
+  private static final int MAX_FRAME_SIZE = 16384;
+  private static long connectionId;
+  private WSClient conn;
+  private ScheduledFuture<?> connectTimeout;
+  private final ConnectionContext connectionContext;
+  private Delegate delegate;
+  private boolean everConnected = false;
+  private final ScheduledExecutorService executorService;
+  private StringListReader frameReader;
+  private boolean isClosed = false;
+  private ScheduledFuture<?> keepAlive;
+  private final LogWrapper logger;
+  private long totalFrames = 0L;
+  
+  public WebsocketConnection(ConnectionContext paramConnectionContext, HostInfo paramHostInfo, String paramString1, Delegate paramDelegate, String paramString2)
+  {
+    connectionContext = paramConnectionContext;
+    executorService = paramConnectionContext.getExecutorService();
+    delegate = paramDelegate;
+    long l = connectionId;
+    connectionId = 1L + l;
+    paramConnectionContext = paramConnectionContext.getLogger();
+    paramDelegate = new StringBuilder();
+    paramDelegate.append("ws_");
+    paramDelegate.append(l);
+    logger = new LogWrapper(paramConnectionContext, "WebSocket", paramDelegate.toString());
+    conn = createConnection(paramHostInfo, paramString1, paramString2);
+  }
+  
+  private void appendFrame(String paramString)
+  {
+    frameReader.addString(paramString);
+    totalFrames -= 1L;
+    if (totalFrames == 0L) {
+      try
+      {
+        frameReader.freeze();
+        paramString = JsonMapper.parseJson(frameReader.toString());
+        frameReader = null;
+        if (logger.logsDebug())
+        {
+          localLogWrapper = logger;
+          localStringBuilder = new StringBuilder();
+          localStringBuilder.append("handleIncomingFrame complete frame: ");
+          localStringBuilder.append(paramString);
+          localLogWrapper.debug(localStringBuilder.toString(), new Object[0]);
+        }
+        delegate.onMessage(paramString);
+        return;
+      }
+      catch (ClassCastException paramString)
+      {
+        localLogWrapper = logger;
+        localStringBuilder = new StringBuilder();
+        localStringBuilder.append("Error parsing frame (cast error): ");
+        localStringBuilder.append(frameReader.toString());
+        localLogWrapper.error(localStringBuilder.toString(), paramString);
+        close();
+        shutdown();
+        return;
+      }
+      catch (IOException paramString)
+      {
+        LogWrapper localLogWrapper = logger;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("Error parsing frame: ");
+        localStringBuilder.append(frameReader.toString());
+        localLogWrapper.error(localStringBuilder.toString(), paramString);
+        close();
+        shutdown();
+      }
+    }
+  }
+  
+  private void closeIfNeverConnected()
+  {
+    if ((!everConnected) && (!isClosed))
+    {
+      if (logger.logsDebug()) {
+        logger.debug("timed out on connect", new Object[0]);
+      }
+      conn.close();
+    }
+  }
+  
+  private WSClient createConnection(HostInfo paramHostInfo, String paramString1, String paramString2)
+  {
+    if (paramString1 == null) {
+      paramString1 = paramHostInfo.getHost();
+    }
+    paramHostInfo = HostInfo.getConnectionUrl(paramString1, paramHostInfo.isSecure(), paramHostInfo.getNamespace(), paramString2);
+    paramString1 = new HashMap();
+    paramString1.put("User-Agent", connectionContext.getUserAgent());
+    return new WSClientTubesock(new WebSocket(connectionContext, paramHostInfo, null, paramString1), null);
+  }
+  
+  private String extractFrameCount(String paramString)
+  {
+    if (paramString.length() <= 6) {}
+    try
+    {
+      int i = Integer.parseInt(paramString);
+      if (i > 0) {
+        handleNewFrameCount(i);
+      }
+      return null;
+    }
+    catch (NumberFormatException localNumberFormatException)
+    {
+      for (;;) {}
+    }
+    handleNewFrameCount(1);
+    return paramString;
+  }
+  
+  private void handleIncomingFrame(String paramString)
+  {
+    if (!isClosed)
+    {
+      resetKeepAlive();
+      if (isBuffering())
+      {
+        appendFrame(paramString);
+        return;
+      }
+      paramString = extractFrameCount(paramString);
+      if (paramString != null) {
+        appendFrame(paramString);
+      }
+    }
+  }
+  
+  private void handleNewFrameCount(int paramInt)
+  {
+    totalFrames = paramInt;
+    frameReader = new StringListReader();
+    if (logger.logsDebug())
+    {
+      LogWrapper localLogWrapper = logger;
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("HandleNewFrameCount: ");
+      localStringBuilder.append(totalFrames);
+      localLogWrapper.debug(localStringBuilder.toString(), new Object[0]);
+    }
+  }
+  
+  private boolean isBuffering()
+  {
+    return frameReader != null;
+  }
+  
+  private Runnable nop()
+  {
+    new Runnable()
+    {
+      public void run()
+      {
+        if (conn != null)
+        {
+          conn.send("0");
+          WebsocketConnection.this.resetKeepAlive();
+        }
+      }
+    };
+  }
+  
+  private void onClosed()
+  {
+    if (!isClosed)
+    {
+      if (logger.logsDebug()) {
+        logger.debug("closing itself", new Object[0]);
+      }
+      shutdown();
+    }
+    conn = null;
+    ScheduledFuture localScheduledFuture = keepAlive;
+    if (localScheduledFuture != null) {
+      localScheduledFuture.cancel(false);
+    }
+  }
+  
+  private void resetKeepAlive()
+  {
+    if (!isClosed)
+    {
+      Object localObject = keepAlive;
+      if (localObject != null)
+      {
+        ((ScheduledFuture)localObject).cancel(false);
+        if (logger.logsDebug())
+        {
+          localObject = logger;
+          StringBuilder localStringBuilder = new StringBuilder();
+          localStringBuilder.append("Reset keepAlive. Remaining: ");
+          localStringBuilder.append(keepAlive.getDelay(TimeUnit.MILLISECONDS));
+          ((LogWrapper)localObject).debug(localStringBuilder.toString(), new Object[0]);
+        }
+      }
+      else if (logger.logsDebug())
+      {
+        logger.debug("Reset keepAlive", new Object[0]);
+      }
+      keepAlive = executorService.schedule(nop(), 45000L, TimeUnit.MILLISECONDS);
+    }
+  }
+  
+  private void shutdown()
+  {
+    isClosed = true;
+    delegate.onDisconnect(everConnected);
+  }
+  
+  private static String[] splitIntoFrames(String paramString, int paramInt)
+  {
+    int j = paramString.length();
+    int i = 0;
+    if (j <= paramInt) {
+      return new String[] { paramString };
+    }
+    ArrayList localArrayList = new ArrayList();
+    while (i < paramString.length())
+    {
+      j = i + paramInt;
+      localArrayList.add(paramString.substring(i, Math.min(j, paramString.length())));
+      i = j;
+    }
+    return (String[])localArrayList.toArray(new String[localArrayList.size()]);
+  }
+  
+  public void close()
+  {
+    if (logger.logsDebug()) {
+      logger.debug("websocket is being closed", new Object[0]);
+    }
+    isClosed = true;
+    conn.close();
+    ScheduledFuture localScheduledFuture = connectTimeout;
+    if (localScheduledFuture != null) {
+      localScheduledFuture.cancel(true);
+    }
+    localScheduledFuture = keepAlive;
+    if (localScheduledFuture != null) {
+      localScheduledFuture.cancel(true);
+    }
+  }
+  
+  public void open()
+  {
+    conn.connect();
+    connectTimeout = executorService.schedule(new Runnable()
+    {
+      public void run()
+      {
+        WebsocketConnection.this.closeIfNeverConnected();
+      }
+    }, 30000L, TimeUnit.MILLISECONDS);
+  }
+  
+  public void send(Map<String, Object> paramMap)
+  {
+    resetKeepAlive();
+    for (;;)
+    {
+      int i;
+      try
+      {
+        arrayOfString = splitIntoFrames(JsonMapper.serializeJson(paramMap), 16384);
+        if (arrayOfString.length <= 1) {
+          break label144;
+        }
+        localObject = conn;
+        localStringBuilder = new StringBuilder();
+        localStringBuilder.append("");
+        localStringBuilder.append(arrayOfString.length);
+        ((WSClient)localObject).send(localStringBuilder.toString());
+      }
+      catch (IOException localIOException)
+      {
+        String[] arrayOfString;
+        Object localObject = logger;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("Failed to serialize message: ");
+        localStringBuilder.append(paramMap.toString());
+        ((LogWrapper)localObject).error(localStringBuilder.toString(), localIOException);
+        shutdown();
+      }
+      if (i < arrayOfString.length)
+      {
+        conn.send(arrayOfString[i]);
+        i += 1;
+      }
+      else
+      {
+        return;
+        label144:
+        i = 0;
+      }
+    }
+  }
+  
+  public void start() {}
+  
+  public static abstract interface Delegate
+  {
+    public abstract void onDisconnect(boolean paramBoolean);
+    
+    public abstract void onMessage(Map<String, Object> paramMap);
+  }
+  
+  private static abstract interface WSClient
+  {
+    public abstract void close();
+    
+    public abstract void connect();
+    
+    public abstract void send(String paramString);
+  }
+  
+  private class WSClientTubesock
+    implements WebsocketConnection.WSClient, WebSocketEventHandler
+  {
+    private WebSocket ws;
+    
+    private WSClientTubesock(WebSocket paramWebSocket)
+    {
+      ws = paramWebSocket;
+      ws.setEventHandler(this);
+    }
+    
+    private void shutdown()
+    {
+      ws.close();
+      try
+      {
+        ws.blockClose();
+        return;
+      }
+      catch (InterruptedException localInterruptedException)
+      {
+        logger.error("Interrupted while shutting down websocket threads", localInterruptedException);
+      }
+    }
+    
+    public void close()
+    {
+      ws.close();
+    }
+    
+    public void connect()
+    {
+      try
+      {
+        ws.connect();
+        return;
+      }
+      catch (WebSocketException localWebSocketException)
+      {
+        if (logger.logsDebug()) {
+          logger.debug("Error connecting", localWebSocketException, new Object[0]);
+        }
+        shutdown();
+      }
+    }
+    
+    public void onClose()
+    {
+      executorService.execute(new Runnable()
+      {
+        public void run()
+        {
+          if (logger.logsDebug()) {
+            logger.debug("closed", new Object[0]);
+          }
+          WebsocketConnection.this.onClosed();
+        }
+      });
+    }
+    
+    public void onError(final WebSocketException paramWebSocketException)
+    {
+      executorService.execute(new Runnable()
+      {
+        public void run()
+        {
+          if ((paramWebSocketException.getCause() != null) && ((paramWebSocketException.getCause() instanceof EOFException))) {
+            logger.debug("WebSocket reached EOF.", new Object[0]);
+          } else {
+            logger.debug("WebSocket error.", paramWebSocketException, new Object[0]);
+          }
+          WebsocketConnection.this.onClosed();
+        }
+      });
+    }
+    
+    public void onLogMessage(String paramString)
+    {
+      if (logger.logsDebug())
+      {
+        LogWrapper localLogWrapper = logger;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("Tubesock: ");
+        localStringBuilder.append(paramString);
+        localLogWrapper.debug(localStringBuilder.toString(), new Object[0]);
+      }
+    }
+    
+    public void onMessage(final WebSocketMessage paramWebSocketMessage)
+    {
+      paramWebSocketMessage = paramWebSocketMessage.getText();
+      if (logger.logsDebug())
+      {
+        LogWrapper localLogWrapper = logger;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("ws message: ");
+        localStringBuilder.append(paramWebSocketMessage);
+        localLogWrapper.debug(localStringBuilder.toString(), new Object[0]);
+      }
+      executorService.execute(new Runnable()
+      {
+        public void run()
+        {
+          WebsocketConnection.this.handleIncomingFrame(paramWebSocketMessage);
+        }
+      });
+    }
+    
+    public void onOpen()
+    {
+      executorService.execute(new Runnable()
+      {
+        public void run()
+        {
+          connectTimeout.cancel(false);
+          WebsocketConnection.access$102(WebsocketConnection.this, true);
+          if (logger.logsDebug()) {
+            logger.debug("websocket opened", new Object[0]);
+          }
+          WebsocketConnection.this.resetKeepAlive();
+        }
+      });
+    }
+    
+    public void send(String paramString)
+    {
+      ws.send(paramString);
+    }
+  }
+}

@@ -1,0 +1,84 @@
+package com.flaviotps.swsd.viewmodel;
+
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
+import com.flaviotps.swsd.model.MonsterModel;
+import com.flaviotps.swsd.model.SecretDungeonModel;
+import com.flaviotps.swsd.repository.MonsterRepository;
+import com.flaviotps.swsd.repository.MonsterRepository.Companion;
+import com.flaviotps.swsd.repository.SecretDungeonRepository;
+import com.flaviotps.swsd.repository.SecretDungeonRepository.Companion;
+import com.flaviotps.swsd.utils.DateUtils;
+import com.flaviotps.swsd.utils.DateUtils.Companion;
+import java.util.Calendar;
+import java.util.List;
+import java.util.TimeZone;
+import kotlin.Lazy;
+import kotlin.LazyKt__LazyJVMKt;
+import kotlin.Metadata;
+import kotlin.jvm.functions.Function0;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.jvm.internal.Lambda;
+import kotlin.reflect.KProperty;
+
+@Metadata(bv={1, 0, 3}, d1={"\000L\n\002\030\002\n\002\030\002\n\002\b\002\n\002\030\002\n\002\b\005\n\002\030\002\n\002\020 \n\002\030\002\n\000\n\002\030\002\n\002\b\005\n\002\030\002\n\002\b\004\n\002\020\013\n\000\n\002\020\t\n\000\n\002\020\002\n\000\n\002\030\002\n\002\b\002\030\0002\0020\001B\005?\006\002\020\002J\016\020\030\032\0020\0312\006\020\032\032\0020\033J\006\020\034\032\0020\035J\022\020\036\032\016\022\n\022\b\022\004\022\0020\f0\0130\037J\f\020 \032\b\022\004\022\0020\0160\nR\033\020\003\032\0020\0048BX??\002?\006\f\n\004\b\007\020\b\032\004\b\005\020\006R\032\020\t\032\016\022\n\022\b\022\004\022\0020\f0\0130\nX?\016?\006\002\n\000R\032\020\r\032\0020\016X?\016?\006\016\n\000\032\004\b\017\020\020\"\004\b\021\020\022R\033\020\023\032\0020\0248BX??\002?\006\f\n\004\b\027\020\b\032\004\b\025\020\026?\006!"}, d2={"Lcom/flaviotps/swsd/viewmodel/AddViewModel;", "Landroidx/lifecycle/ViewModel;", "()V", "monsterRepository", "Lcom/flaviotps/swsd/repository/MonsterRepository;", "getMonsterRepository", "()Lcom/flaviotps/swsd/repository/MonsterRepository;", "monsterRepository$delegate", "Lkotlin/Lazy;", "monsters", "Landroidx/lifecycle/MutableLiveData;", "", "Lcom/flaviotps/swsd/model/MonsterModel;", "secretDungeonModel", "Lcom/flaviotps/swsd/model/SecretDungeonModel;", "getSecretDungeonModel", "()Lcom/flaviotps/swsd/model/SecretDungeonModel;", "setSecretDungeonModel", "(Lcom/flaviotps/swsd/model/SecretDungeonModel;)V", "secretDungeonRepository", "Lcom/flaviotps/swsd/repository/SecretDungeonRepository;", "getSecretDungeonRepository", "()Lcom/flaviotps/swsd/repository/SecretDungeonRepository;", "secretDungeonRepository$delegate", "canCreate", "", "lastCreationTime", "", "clearMonster", "", "getMonsters", "Landroidx/lifecycle/LiveData;", "save", "app_release"}, k=1, mv={1, 1, 16})
+public final class AddViewModel
+  extends ViewModel
+{
+  private final Lazy monsterRepository$delegate = LazyKt__LazyJVMKt.lazy((Function0)monsterRepository.2.INSTANCE);
+  private MutableLiveData<List<MonsterModel>> monsters = getMonsterRepository().getMonsters();
+  private SecretDungeonModel secretDungeonModel = new SecretDungeonModel();
+  private final Lazy secretDungeonRepository$delegate = LazyKt__LazyJVMKt.lazy((Function0)secretDungeonRepository.2.INSTANCE);
+  
+  public AddViewModel() {}
+  
+  private final MonsterRepository getMonsterRepository()
+  {
+    Lazy localLazy = monsterRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[0];
+    return (MonsterRepository)localLazy.getValue();
+  }
+  
+  private final SecretDungeonRepository getSecretDungeonRepository()
+  {
+    Lazy localLazy = secretDungeonRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[1];
+    return (SecretDungeonRepository)localLazy.getValue();
+  }
+  
+  public final boolean canCreate(long paramLong)
+  {
+    Calendar localCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Intrinsics.checkExpressionValueIsNotNull(localCalendar, "Calendar.getInstance(TimeZone.getTimeZone(\"UTC\"))");
+    return localCalendar.getTimeInMillis() - paramLong > 0L;
+  }
+  
+  public final void clearMonster()
+  {
+    secretDungeonModel = new SecretDungeonModel();
+  }
+  
+  public final LiveData getMonsters()
+  {
+    return (LiveData)monsters;
+  }
+  
+  public final SecretDungeonModel getSecretDungeonModel()
+  {
+    return secretDungeonModel;
+  }
+  
+  public final MutableLiveData save()
+  {
+    secretDungeonModel.setCreationTime(DateUtils.Companion.getCreationTime());
+    secretDungeonModel.setEndTime(DateUtils.Companion.getEndTime(secretDungeonModel.getCreationTime(), secretDungeonModel.getTimeLeft()));
+    return getSecretDungeonRepository().save(secretDungeonModel);
+  }
+  
+  public final void setSecretDungeonModel(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "<set-?>");
+    secretDungeonModel = paramSecretDungeonModel;
+  }
+}

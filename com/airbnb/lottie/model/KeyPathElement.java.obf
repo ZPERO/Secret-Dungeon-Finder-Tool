@@ -1,0 +1,11 @@
+package com.airbnb.lottie.model;
+
+import com.airbnb.lottie.value.LottieValueCallback;
+import java.util.List;
+
+public abstract interface KeyPathElement
+{
+  public abstract <T> void addValueCallback(T paramT, LottieValueCallback<T> paramLottieValueCallback);
+  
+  public abstract void resolveKeyPath(KeyPath paramKeyPath1, int paramInt, List<KeyPath> paramList, KeyPath paramKeyPath2);
+}

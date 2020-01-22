@@ -1,0 +1,269 @@
+package com.google.firebase.database.core;
+
+import com.google.firebase.database.collection.ImmutableSortedMap;
+import com.google.firebase.database.core.utilities.ImmutableTree;
+import com.google.firebase.database.core.utilities.ImmutableTree.TreeVisitor;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.NamedNode;
+import com.google.firebase.database.snapshot.Node;
+import com.google.firebase.database.snapshot.NodeUtilities;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class CompoundWrite
+  implements Iterable<Map.Entry<Path, Node>>
+{
+  private static final CompoundWrite EMPTY = new CompoundWrite(new ImmutableTree(null));
+  private final ImmutableTree<Node> writeTree;
+  
+  private CompoundWrite(ImmutableTree paramImmutableTree)
+  {
+    writeTree = paramImmutableTree;
+  }
+  
+  private Node applySubtreeWrite(Path paramPath, ImmutableTree paramImmutableTree, Node paramNode)
+  {
+    if (paramImmutableTree.getValue() != null) {
+      return paramNode.updateChild(paramPath, (Node)paramImmutableTree.getValue());
+    }
+    Object localObject1 = null;
+    Iterator localIterator = paramImmutableTree.getChildren().iterator();
+    paramImmutableTree = (ImmutableTree)localObject1;
+    while (localIterator.hasNext())
+    {
+      Object localObject2 = (Map.Entry)localIterator.next();
+      localObject1 = (ImmutableTree)((Map.Entry)localObject2).getValue();
+      localObject2 = (ChildKey)((Map.Entry)localObject2).getKey();
+      if (((ChildKey)localObject2).isPriorityChildName()) {
+        paramImmutableTree = (Node)((ImmutableTree)localObject1).getValue();
+      } else {
+        paramNode = applySubtreeWrite(paramPath.child((ChildKey)localObject2), (ImmutableTree)localObject1, paramNode);
+      }
+    }
+    localObject1 = paramNode;
+    if (!paramNode.getChild(paramPath).isEmpty())
+    {
+      localObject1 = paramNode;
+      if (paramImmutableTree != null) {
+        localObject1 = paramNode.updateChild(paramPath.child(ChildKey.getPriorityKey()), paramImmutableTree);
+      }
+    }
+    return localObject1;
+  }
+  
+  public static CompoundWrite emptyWrite()
+  {
+    return EMPTY;
+  }
+  
+  public static CompoundWrite fromChildMerge(Map paramMap)
+  {
+    Object localObject = ImmutableTree.emptyInstance();
+    Iterator localIterator = paramMap.entrySet().iterator();
+    ImmutableTree localImmutableTree;
+    for (paramMap = (Map)localObject; localIterator.hasNext(); paramMap = paramMap.setTree(new Path(new ChildKey[] { (ChildKey)((Map.Entry)localObject).getKey() }), localImmutableTree))
+    {
+      localObject = (Map.Entry)localIterator.next();
+      localImmutableTree = new ImmutableTree((Node)((Map.Entry)localObject).getValue());
+    }
+    return new CompoundWrite(paramMap);
+  }
+  
+  public static CompoundWrite fromPathMerge(Map paramMap)
+  {
+    Object localObject = ImmutableTree.emptyInstance();
+    Iterator localIterator = paramMap.entrySet().iterator();
+    ImmutableTree localImmutableTree;
+    for (paramMap = (Map)localObject; localIterator.hasNext(); paramMap = paramMap.setTree((Path)((Map.Entry)localObject).getKey(), localImmutableTree))
+    {
+      localObject = (Map.Entry)localIterator.next();
+      localImmutableTree = new ImmutableTree((Node)((Map.Entry)localObject).getValue());
+    }
+    return new CompoundWrite(paramMap);
+  }
+  
+  public static CompoundWrite fromValue(Map paramMap)
+  {
+    Object localObject = ImmutableTree.emptyInstance();
+    Iterator localIterator = paramMap.entrySet().iterator();
+    ImmutableTree localImmutableTree;
+    for (paramMap = (Map)localObject; localIterator.hasNext(); paramMap = paramMap.setTree(new Path((String)((Map.Entry)localObject).getKey()), localImmutableTree))
+    {
+      localObject = (Map.Entry)localIterator.next();
+      localImmutableTree = new ImmutableTree(NodeUtilities.NodeFromJSON(((Map.Entry)localObject).getValue()));
+    }
+    return new CompoundWrite(paramMap);
+  }
+  
+  public CompoundWrite addWrite(Path paramPath, Node paramNode)
+  {
+    if (paramPath.isEmpty()) {
+      return new CompoundWrite(new ImmutableTree(paramNode));
+    }
+    Path localPath = writeTree.findRootMostPathWithValue(paramPath);
+    if (localPath != null)
+    {
+      paramPath = Path.getRelative(localPath, paramPath);
+      Node localNode = (Node)writeTree.readLong(localPath);
+      ChildKey localChildKey = paramPath.getBack();
+      if ((localChildKey != null) && (localChildKey.isPriorityChildName()) && (localNode.getChild(paramPath.getParent()).isEmpty())) {
+        return this;
+      }
+      paramPath = localNode.updateChild(paramPath, paramNode);
+      return new CompoundWrite(writeTree.getKey(localPath, paramPath));
+    }
+    paramNode = new ImmutableTree(paramNode);
+    return new CompoundWrite(writeTree.setTree(paramPath, paramNode));
+  }
+  
+  public CompoundWrite addWrite(ChildKey paramChildKey, Node paramNode)
+  {
+    return addWrite(new Path(new ChildKey[] { paramChildKey }), paramNode);
+  }
+  
+  public CompoundWrite addWrites(final Path paramPath, CompoundWrite paramCompoundWrite)
+  {
+    (CompoundWrite)writeTree.fold(this, new ImmutableTree.TreeVisitor()
+    {
+      public CompoundWrite onNodeValue(Path paramAnonymousPath, Node paramAnonymousNode, CompoundWrite paramAnonymousCompoundWrite)
+      {
+        return paramAnonymousCompoundWrite.addWrite(paramPath.child(paramAnonymousPath), paramAnonymousNode);
+      }
+    });
+  }
+  
+  public Node apply(Node paramNode)
+  {
+    return applySubtreeWrite(Path.getEmptyPath(), writeTree, paramNode);
+  }
+  
+  public CompoundWrite childCompoundWrite(Path paramPath)
+  {
+    if (paramPath.isEmpty()) {
+      return this;
+    }
+    Node localNode = getCompleteNode(paramPath);
+    if (localNode != null) {
+      return new CompoundWrite(new ImmutableTree(localNode));
+    }
+    return new CompoundWrite(writeTree.subtree(paramPath));
+  }
+  
+  public Map childCompoundWrites()
+  {
+    HashMap localHashMap = new HashMap();
+    Iterator localIterator = writeTree.getChildren().iterator();
+    while (localIterator.hasNext())
+    {
+      Map.Entry localEntry = (Map.Entry)localIterator.next();
+      localHashMap.put((ChildKey)localEntry.getKey(), new CompoundWrite((ImmutableTree)localEntry.getValue()));
+    }
+    return localHashMap;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((paramObject != null) && (paramObject.getClass() == getClass())) {
+      return ((CompoundWrite)paramObject).getValue(true).equals(getValue(true));
+    }
+    return false;
+  }
+  
+  public List getCompleteChildren()
+  {
+    ArrayList localArrayList = new ArrayList();
+    Object localObject;
+    if (writeTree.getValue() != null)
+    {
+      localIterator = ((Node)writeTree.getValue()).iterator();
+      while (localIterator.hasNext())
+      {
+        localObject = (NamedNode)localIterator.next();
+        localArrayList.add(new NamedNode(((NamedNode)localObject).getName(), ((NamedNode)localObject).getNode()));
+      }
+    }
+    Iterator localIterator = writeTree.getChildren().iterator();
+    while (localIterator.hasNext())
+    {
+      localObject = (Map.Entry)localIterator.next();
+      ImmutableTree localImmutableTree = (ImmutableTree)((Map.Entry)localObject).getValue();
+      if (localImmutableTree.getValue() != null) {
+        localArrayList.add(new NamedNode((ChildKey)((Map.Entry)localObject).getKey(), (Node)localImmutableTree.getValue()));
+      }
+    }
+    return localArrayList;
+  }
+  
+  public Node getCompleteNode(Path paramPath)
+  {
+    Path localPath = writeTree.findRootMostPathWithValue(paramPath);
+    if (localPath != null) {
+      return ((Node)writeTree.readLong(localPath)).getChild(Path.getRelative(localPath, paramPath));
+    }
+    return null;
+  }
+  
+  public Map getValue(final boolean paramBoolean)
+  {
+    final HashMap localHashMap = new HashMap();
+    writeTree.foreach(new ImmutableTree.TreeVisitor()
+    {
+      public Void onNodeValue(Path paramAnonymousPath, Node paramAnonymousNode, Void paramAnonymousVoid)
+      {
+        localHashMap.put(paramAnonymousPath.wireFormat(), paramAnonymousNode.getValue(paramBoolean));
+        return null;
+      }
+    });
+    return localHashMap;
+  }
+  
+  public boolean hasCompleteWrite(Path paramPath)
+  {
+    return getCompleteNode(paramPath) != null;
+  }
+  
+  public int hashCode()
+  {
+    return getValue(true).hashCode();
+  }
+  
+  public boolean isEmpty()
+  {
+    return writeTree.isEmpty();
+  }
+  
+  public Iterator iterator()
+  {
+    return writeTree.iterator();
+  }
+  
+  public CompoundWrite removeWrite(Path paramPath)
+  {
+    if (paramPath.isEmpty()) {
+      return EMPTY;
+    }
+    return new CompoundWrite(writeTree.setTree(paramPath, ImmutableTree.emptyInstance()));
+  }
+  
+  public Node rootWrite()
+  {
+    return (Node)writeTree.getValue();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("CompoundWrite{");
+    localStringBuilder.append(getValue(true).toString());
+    localStringBuilder.append("}");
+    return localStringBuilder.toString();
+  }
+}

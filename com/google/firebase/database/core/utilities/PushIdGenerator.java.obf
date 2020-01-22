@@ -1,0 +1,91 @@
+package com.google.firebase.database.core.utilities;
+
+import java.util.Random;
+
+public class PushIdGenerator
+{
+  private static final String PUSH_CHARS = "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+  private static long lastPushTime = 0L;
+  private static final int[] lastRandChars = new int[12];
+  private static final Random randGen = new Random();
+  
+  public PushIdGenerator() {}
+  
+  public static String generatePushChildName(long paramLong)
+  {
+    try
+    {
+      long l = lastPushTime;
+      k = 0;
+      if (paramLong != l) {
+        break label184;
+      }
+      i = 1;
+    }
+    finally
+    {
+      for (;;)
+      {
+        int k;
+        Object localObject1;
+        StringBuilder localStringBuilder;
+        int j;
+        for (;;)
+        {
+          throw localObject2;
+        }
+        label184:
+        int i = 0;
+      }
+    }
+    lastPushTime = paramLong;
+    localObject1 = new char[8];
+    localStringBuilder = new StringBuilder(20);
+    j = 7;
+    while (j >= 0)
+    {
+      localObject1[j] = "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".charAt((int)(paramLong % 64L));
+      paramLong /= 64L;
+      j -= 1;
+    }
+    localStringBuilder.append((char[])localObject1);
+    if (i == 0)
+    {
+      i = 0;
+      for (;;)
+      {
+        j = k;
+        if (i >= 12) {
+          break;
+        }
+        lastRandChars[i] = randGen.nextInt(64);
+        i += 1;
+      }
+    }
+    incrementArray();
+    j = k;
+    while (j < 12)
+    {
+      localStringBuilder.append("-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".charAt(lastRandChars[j]));
+      j += 1;
+    }
+    localObject1 = localStringBuilder.toString();
+    return localObject1;
+  }
+  
+  private static void incrementArray()
+  {
+    int i = 11;
+    while (i >= 0)
+    {
+      int[] arrayOfInt = lastRandChars;
+      if (arrayOfInt[i] != 63)
+      {
+        arrayOfInt[i] += 1;
+        return;
+      }
+      arrayOfInt[i] = 0;
+      i -= 1;
+    }
+  }
+}

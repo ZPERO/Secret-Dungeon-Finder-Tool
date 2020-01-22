@@ -1,0 +1,127 @@
+package com.google.android.gms.internal.measurement;
+
+import java.io.IOException;
+
+public final class zzgc
+  extends zzza<zzgc>
+{
+  private static volatile zzgc[] zzawk;
+  public String value = null;
+  public String zzoj = null;
+  
+  public zzgc()
+  {
+    zzcfc = null;
+    zzcfm = -1;
+  }
+  
+  public static zzgc[] zzmn()
+  {
+    if (zzawk == null) {
+      synchronized (zzze.zzcfl)
+      {
+        if (zzawk == null) {
+          zzawk = new zzgc[0];
+        }
+      }
+    }
+    return zzawk;
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if (!(paramObject instanceof zzgc)) {
+      return false;
+    }
+    paramObject = (zzgc)paramObject;
+    String str = zzoj;
+    if (str == null)
+    {
+      if (zzoj != null) {
+        return false;
+      }
+    }
+    else if (!str.equals(zzoj)) {
+      return false;
+    }
+    str = value;
+    if (str == null)
+    {
+      if (value != null) {
+        return false;
+      }
+    }
+    else if (!str.equals(value)) {
+      return false;
+    }
+    if ((zzcfc != null) && (!zzcfc.isEmpty())) {
+      return zzcfc.equals(zzcfc);
+    }
+    if (zzcfc != null) {
+      return zzcfc.isEmpty();
+    }
+    return true;
+  }
+  
+  public final int hashCode()
+  {
+    int n = getClass().getName().hashCode();
+    String str = zzoj;
+    int m = 0;
+    int i;
+    if (str == null) {
+      i = 0;
+    } else {
+      i = str.hashCode();
+    }
+    str = value;
+    int j;
+    if (str == null) {
+      j = 0;
+    } else {
+      j = str.hashCode();
+    }
+    int k = m;
+    if (zzcfc != null) {
+      if (zzcfc.isEmpty()) {
+        k = m;
+      } else {
+        k = zzcfc.hashCode();
+      }
+    }
+    return (((n + 527) * 31 + i) * 31 + j) * 31 + k;
+  }
+  
+  public final void zza(zzyy paramZzyy)
+    throws IOException
+  {
+    String str = zzoj;
+    if (str != null) {
+      paramZzyy.zzb(1, str);
+    }
+    str = value;
+    if (str != null) {
+      paramZzyy.zzb(2, str);
+    }
+    super.zza(paramZzyy);
+  }
+  
+  protected final int zzf()
+  {
+    int j = super.zzf();
+    String str = zzoj;
+    int i = j;
+    if (str != null) {
+      i = j + zzyy.zzc(1, str);
+    }
+    str = value;
+    j = i;
+    if (str != null) {
+      j = i + zzyy.zzc(2, str);
+    }
+    return j;
+  }
+}

@@ -1,0 +1,91 @@
+package com.google.firebase.components;
+
+import com.google.android.android.common.internal.Preconditions;
+import com.google.firebase.events.Publisher;
+import com.google.firebase.events.Subscriber;
+import com.google.firebase.inject.Provider;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executor;
+
+public class ComponentRuntime
+  extends AbstractComponentContainer
+{
+  private final List<Component<?>> components;
+  private final EventBus eventBus;
+  private final Map<Class<?>, Lazy<?>> lazyInstanceMap = new HashMap();
+  
+  public ComponentRuntime(Executor paramExecutor, Iterable paramIterable, Component... paramVarArgs)
+  {
+    eventBus = new EventBus(paramExecutor);
+    paramExecutor = new ArrayList();
+    paramExecutor.add(Component.getView(eventBus, EventBus.class, new Class[] { Subscriber.class, Publisher.class }));
+    paramIterable = paramIterable.iterator();
+    while (paramIterable.hasNext()) {
+      paramExecutor.addAll(((ComponentRegistrar)paramIterable.next()).getComponents());
+    }
+    Collections.addAll(paramExecutor, paramVarArgs);
+    components = Collections.unmodifiableList(ComponentSorter.sorted(paramExecutor));
+    paramExecutor = components.iterator();
+    while (paramExecutor.hasNext()) {
+      register((Component)paramExecutor.next());
+    }
+    validateDependencies();
+  }
+  
+  private void register(Component paramComponent)
+  {
+    Lazy localLazy = new Lazy(paramComponent.getFactory(), new RestrictedComponentContainer(paramComponent, this));
+    paramComponent = paramComponent.getProvidedInterfaces().iterator();
+    while (paramComponent.hasNext())
+    {
+      Class localClass = (Class)paramComponent.next();
+      lazyInstanceMap.put(localClass, localLazy);
+    }
+  }
+  
+  private void validateDependencies()
+  {
+    Component localComponent;
+    Dependency localDependency;
+    do
+    {
+      Iterator localIterator1 = components.iterator();
+      Iterator localIterator2;
+      while (!localIterator2.hasNext())
+      {
+        if (!localIterator1.hasNext()) {
+          break;
+        }
+        localComponent = (Component)localIterator1.next();
+        localIterator2 = localComponent.getDependencies().iterator();
+      }
+      localDependency = (Dependency)localIterator2.next();
+    } while ((!localDependency.isRequired()) || (lazyInstanceMap.containsKey(localDependency.getInterface())));
+    throw new MissingDependencyException(String.format("Unsatisfied dependency for component %s: %s", new Object[] { localComponent, localDependency.getInterface() }));
+  }
+  
+  public Provider getProvider(Class paramClass)
+  {
+    Preconditions.checkNotNull(paramClass, "Null interface requested.");
+    return (Provider)lazyInstanceMap.get(paramClass);
+  }
+  
+  public void initializeEagerComponents(boolean paramBoolean)
+  {
+    Iterator localIterator = components.iterator();
+    while (localIterator.hasNext())
+    {
+      Component localComponent = (Component)localIterator.next();
+      if ((localComponent.isAlwaysEager()) || ((localComponent.isEagerInDefaultApp()) && (paramBoolean))) {
+        getValue((Class)localComponent.getProvidedInterfaces().iterator().next());
+      }
+    }
+    eventBus.enablePublishingAndFlushPending();
+  }
+}

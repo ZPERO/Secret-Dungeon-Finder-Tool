@@ -1,0 +1,73 @@
+package androidx.recyclerview.widget;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+public final class AsyncDifferConfig<T>
+{
+  private final Executor mBackgroundThreadExecutor;
+  private final DiffUtil.ItemCallback<T> mDiffCallback;
+  private final Executor mMainThreadExecutor;
+  
+  AsyncDifferConfig(Executor paramExecutor1, Executor paramExecutor2, DiffUtil.ItemCallback<T> paramItemCallback)
+  {
+    mMainThreadExecutor = paramExecutor1;
+    mBackgroundThreadExecutor = paramExecutor2;
+    mDiffCallback = paramItemCallback;
+  }
+  
+  public Executor getBackgroundThreadExecutor()
+  {
+    return mBackgroundThreadExecutor;
+  }
+  
+  public DiffUtil.ItemCallback<T> getDiffCallback()
+  {
+    return mDiffCallback;
+  }
+  
+  public Executor getMainThreadExecutor()
+  {
+    return mMainThreadExecutor;
+  }
+  
+  public static final class Builder<T>
+  {
+    private static Executor sDiffExecutor = null;
+    private static final Object sExecutorLock = new Object();
+    private Executor mBackgroundThreadExecutor;
+    private final DiffUtil.ItemCallback<T> mDiffCallback;
+    private Executor mMainThreadExecutor;
+    
+    public Builder(DiffUtil.ItemCallback<T> paramItemCallback)
+    {
+      mDiffCallback = paramItemCallback;
+    }
+    
+    public AsyncDifferConfig<T> build()
+    {
+      if (mBackgroundThreadExecutor == null) {
+        synchronized (sExecutorLock)
+        {
+          if (sDiffExecutor == null) {
+            sDiffExecutor = Executors.newFixedThreadPool(2);
+          }
+          mBackgroundThreadExecutor = sDiffExecutor;
+        }
+      }
+      return new AsyncDifferConfig(mMainThreadExecutor, mBackgroundThreadExecutor, mDiffCallback);
+    }
+    
+    public Builder<T> setBackgroundThreadExecutor(Executor paramExecutor)
+    {
+      mBackgroundThreadExecutor = paramExecutor;
+      return this;
+    }
+    
+    public Builder<T> setMainThreadExecutor(Executor paramExecutor)
+    {
+      mMainThreadExecutor = paramExecutor;
+      return this;
+    }
+  }
+}

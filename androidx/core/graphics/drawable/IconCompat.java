@@ -1,0 +1,1028 @@
+package androidx.core.graphics.drawable;
+
+import android.app.ActivityManager;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.Intent.ShortcutIconResource;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
+import android.graphics.Bitmap.Config;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapShader;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PorterDuff.Mode;
+import android.graphics.Shader;
+import android.graphics.Shader.TileMode;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
+import android.net.Uri;
+import android.os.Build.VERSION;
+import android.os.Bundle;
+import android.os.Parcelable;
+import android.text.TextUtils;
+import android.util.Log;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.delay.ResourcesCompat;
+import androidx.core.util.Preconditions;
+import androidx.versionedparcelable.CustomVersionedParcelable;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+
+public class IconCompat
+  extends CustomVersionedParcelable
+{
+  private static final float ADAPTIVE_ICON_INSET_FACTOR = 0.25F;
+  private static final int AMBIENT_SHADOW_ALPHA = 30;
+  private static final float BLUR_FACTOR = 0.010416667F;
+  static final PorterDuff.Mode DEFAULT_TINT_MODE = PorterDuff.Mode.SRC_IN;
+  private static final float DEFAULT_VIEW_PORT_SCALE = 0.6666667F;
+  private static final String EXTRA_INT1 = "int1";
+  private static final String EXTRA_INT2 = "int2";
+  private static final String EXTRA_OBJ = "obj";
+  private static final String EXTRA_TINT_LIST = "tint_list";
+  private static final String EXTRA_TINT_MODE = "tint_mode";
+  private static final String EXTRA_TYPE = "type";
+  private static final float ICON_DIAMETER_FACTOR = 0.9166667F;
+  private static final int KEY_SHADOW_ALPHA = 61;
+  private static final float KEY_SHADOW_OFFSET_FACTOR = 0.020833334F;
+  private static final String PAGE_KEY = "IconCompat";
+  public static final int TYPE_UNKNOWN = -1;
+  public byte[] mData = null;
+  public int mInt1 = 0;
+  public int mInt2 = 0;
+  Object mObj1;
+  public Parcelable mParcelable = null;
+  public ColorStateList mTintList = null;
+  PorterDuff.Mode mTintMode = DEFAULT_TINT_MODE;
+  public String mTintModeStr = null;
+  public int mType = -1;
+  
+  public IconCompat() {}
+  
+  private IconCompat(int paramInt)
+  {
+    mType = paramInt;
+  }
+  
+  public static IconCompat createFromBundle(Bundle paramBundle)
+  {
+    int i = paramBundle.getInt("type");
+    IconCompat localIconCompat = new IconCompat(i);
+    mInt1 = paramBundle.getInt("int1");
+    mInt2 = paramBundle.getInt("int2");
+    if (paramBundle.containsKey("tint_list")) {
+      mTintList = ((ColorStateList)paramBundle.getParcelable("tint_list"));
+    }
+    if (paramBundle.containsKey("tint_mode")) {
+      mTintMode = PorterDuff.Mode.valueOf(paramBundle.getString("tint_mode"));
+    }
+    if ((i != -1) && (i != 1))
+    {
+      if (i != 2) {
+        if (i != 3)
+        {
+          if (i != 4)
+          {
+            if (i == 5) {
+              break label167;
+            }
+            paramBundle = new StringBuilder();
+            paramBundle.append("Unknown type ");
+            paramBundle.append(i);
+            Log.w("IconCompat", paramBundle.toString());
+            return null;
+          }
+        }
+        else
+        {
+          mObj1 = paramBundle.getByteArray("obj");
+          return localIconCompat;
+        }
+      }
+      mObj1 = paramBundle.getString("obj");
+      return localIconCompat;
+    }
+    label167:
+    mObj1 = paramBundle.getParcelable("obj");
+    return localIconCompat;
+  }
+  
+  public static IconCompat createFromIcon(Context paramContext, Icon paramIcon)
+  {
+    Preconditions.checkNotNull(paramIcon);
+    int i = getType(paramIcon);
+    if (i != 2)
+    {
+      if (i != 4)
+      {
+        paramContext = new IconCompat(-1);
+        mObj1 = paramIcon;
+        return paramContext;
+      }
+      return createWithContentUri(getUri(paramIcon));
+    }
+    String str = getResPackage(paramIcon);
+    try
+    {
+      paramContext = createWithResource(getResources(paramContext, str), str, getResId(paramIcon));
+      return paramContext;
+    }
+    catch (Resources.NotFoundException paramContext)
+    {
+      for (;;) {}
+    }
+    throw new IllegalArgumentException("Icon resource cannot be found");
+  }
+  
+  public static IconCompat createFromIcon(Icon paramIcon)
+  {
+    Preconditions.checkNotNull(paramIcon);
+    int i = getType(paramIcon);
+    if (i != 2)
+    {
+      if (i != 4)
+      {
+        IconCompat localIconCompat = new IconCompat(-1);
+        mObj1 = paramIcon;
+        return localIconCompat;
+      }
+      return createWithContentUri(getUri(paramIcon));
+    }
+    return createWithResource(null, getResPackage(paramIcon), getResId(paramIcon));
+  }
+  
+  static Bitmap createLegacyIconFromAdaptiveIcon(Bitmap paramBitmap, boolean paramBoolean)
+  {
+    int i = (int)(Math.min(paramBitmap.getWidth(), paramBitmap.getHeight()) * 0.6666667F);
+    Bitmap localBitmap = Bitmap.createBitmap(i, i, Bitmap.Config.ARGB_8888);
+    Canvas localCanvas = new Canvas(localBitmap);
+    Paint localPaint = new Paint(3);
+    float f1 = i;
+    float f2 = 0.5F * f1;
+    float f3 = 0.9166667F * f2;
+    if (paramBoolean)
+    {
+      float f4 = 0.010416667F * f1;
+      localPaint.setColor(0);
+      localPaint.setShadowLayer(f4, 0.0F, f1 * 0.020833334F, 1023410176);
+      localCanvas.drawCircle(f2, f2, f3, localPaint);
+      localPaint.setShadowLayer(f4, 0.0F, 0.0F, 503316480);
+      localCanvas.drawCircle(f2, f2, f3, localPaint);
+      localPaint.clearShadowLayer();
+    }
+    localPaint.setColor(-16777216);
+    BitmapShader localBitmapShader = new BitmapShader(paramBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+    Matrix localMatrix = new Matrix();
+    localMatrix.setTranslate(-(paramBitmap.getWidth() - i) / 2, -(paramBitmap.getHeight() - i) / 2);
+    localBitmapShader.setLocalMatrix(localMatrix);
+    localPaint.setShader(localBitmapShader);
+    localCanvas.drawCircle(f2, f2, f3, localPaint);
+    localCanvas.setBitmap(null);
+    return localBitmap;
+  }
+  
+  public static IconCompat createWithAdaptiveBitmap(Bitmap paramBitmap)
+  {
+    if (paramBitmap != null)
+    {
+      IconCompat localIconCompat = new IconCompat(5);
+      mObj1 = paramBitmap;
+      return localIconCompat;
+    }
+    throw new IllegalArgumentException("Bitmap must not be null.");
+  }
+  
+  public static IconCompat createWithBitmap(Bitmap paramBitmap)
+  {
+    if (paramBitmap != null)
+    {
+      IconCompat localIconCompat = new IconCompat(1);
+      mObj1 = paramBitmap;
+      return localIconCompat;
+    }
+    throw new IllegalArgumentException("Bitmap must not be null.");
+  }
+  
+  public static IconCompat createWithContentUri(Uri paramUri)
+  {
+    if (paramUri != null) {
+      return createWithContentUri(paramUri.toString());
+    }
+    throw new IllegalArgumentException("Uri must not be null.");
+  }
+  
+  public static IconCompat createWithContentUri(String paramString)
+  {
+    if (paramString != null)
+    {
+      IconCompat localIconCompat = new IconCompat(4);
+      mObj1 = paramString;
+      return localIconCompat;
+    }
+    throw new IllegalArgumentException("Uri must not be null.");
+  }
+  
+  public static IconCompat createWithData(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    if (paramArrayOfByte != null)
+    {
+      IconCompat localIconCompat = new IconCompat(3);
+      mObj1 = paramArrayOfByte;
+      mInt1 = paramInt1;
+      mInt2 = paramInt2;
+      return localIconCompat;
+    }
+    throw new IllegalArgumentException("Data must not be null.");
+  }
+  
+  public static IconCompat createWithResource(Context paramContext, int paramInt)
+  {
+    if (paramContext != null) {
+      return createWithResource(paramContext.getResources(), paramContext.getPackageName(), paramInt);
+    }
+    throw new IllegalArgumentException("Context must not be null.");
+  }
+  
+  public static IconCompat createWithResource(Resources paramResources, String paramString, int paramInt)
+  {
+    IconCompat localIconCompat;
+    if (paramString != null) {
+      if (paramInt != 0)
+      {
+        localIconCompat = new IconCompat(2);
+        mInt1 = paramInt;
+        if (paramResources == null) {}
+      }
+    }
+    try
+    {
+      paramResources = paramResources.getResourceName(paramInt);
+      mObj1 = paramResources;
+      return localIconCompat;
+    }
+    catch (Resources.NotFoundException paramResources)
+    {
+      for (;;) {}
+    }
+    throw new IllegalArgumentException("Icon resource cannot be found");
+    mObj1 = paramString;
+    return localIconCompat;
+    throw new IllegalArgumentException("Drawable resource ID must not be 0");
+    throw new IllegalArgumentException("Package must not be null.");
+  }
+  
+  private static int getResId(Icon paramIcon)
+  {
+    if (Build.VERSION.SDK_INT >= 28) {
+      return paramIcon.getResId();
+    }
+    try
+    {
+      Object localObject = paramIcon.getClass();
+      localObject = ((Class)localObject).getMethod("getResId", new Class[0]);
+      paramIcon = ((Method)localObject).invoke(paramIcon, new Object[0]);
+      paramIcon = (Integer)paramIcon;
+      int i = paramIcon.intValue();
+      return i;
+    }
+    catch (NoSuchMethodException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon resource", paramIcon);
+      return 0;
+    }
+    catch (InvocationTargetException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon resource", paramIcon);
+      return 0;
+    }
+    catch (IllegalAccessException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon resource", paramIcon);
+    }
+    return 0;
+  }
+  
+  private static String getResPackage(Icon paramIcon)
+  {
+    if (Build.VERSION.SDK_INT >= 28) {
+      return paramIcon.getResPackage();
+    }
+    try
+    {
+      Object localObject = paramIcon.getClass();
+      localObject = ((Class)localObject).getMethod("getResPackage", new Class[0]);
+      paramIcon = ((Method)localObject).invoke(paramIcon, new Object[0]);
+      return (String)paramIcon;
+    }
+    catch (NoSuchMethodException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon package", paramIcon);
+      return null;
+    }
+    catch (InvocationTargetException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon package", paramIcon);
+      return null;
+    }
+    catch (IllegalAccessException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon package", paramIcon);
+    }
+    return null;
+  }
+  
+  private static Resources getResources(Context paramContext, String paramString)
+  {
+    if ("android".equals(paramString)) {
+      return Resources.getSystem();
+    }
+    paramContext = paramContext.getPackageManager();
+    try
+    {
+      ApplicationInfo localApplicationInfo = paramContext.getApplicationInfo(paramString, 8192);
+      if (localApplicationInfo != null)
+      {
+        paramContext = paramContext.getResourcesForApplication(localApplicationInfo);
+        return paramContext;
+      }
+      return null;
+    }
+    catch (PackageManager.NameNotFoundException paramContext)
+    {
+      Log.e("IconCompat", String.format("Unable to find pkg=%s for icon", new Object[] { paramString }), paramContext);
+    }
+    return null;
+  }
+  
+  private static int getType(Icon paramIcon)
+  {
+    if (Build.VERSION.SDK_INT >= 28) {
+      return paramIcon.getType();
+    }
+    try
+    {
+      Object localObject = paramIcon.getClass();
+      localObject = ((Class)localObject).getMethod("getType", new Class[0]);
+      localObject = ((Method)localObject).invoke(paramIcon, new Object[0]);
+      localObject = (Integer)localObject;
+      int i = ((Integer)localObject).intValue();
+      return i;
+    }
+    catch (NoSuchMethodException localNoSuchMethodException)
+    {
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unable to get icon type ");
+      localStringBuilder.append(paramIcon);
+      Log.e("IconCompat", localStringBuilder.toString(), localNoSuchMethodException);
+      return -1;
+    }
+    catch (InvocationTargetException localInvocationTargetException)
+    {
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unable to get icon type ");
+      localStringBuilder.append(paramIcon);
+      Log.e("IconCompat", localStringBuilder.toString(), localInvocationTargetException);
+      return -1;
+    }
+    catch (IllegalAccessException localIllegalAccessException)
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unable to get icon type ");
+      localStringBuilder.append(paramIcon);
+      Log.e("IconCompat", localStringBuilder.toString(), localIllegalAccessException);
+    }
+    return -1;
+  }
+  
+  private static Uri getUri(Icon paramIcon)
+  {
+    if (Build.VERSION.SDK_INT >= 28) {
+      return paramIcon.getUri();
+    }
+    try
+    {
+      Object localObject = paramIcon.getClass();
+      localObject = ((Class)localObject).getMethod("getUri", new Class[0]);
+      paramIcon = ((Method)localObject).invoke(paramIcon, new Object[0]);
+      return (Uri)paramIcon;
+    }
+    catch (NoSuchMethodException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon uri", paramIcon);
+      return null;
+    }
+    catch (InvocationTargetException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon uri", paramIcon);
+      return null;
+    }
+    catch (IllegalAccessException paramIcon)
+    {
+      Log.e("IconCompat", "Unable to get icon uri", paramIcon);
+    }
+    return null;
+  }
+  
+  private Drawable loadDrawableInner(Context paramContext)
+  {
+    int i = mType;
+    if (i != 1)
+    {
+      if (i != 2)
+      {
+        if (i != 3)
+        {
+          if (i != 4)
+          {
+            if (i != 5) {
+              return null;
+            }
+            return new BitmapDrawable(paramContext.getResources(), createLegacyIconFromAdaptiveIcon((Bitmap)mObj1, false));
+          }
+          localObject3 = Uri.parse((String)mObj1);
+          Object localObject1 = ((Uri)localObject3).getScheme();
+          StringBuilder localStringBuilder;
+          if ((!"content".equals(localObject1)) && (!"file".equals(localObject1)))
+          {
+            localObject1 = (String)mObj1;
+            try
+            {
+              localObject1 = new FileInputStream(new File((String)localObject1));
+            }
+            catch (FileNotFoundException localFileNotFoundException)
+            {
+              localStringBuilder = new StringBuilder();
+              localStringBuilder.append("Unable to load image from path: ");
+              localStringBuilder.append(localObject3);
+              Log.w("IconCompat", localStringBuilder.toString(), localFileNotFoundException);
+              break label217;
+            }
+          }
+          else
+          {
+            try
+            {
+              InputStream localInputStream = paramContext.getContentResolver().openInputStream((Uri)localObject3);
+            }
+            catch (Exception localException)
+            {
+              localStringBuilder = new StringBuilder();
+              localStringBuilder.append("Unable to load image from URI: ");
+              localStringBuilder.append(localObject3);
+              Log.w("IconCompat", localStringBuilder.toString(), localException);
+            }
+          }
+          label217:
+          localObject2 = null;
+          if (localObject2 == null) {
+            break label374;
+          }
+          return new BitmapDrawable(paramContext.getResources(), BitmapFactory.decodeStream((InputStream)localObject2));
+        }
+        return new BitmapDrawable(paramContext.getResources(), BitmapFactory.decodeByteArray((byte[])mObj1, mInt1, mInt2));
+      }
+      Object localObject3 = getResPackage();
+      Object localObject2 = localObject3;
+      if (TextUtils.isEmpty((CharSequence)localObject3)) {
+        localObject2 = paramContext.getPackageName();
+      }
+      localObject2 = getResources(paramContext, (String)localObject2);
+      try
+      {
+        paramContext = ResourcesCompat.getDrawable((Resources)localObject2, mInt1, paramContext.getTheme());
+        return paramContext;
+      }
+      catch (RuntimeException paramContext)
+      {
+        Log.e("IconCompat", String.format("Unable to load resource 0x%08x from pkg=%s", new Object[] { Integer.valueOf(mInt1), mObj1 }), paramContext);
+        return null;
+      }
+    }
+    return new BitmapDrawable(paramContext.getResources(), (Bitmap)mObj1);
+    label374:
+    return null;
+  }
+  
+  private static String typeToString(int paramInt)
+  {
+    if (paramInt != 1)
+    {
+      if (paramInt != 2)
+      {
+        if (paramInt != 3)
+        {
+          if (paramInt != 4)
+          {
+            if (paramInt != 5) {
+              return "UNKNOWN";
+            }
+            return "BITMAP_MASKABLE";
+          }
+          return "URI";
+        }
+        return "DATA";
+      }
+      return "RESOURCE";
+    }
+    return "BITMAP";
+  }
+  
+  public void addToShortcutIntent(Intent paramIntent, Drawable paramDrawable, Context paramContext)
+  {
+    checkResource(paramContext);
+    int i = mType;
+    Object localObject;
+    int j;
+    if (i != 1)
+    {
+      if (i != 2)
+      {
+        if (i == 5) {
+          paramContext = createLegacyIconFromAdaptiveIcon((Bitmap)mObj1, true);
+        } else {
+          throw new IllegalArgumentException("Icon type not supported for intent shortcuts");
+        }
+      }
+      else {
+        try
+        {
+          paramContext = paramContext.createPackageContext(getResPackage(), 0);
+          if (paramDrawable == null)
+          {
+            i = mInt1;
+            paramIntent.putExtra("android.intent.extra.shortcut.ICON_RESOURCE", Intent.ShortcutIconResource.fromContext(paramContext, i));
+            return;
+          }
+          i = mInt1;
+          localObject = ContextCompat.getDrawable(paramContext, i);
+          i = ((Drawable)localObject).getIntrinsicWidth();
+          if (i > 0)
+          {
+            i = ((Drawable)localObject).getIntrinsicHeight();
+            if (i > 0)
+            {
+              i = ((Drawable)localObject).getIntrinsicWidth();
+              j = ((Drawable)localObject).getIntrinsicHeight();
+              paramContext = Bitmap.Config.ARGB_8888;
+              paramContext = Bitmap.createBitmap(i, j, paramContext);
+              break label193;
+            }
+          }
+          paramContext = paramContext.getSystemService("activity");
+          paramContext = (ActivityManager)paramContext;
+          i = paramContext.getLauncherLargeIconSize();
+          paramContext = Bitmap.Config.ARGB_8888;
+          paramContext = Bitmap.createBitmap(i, i, paramContext);
+          label193:
+          ((Drawable)localObject).setBounds(0, 0, paramContext.getWidth(), paramContext.getHeight());
+          ((Drawable)localObject).draw(new Canvas(paramContext));
+        }
+        catch (PackageManager.NameNotFoundException paramIntent)
+        {
+          paramDrawable = new StringBuilder();
+          paramDrawable.append("Can't find package ");
+          paramDrawable.append(mObj1);
+          throw new IllegalArgumentException(paramDrawable.toString(), paramIntent);
+        }
+      }
+    }
+    else
+    {
+      localObject = (Bitmap)mObj1;
+      paramContext = (Context)localObject;
+      if (paramDrawable != null) {
+        paramContext = ((Bitmap)localObject).copy(((Bitmap)localObject).getConfig(), true);
+      }
+    }
+    if (paramDrawable != null)
+    {
+      i = paramContext.getWidth();
+      j = paramContext.getHeight();
+      paramDrawable.setBounds(i / 2, j / 2, i, j);
+      paramDrawable.draw(new Canvas(paramContext));
+    }
+    paramIntent.putExtra("android.intent.extra.shortcut.ICON", paramContext);
+  }
+  
+  public void checkResource(Context paramContext)
+  {
+    if (mType == 2)
+    {
+      String str3 = (String)mObj1;
+      if (!str3.contains(":")) {
+        return;
+      }
+      String str2 = str3.split(":", -1)[1];
+      String str1 = str2.split("/", -1)[0];
+      str2 = str2.split("/", -1)[1];
+      str3 = str3.split(":", -1)[0];
+      int i = getResources(paramContext, str3).getIdentifier(str2, str1, str3);
+      if (mInt1 != i)
+      {
+        paramContext = new StringBuilder();
+        paramContext.append("Id has changed for ");
+        paramContext.append(str3);
+        paramContext.append("/");
+        paramContext.append(str2);
+        Log.i("IconCompat", paramContext.toString());
+        mInt1 = i;
+      }
+    }
+  }
+  
+  public Bitmap getBitmap()
+  {
+    if ((mType == -1) && (Build.VERSION.SDK_INT >= 23))
+    {
+      localObject = mObj1;
+      if ((localObject instanceof Bitmap)) {
+        return (Bitmap)localObject;
+      }
+      return null;
+    }
+    int i = mType;
+    if (i == 1) {
+      return (Bitmap)mObj1;
+    }
+    if (i == 5) {
+      return createLegacyIconFromAdaptiveIcon((Bitmap)mObj1, true);
+    }
+    Object localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("called getBitmap() on ");
+    ((StringBuilder)localObject).append(this);
+    throw new IllegalStateException(((StringBuilder)localObject).toString());
+  }
+  
+  public int getResId()
+  {
+    if ((mType == -1) && (Build.VERSION.SDK_INT >= 23)) {
+      return getResId((Icon)mObj1);
+    }
+    if (mType == 2) {
+      return mInt1;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("called getResId() on ");
+    localStringBuilder.append(this);
+    throw new IllegalStateException(localStringBuilder.toString());
+  }
+  
+  public String getResPackage()
+  {
+    if ((mType == -1) && (Build.VERSION.SDK_INT >= 23)) {
+      return getResPackage((Icon)mObj1);
+    }
+    if (mType == 2) {
+      return ((String)mObj1).split(":", -1)[0];
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("called getResPackage() on ");
+    localStringBuilder.append(this);
+    throw new IllegalStateException(localStringBuilder.toString());
+  }
+  
+  public int getType()
+  {
+    if ((mType == -1) && (Build.VERSION.SDK_INT >= 23)) {
+      return getType((Icon)mObj1);
+    }
+    return mType;
+  }
+  
+  public Uri getUri()
+  {
+    if ((mType == -1) && (Build.VERSION.SDK_INT >= 23)) {
+      return getUri((Icon)mObj1);
+    }
+    return Uri.parse((String)mObj1);
+  }
+  
+  public Drawable loadDrawable(Context paramContext)
+  {
+    checkResource(paramContext);
+    if (Build.VERSION.SDK_INT >= 23) {
+      return toIcon().loadDrawable(paramContext);
+    }
+    paramContext = loadDrawableInner(paramContext);
+    if ((paramContext != null) && ((mTintList != null) || (mTintMode != DEFAULT_TINT_MODE)))
+    {
+      paramContext.mutate();
+      DrawableCompat.setTintList(paramContext, mTintList);
+      DrawableCompat.setTintMode(paramContext, mTintMode);
+    }
+    return paramContext;
+  }
+  
+  public void onPostParceling()
+  {
+    mTintMode = PorterDuff.Mode.valueOf(mTintModeStr);
+    int i = mType;
+    if (i != -1)
+    {
+      if (i != 1)
+      {
+        if (i != 2) {
+          if (i != 3)
+          {
+            if (i != 4) {
+              if (i == 5) {
+                break label78;
+              }
+            }
+          }
+          else
+          {
+            mObj1 = mData;
+            return;
+          }
+        }
+        mObj1 = new String(mData, Charset.forName("UTF-16"));
+        return;
+      }
+      label78:
+      localObject = mParcelable;
+      if (localObject != null)
+      {
+        mObj1 = localObject;
+        return;
+      }
+      localObject = mData;
+      mObj1 = localObject;
+      mType = 3;
+      mInt1 = 0;
+      mInt2 = localObject.length;
+      return;
+    }
+    Object localObject = mParcelable;
+    if (localObject != null)
+    {
+      mObj1 = localObject;
+      return;
+    }
+    throw new IllegalArgumentException("Invalid icon");
+  }
+  
+  public void onPreParceling(boolean paramBoolean)
+  {
+    mTintModeStr = mTintMode.name();
+    int i = mType;
+    if (i != -1)
+    {
+      if (i != 1) {
+        if (i != 2)
+        {
+          if (i != 3)
+          {
+            if (i != 4)
+            {
+              if (i == 5) {}
+            }
+            else {
+              mData = mObj1.toString().getBytes(Charset.forName("UTF-16"));
+            }
+          }
+          else {
+            mData = ((byte[])mObj1);
+          }
+        }
+        else
+        {
+          mData = ((String)mObj1).getBytes(Charset.forName("UTF-16"));
+          return;
+        }
+      }
+      if (paramBoolean)
+      {
+        Bitmap localBitmap = (Bitmap)mObj1;
+        ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
+        localBitmap.compress(Bitmap.CompressFormat.PNG, 90, localByteArrayOutputStream);
+        mData = localByteArrayOutputStream.toByteArray();
+        return;
+      }
+      mParcelable = ((Parcelable)mObj1);
+      return;
+    }
+    if (!paramBoolean)
+    {
+      mParcelable = ((Parcelable)mObj1);
+      return;
+    }
+    throw new IllegalArgumentException("Can't serialize Icon created with IconCompat#createFromIcon");
+  }
+  
+  public IconCompat setTint(int paramInt)
+  {
+    return setTintList(ColorStateList.valueOf(paramInt));
+  }
+  
+  public IconCompat setTintList(ColorStateList paramColorStateList)
+  {
+    mTintList = paramColorStateList;
+    return this;
+  }
+  
+  public IconCompat setTintMode(PorterDuff.Mode paramMode)
+  {
+    mTintMode = paramMode;
+    return this;
+  }
+  
+  public Bundle toBundle()
+  {
+    Bundle localBundle = new Bundle();
+    int i = mType;
+    if (i != -1)
+    {
+      if (i != 1)
+      {
+        if (i != 2) {
+          if (i != 3)
+          {
+            if (i != 4)
+            {
+              if (i == 5) {
+                break label92;
+              }
+              throw new IllegalArgumentException("Invalid icon");
+            }
+          }
+          else
+          {
+            localBundle.putByteArray("obj", (byte[])mObj1);
+            break label121;
+          }
+        }
+        localBundle.putString("obj", (String)mObj1);
+        break label121;
+      }
+      label92:
+      localBundle.putParcelable("obj", (Bitmap)mObj1);
+    }
+    else
+    {
+      localBundle.putParcelable("obj", (Parcelable)mObj1);
+    }
+    label121:
+    localBundle.putInt("type", mType);
+    localBundle.putInt("int1", mInt1);
+    localBundle.putInt("int2", mInt2);
+    Object localObject = mTintList;
+    if (localObject != null) {
+      localBundle.putParcelable("tint_list", (Parcelable)localObject);
+    }
+    localObject = mTintMode;
+    if (localObject != DEFAULT_TINT_MODE) {
+      localBundle.putString("tint_mode", ((Enum)localObject).name());
+    }
+    return localBundle;
+  }
+  
+  public Icon toIcon()
+  {
+    int i = mType;
+    Object localObject;
+    if (i != -1)
+    {
+      Icon localIcon;
+      if (i != 1)
+      {
+        if (i != 2)
+        {
+          if (i != 3)
+          {
+            if (i != 4)
+            {
+              if (i == 5)
+              {
+                if (Build.VERSION.SDK_INT >= 26) {
+                  localIcon = Icon.createWithAdaptiveBitmap((Bitmap)mObj1);
+                } else {
+                  localIcon = Icon.createWithBitmap(createLegacyIconFromAdaptiveIcon((Bitmap)mObj1, false));
+                }
+              }
+              else {
+                throw new IllegalArgumentException("Unknown type");
+              }
+            }
+            else {
+              localIcon = Icon.createWithContentUri((String)mObj1);
+            }
+          }
+          else {
+            localIcon = Icon.createWithData((byte[])mObj1, mInt1, mInt2);
+          }
+        }
+        else {
+          localIcon = Icon.createWithResource(getResPackage(), mInt1);
+        }
+      }
+      else {
+        localIcon = Icon.createWithBitmap((Bitmap)mObj1);
+      }
+      localObject = mTintList;
+      if (localObject != null) {
+        localIcon.setTintList((ColorStateList)localObject);
+      }
+      PorterDuff.Mode localMode = mTintMode;
+      localObject = localIcon;
+      if (localMode != DEFAULT_TINT_MODE)
+      {
+        localIcon.setTintMode(localMode);
+        return localIcon;
+      }
+    }
+    else
+    {
+      localObject = (Icon)mObj1;
+    }
+    return localObject;
+  }
+  
+  public String toString()
+  {
+    if (mType == -1) {
+      return String.valueOf(mObj1);
+    }
+    StringBuilder localStringBuilder = new StringBuilder("Icon(typ=");
+    localStringBuilder.append(typeToString(mType));
+    int i = mType;
+    if (i != 1) {
+      if (i != 2)
+      {
+        if (i != 3)
+        {
+          if (i != 4)
+          {
+            if (i != 5) {
+              break label235;
+            }
+          }
+          else
+          {
+            localStringBuilder.append(" uri=");
+            localStringBuilder.append(mObj1);
+            break label235;
+          }
+        }
+        else
+        {
+          localStringBuilder.append(" len=");
+          localStringBuilder.append(mInt1);
+          if (mInt2 == 0) {
+            break label235;
+          }
+          localStringBuilder.append(" off=");
+          localStringBuilder.append(mInt2);
+          break label235;
+        }
+      }
+      else
+      {
+        localStringBuilder.append(" pkg=");
+        localStringBuilder.append(getResPackage());
+        localStringBuilder.append(" id=");
+        localStringBuilder.append(String.format("0x%08x", new Object[] { Integer.valueOf(getResId()) }));
+        break label235;
+      }
+    }
+    localStringBuilder.append(" size=");
+    localStringBuilder.append(((Bitmap)mObj1).getWidth());
+    localStringBuilder.append("x");
+    localStringBuilder.append(((Bitmap)mObj1).getHeight());
+    label235:
+    if (mTintList != null)
+    {
+      localStringBuilder.append(" tint=");
+      localStringBuilder.append(mTintList);
+    }
+    if (mTintMode != DEFAULT_TINT_MODE)
+    {
+      localStringBuilder.append(" mode=");
+      localStringBuilder.append(mTintMode);
+    }
+    localStringBuilder.append(")");
+    return localStringBuilder.toString();
+  }
+  
+  @Retention(RetentionPolicy.SOURCE)
+  public static @interface IconType {}
+}

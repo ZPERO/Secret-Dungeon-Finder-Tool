@@ -1,0 +1,54 @@
+package com.google.firebase.database.connection;
+
+import java.util.List;
+import java.util.Map;
+
+public abstract interface PersistentConnection
+{
+  public abstract void compareAndPut(List<String> paramList, Object paramObject, String paramString, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void initialize();
+  
+  public abstract void interrupt(String paramString);
+  
+  public abstract boolean isInterrupted(String paramString);
+  
+  public abstract void listen(List<String> paramList, Map<String, Object> paramMap, ListenHashProvider paramListenHashProvider, Long paramLong, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void merge(List<String> paramList, Map<String, Object> paramMap, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void onDisconnectCancel(List<String> paramList, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void onDisconnectMerge(List<String> paramList, Map<String, Object> paramMap, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void onDisconnectPut(List<String> paramList, Object paramObject, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void purgeOutstandingWrites();
+  
+  public abstract void put(List<String> paramList, Object paramObject, RequestResultCallback paramRequestResultCallback);
+  
+  public abstract void refreshAuthToken();
+  
+  public abstract void refreshAuthToken(String paramString);
+  
+  public abstract void resume(String paramString);
+  
+  public abstract void shutdown();
+  
+  public abstract void unlisten(List<String> paramList, Map<String, Object> paramMap);
+  
+  public static abstract interface Delegate
+  {
+    public abstract void onAuthStatus(boolean paramBoolean);
+    
+    public abstract void onConnect();
+    
+    public abstract void onDataUpdate(List<String> paramList, Object paramObject, boolean paramBoolean, Long paramLong);
+    
+    public abstract void onDisconnect();
+    
+    public abstract void onRangeMergeUpdate(List<String> paramList, List<RangeMerge> paramList1, Long paramLong);
+    
+    public abstract void onServerInfoUpdate(Map<String, Object> paramMap);
+  }
+}

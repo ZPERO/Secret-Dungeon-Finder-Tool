@@ -1,0 +1,197 @@
+package androidx.preference;
+
+import android.app.AlertDialog.Builder;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.app.Fragment;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.Window;
+import android.widget.TextView;
+
+@Deprecated
+public abstract class PreferenceDialogFragment
+  extends DialogFragment
+  implements DialogInterface.OnClickListener
+{
+  @Deprecated
+  protected static final String ARG_KEY = "key";
+  private static final String SAVE_STATE_ICON = "PreferenceDialogFragment.icon";
+  private static final String SAVE_STATE_LAYOUT = "PreferenceDialogFragment.layout";
+  private static final String SAVE_STATE_MESSAGE = "PreferenceDialogFragment.message";
+  private static final String SAVE_STATE_NEGATIVE_TEXT = "PreferenceDialogFragment.negativeText";
+  private static final String SAVE_STATE_POSITIVE_TEXT = "PreferenceDialogFragment.positiveText";
+  private static final String SAVE_STATE_TITLE = "PreferenceDialogFragment.title";
+  private BitmapDrawable mDialogIcon;
+  private int mDialogLayoutRes;
+  private CharSequence mDialogMessage;
+  private CharSequence mDialogTitle;
+  private CharSequence mNegativeButtonText;
+  private CharSequence mPositiveButtonText;
+  private DialogPreference mPreference;
+  private int mWhichButtonClicked;
+  
+  public PreferenceDialogFragment() {}
+  
+  private void requestInputMethod(Dialog paramDialog)
+  {
+    paramDialog.getWindow().setSoftInputMode(5);
+  }
+  
+  public DialogPreference getPreference()
+  {
+    if (mPreference == null)
+    {
+      String str = getArguments().getString("key");
+      mPreference = ((DialogPreference)((DialogPreference.TargetFragment)getTargetFragment()).findPreference(str));
+    }
+    return mPreference;
+  }
+  
+  protected boolean needInputMethod()
+  {
+    return false;
+  }
+  
+  protected void onBindDialogView(View paramView)
+  {
+    paramView = paramView.findViewById(16908299);
+    if (paramView != null)
+    {
+      CharSequence localCharSequence = mDialogMessage;
+      int i = 8;
+      if (!TextUtils.isEmpty(localCharSequence))
+      {
+        if ((paramView instanceof TextView)) {
+          ((TextView)paramView).setText(localCharSequence);
+        }
+        i = 0;
+      }
+      if (paramView.getVisibility() != i) {
+        paramView.setVisibility(i);
+      }
+    }
+  }
+  
+  public void onClick(DialogInterface paramDialogInterface, int paramInt)
+  {
+    mWhichButtonClicked = paramInt;
+  }
+  
+  public void onCreate(Bundle paramBundle)
+  {
+    super.onCreate(paramBundle);
+    Object localObject1 = getTargetFragment();
+    if ((localObject1 instanceof DialogPreference.TargetFragment))
+    {
+      localObject1 = (DialogPreference.TargetFragment)localObject1;
+      Object localObject2 = getArguments().getString("key");
+      if (paramBundle == null)
+      {
+        mPreference = ((DialogPreference)((DialogPreference.TargetFragment)localObject1).findPreference((CharSequence)localObject2));
+        mDialogTitle = mPreference.getDialogTitle();
+        mPositiveButtonText = mPreference.getPositiveButtonText();
+        mNegativeButtonText = mPreference.getNegativeButtonText();
+        mDialogMessage = mPreference.getDialogMessage();
+        mDialogLayoutRes = mPreference.getDialogLayoutResource();
+        paramBundle = mPreference.getDialogIcon();
+        if ((paramBundle != null) && (!(paramBundle instanceof BitmapDrawable)))
+        {
+          localObject1 = Bitmap.createBitmap(paramBundle.getIntrinsicWidth(), paramBundle.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+          localObject2 = new Canvas((Bitmap)localObject1);
+          paramBundle.setBounds(0, 0, ((Canvas)localObject2).getWidth(), ((Canvas)localObject2).getHeight());
+          paramBundle.draw((Canvas)localObject2);
+          mDialogIcon = new BitmapDrawable(getResources(), (Bitmap)localObject1);
+          return;
+        }
+        mDialogIcon = ((BitmapDrawable)paramBundle);
+        return;
+      }
+      mDialogTitle = paramBundle.getCharSequence("PreferenceDialogFragment.title");
+      mPositiveButtonText = paramBundle.getCharSequence("PreferenceDialogFragment.positiveText");
+      mNegativeButtonText = paramBundle.getCharSequence("PreferenceDialogFragment.negativeText");
+      mDialogMessage = paramBundle.getCharSequence("PreferenceDialogFragment.message");
+      mDialogLayoutRes = paramBundle.getInt("PreferenceDialogFragment.layout", 0);
+      paramBundle = (Bitmap)paramBundle.getParcelable("PreferenceDialogFragment.icon");
+      if (paramBundle != null) {
+        mDialogIcon = new BitmapDrawable(getResources(), paramBundle);
+      }
+    }
+    else
+    {
+      throw new IllegalStateException("Target fragment must implement TargetFragment interface");
+    }
+  }
+  
+  public Dialog onCreateDialog(Bundle paramBundle)
+  {
+    Object localObject = getActivity();
+    mWhichButtonClicked = -2;
+    paramBundle = new AlertDialog.Builder((Context)localObject).setTitle(mDialogTitle).setIcon(mDialogIcon).setPositiveButton(mPositiveButtonText, this).setNegativeButton(mNegativeButtonText, this);
+    localObject = onCreateDialogView((Context)localObject);
+    if (localObject != null)
+    {
+      onBindDialogView((View)localObject);
+      paramBundle.setView((View)localObject);
+    }
+    else
+    {
+      paramBundle.setMessage(mDialogMessage);
+    }
+    onPrepareDialogBuilder(paramBundle);
+    paramBundle = paramBundle.create();
+    if (needInputMethod()) {
+      requestInputMethod(paramBundle);
+    }
+    return paramBundle;
+  }
+  
+  protected View onCreateDialogView(Context paramContext)
+  {
+    int i = mDialogLayoutRes;
+    if (i == 0) {
+      return null;
+    }
+    return LayoutInflater.from(paramContext).inflate(i, null);
+  }
+  
+  public abstract void onDialogClosed(boolean paramBoolean);
+  
+  public void onDismiss(DialogInterface paramDialogInterface)
+  {
+    super.onDismiss(paramDialogInterface);
+    boolean bool;
+    if (mWhichButtonClicked == -1) {
+      bool = true;
+    } else {
+      bool = false;
+    }
+    onDialogClosed(bool);
+  }
+  
+  protected void onPrepareDialogBuilder(AlertDialog.Builder paramBuilder) {}
+  
+  public void onSaveInstanceState(Bundle paramBundle)
+  {
+    super.onSaveInstanceState(paramBundle);
+    paramBundle.putCharSequence("PreferenceDialogFragment.title", mDialogTitle);
+    paramBundle.putCharSequence("PreferenceDialogFragment.positiveText", mPositiveButtonText);
+    paramBundle.putCharSequence("PreferenceDialogFragment.negativeText", mNegativeButtonText);
+    paramBundle.putCharSequence("PreferenceDialogFragment.message", mDialogMessage);
+    paramBundle.putInt("PreferenceDialogFragment.layout", mDialogLayoutRes);
+    BitmapDrawable localBitmapDrawable = mDialogIcon;
+    if (localBitmapDrawable != null) {
+      paramBundle.putParcelable("PreferenceDialogFragment.icon", localBitmapDrawable.getBitmap());
+    }
+  }
+}

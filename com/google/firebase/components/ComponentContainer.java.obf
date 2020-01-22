@@ -1,0 +1,10 @@
+package com.google.firebase.components;
+
+import com.google.firebase.inject.Provider;
+
+public abstract interface ComponentContainer
+{
+  public abstract <T> T get(Class<T> paramClass);
+  
+  public abstract <T> Provider<T> getProvider(Class<T> paramClass);
+}

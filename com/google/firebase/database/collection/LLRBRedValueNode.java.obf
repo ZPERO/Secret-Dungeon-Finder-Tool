@@ -1,0 +1,51 @@
+package com.google.firebase.database.collection;
+
+public class LLRBRedValueNode<K, V>
+  extends LLRBValueNode<K, V>
+{
+  LLRBRedValueNode(K paramK, V paramV)
+  {
+    super(paramK, paramV, LLRBEmptyNode.getInstance(), LLRBEmptyNode.getInstance());
+  }
+  
+  LLRBRedValueNode(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    super(paramK, paramV, paramLLRBNode1, paramLLRBNode2);
+  }
+  
+  public boolean isRed()
+  {
+    return true;
+  }
+  
+  public int size()
+  {
+    return getLeft().size() + 1 + getRight().size();
+  }
+  
+  protected final LLRBNode.Color zza()
+  {
+    return LLRBNode.Color.zzn;
+  }
+  
+  protected final LLRBValueNode<K, V> zza(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    Object localObject = paramK;
+    if (paramK == null) {
+      localObject = getKey();
+    }
+    paramK = paramV;
+    if (paramV == null) {
+      paramK = getValue();
+    }
+    paramV = paramLLRBNode1;
+    if (paramLLRBNode1 == null) {
+      paramV = getLeft();
+    }
+    paramLLRBNode1 = paramLLRBNode2;
+    if (paramLLRBNode2 == null) {
+      paramLLRBNode1 = getRight();
+    }
+    return new LLRBRedValueNode(localObject, paramK, paramV, paramLLRBNode1);
+  }
+}

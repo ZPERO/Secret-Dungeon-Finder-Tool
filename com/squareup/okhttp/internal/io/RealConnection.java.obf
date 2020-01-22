@@ -1,0 +1,612 @@
+package com.squareup.okhttp.internal.io;
+
+import com.squareup.okhttp.Address;
+import com.squareup.okhttp.Connection;
+import com.squareup.okhttp.ConnectionSpec;
+import com.squareup.okhttp.Handshake;
+import com.squareup.okhttp.HttpUrl;
+import com.squareup.okhttp.Protocol;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Request.Builder;
+import com.squareup.okhttp.Response;
+import com.squareup.okhttp.Response.Builder;
+import com.squareup.okhttp.Route;
+import com.squareup.okhttp.internal.ConnectionSpecSelector;
+import com.squareup.okhttp.internal.Platform;
+import com.squareup.okhttp.internal.Util;
+import com.squareup.okhttp.internal.Version;
+import com.squareup.okhttp.internal.framed.FramedConnection;
+import com.squareup.okhttp.internal.framed.FramedConnection.Builder;
+import com.squareup.okhttp.internal.http.Http1xStream;
+import com.squareup.okhttp.internal.http.OkHeaders;
+import com.squareup.okhttp.internal.http.RouteException;
+import com.squareup.okhttp.internal.http.StreamAllocation;
+import com.squareup.okhttp.internal.tls.TrustRootIndex;
+import java.io.IOException;
+import java.lang.ref.Reference;
+import java.net.ConnectException;
+import java.net.Proxy;
+import java.net.Proxy.Type;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.net.UnknownServiceException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
+import okio.Timeout;
+
+public final class RealConnection
+  implements Connection
+{
+  private static SSLSocketFactory lastSslSocketFactory;
+  private static TrustRootIndex lastTrustRootIndex;
+  public final List<Reference<StreamAllocation>> allocations = new ArrayList();
+  public volatile FramedConnection framedConnection;
+  private Handshake handshake;
+  public long idleAtNanos = Long.MAX_VALUE;
+  public boolean noNewStreams;
+  private Protocol protocol;
+  private Socket rawSocket;
+  private final Route route;
+  public BufferedSink sink;
+  public Socket socket;
+  public BufferedSource source;
+  public int streamCount;
+  
+  public RealConnection(Route paramRoute)
+  {
+    route = paramRoute;
+  }
+  
+  private void connectSocket(int paramInt1, int paramInt2, int paramInt3, ConnectionSpecSelector paramConnectionSpecSelector)
+    throws IOException
+  {
+    rawSocket.setSoTimeout(paramInt2);
+    try
+    {
+      Platform.get().connectSocket(rawSocket, route.getSocketAddress(), paramInt1);
+      source = Okio.buffer(Okio.source(rawSocket));
+      sink = Okio.buffer(Okio.sink(rawSocket));
+      if (route.getAddress().getSslSocketFactory() != null)
+      {
+        connectTls(paramInt2, paramInt3, paramConnectionSpecSelector);
+      }
+      else
+      {
+        protocol = Protocol.HTTP_1_1;
+        socket = rawSocket;
+      }
+      if ((protocol == Protocol.SPDY_3) || (protocol == Protocol.HTTP_2))
+      {
+        socket.setSoTimeout(0);
+        paramConnectionSpecSelector = new FramedConnection.Builder(true).socket(socket, route.getAddress().url().host(), source, sink).protocol(protocol).build();
+        paramConnectionSpecSelector.sendConnectionPreface();
+        framedConnection = paramConnectionSpecSelector;
+      }
+      return;
+    }
+    catch (ConnectException paramConnectionSpecSelector)
+    {
+      for (;;) {}
+    }
+    paramConnectionSpecSelector = new StringBuilder();
+    paramConnectionSpecSelector.append("Failed to connect to ");
+    paramConnectionSpecSelector.append(route.getSocketAddress());
+    throw new ConnectException(paramConnectionSpecSelector.toString());
+  }
+  
+  /* Error */
+  private void connectTls(int paramInt1, int paramInt2, ConnectionSpecSelector paramConnectionSpecSelector)
+    throws IOException
+  {
+    // Byte code:
+    //   0: aload_0
+    //   1: getfield 50	com/squareup/okhttp/internal/io/RealConnection:route	Lcom/squareup/okhttp/Route;
+    //   4: invokevirtual 185	com/squareup/okhttp/Route:requiresTunnel	()Z
+    //   7: ifeq +9 -> 16
+    //   10: aload_0
+    //   11: iload_1
+    //   12: iload_2
+    //   13: invokespecial 189	com/squareup/okhttp/internal/io/RealConnection:createTunnel	(II)V
+    //   16: aload_0
+    //   17: getfield 50	com/squareup/okhttp/internal/io/RealConnection:route	Lcom/squareup/okhttp/Route;
+    //   20: invokevirtual 103	com/squareup/okhttp/Route:getAddress	()Lcom/squareup/okhttp/Address;
+    //   23: astore 8
+    //   25: aload 8
+    //   27: invokevirtual 109	com/squareup/okhttp/Address:getSslSocketFactory	()Ljavax/net/ssl/SSLSocketFactory;
+    //   30: astore 5
+    //   32: aconst_null
+    //   33: astore 4
+    //   35: aconst_null
+    //   36: astore 7
+    //   38: aconst_null
+    //   39: astore 6
+    //   41: aload 5
+    //   43: aload_0
+    //   44: getfield 59	com/squareup/okhttp/internal/io/RealConnection:rawSocket	Ljava/net/Socket;
+    //   47: aload 8
+    //   49: invokevirtual 192	com/squareup/okhttp/Address:getUriHost	()Ljava/lang/String;
+    //   52: aload 8
+    //   54: invokevirtual 196	com/squareup/okhttp/Address:getUriPort	()I
+    //   57: iconst_1
+    //   58: invokevirtual 202	javax/net/ssl/SSLSocketFactory:createSocket	(Ljava/net/Socket;Ljava/lang/String;IZ)Ljava/net/Socket;
+    //   61: checkcast 204	javax/net/ssl/SSLSocket
+    //   64: astore 5
+    //   66: aload_3
+    //   67: aload 5
+    //   69: invokevirtual 210	com/squareup/okhttp/internal/ConnectionSpecSelector:configureSecureSocket	(Ljavax/net/ssl/SSLSocket;)Lcom/squareup/okhttp/ConnectionSpec;
+    //   72: astore 7
+    //   74: aload 7
+    //   76: invokevirtual 215	com/squareup/okhttp/ConnectionSpec:supportsTlsExtensions	()Z
+    //   79: ifeq +21 -> 100
+    //   82: invokestatic 71	com/squareup/okhttp/internal/Platform:get	()Lcom/squareup/okhttp/internal/Platform;
+    //   85: aload 5
+    //   87: aload 8
+    //   89: invokevirtual 192	com/squareup/okhttp/Address:getUriHost	()Ljava/lang/String;
+    //   92: aload 8
+    //   94: invokevirtual 219	com/squareup/okhttp/Address:getProtocols	()Ljava/util/List;
+    //   97: invokevirtual 223	com/squareup/okhttp/internal/Platform:configureTlsExtensions	(Ljavax/net/ssl/SSLSocket;Ljava/lang/String;Ljava/util/List;)V
+    //   100: aload 5
+    //   102: invokevirtual 226	javax/net/ssl/SSLSocket:startHandshake	()V
+    //   105: aload 5
+    //   107: invokevirtual 230	javax/net/ssl/SSLSocket:getSession	()Ljavax/net/ssl/SSLSession;
+    //   110: invokestatic 235	com/squareup/okhttp/Handshake:get	(Ljavax/net/ssl/SSLSession;)Lcom/squareup/okhttp/Handshake;
+    //   113: astore 4
+    //   115: aload 8
+    //   117: invokevirtual 239	com/squareup/okhttp/Address:getHostnameVerifier	()Ljavax/net/ssl/HostnameVerifier;
+    //   120: aload 8
+    //   122: invokevirtual 192	com/squareup/okhttp/Address:getUriHost	()Ljava/lang/String;
+    //   125: aload 5
+    //   127: invokevirtual 230	javax/net/ssl/SSLSocket:getSession	()Ljavax/net/ssl/SSLSession;
+    //   130: invokeinterface 245 3 0
+    //   135: ifeq +147 -> 282
+    //   138: aload 8
+    //   140: invokevirtual 249	com/squareup/okhttp/Address:getCertificatePinner	()Lcom/squareup/okhttp/CertificatePinner;
+    //   143: getstatic 255	com/squareup/okhttp/CertificatePinner:DEFAULT	Lcom/squareup/okhttp/CertificatePinner;
+    //   146: if_acmpeq +41 -> 187
+    //   149: new 257	com/squareup/okhttp/internal/tls/CertificateChainCleaner
+    //   152: dup
+    //   153: aload 8
+    //   155: invokevirtual 109	com/squareup/okhttp/Address:getSslSocketFactory	()Ljavax/net/ssl/SSLSocketFactory;
+    //   158: invokestatic 261	com/squareup/okhttp/internal/io/RealConnection:trustRootIndex	(Ljavax/net/ssl/SSLSocketFactory;)Lcom/squareup/okhttp/internal/tls/TrustRootIndex;
+    //   161: invokespecial 264	com/squareup/okhttp/internal/tls/CertificateChainCleaner:<init>	(Lcom/squareup/okhttp/internal/tls/TrustRootIndex;)V
+    //   164: aload 4
+    //   166: invokevirtual 267	com/squareup/okhttp/Handshake:peerCertificates	()Ljava/util/List;
+    //   169: invokevirtual 271	com/squareup/okhttp/internal/tls/CertificateChainCleaner:clean	(Ljava/util/List;)Ljava/util/List;
+    //   172: astore_3
+    //   173: aload 8
+    //   175: invokevirtual 249	com/squareup/okhttp/Address:getCertificatePinner	()Lcom/squareup/okhttp/CertificatePinner;
+    //   178: aload 8
+    //   180: invokevirtual 192	com/squareup/okhttp/Address:getUriHost	()Ljava/lang/String;
+    //   183: aload_3
+    //   184: invokevirtual 275	com/squareup/okhttp/CertificatePinner:check	(Ljava/lang/String;Ljava/util/List;)V
+    //   187: aload 6
+    //   189: astore_3
+    //   190: aload 7
+    //   192: invokevirtual 215	com/squareup/okhttp/ConnectionSpec:supportsTlsExtensions	()Z
+    //   195: ifeq +12 -> 207
+    //   198: invokestatic 71	com/squareup/okhttp/internal/Platform:get	()Lcom/squareup/okhttp/internal/Platform;
+    //   201: aload 5
+    //   203: invokevirtual 279	com/squareup/okhttp/internal/Platform:getSelectedProtocol	(Ljavax/net/ssl/SSLSocket;)Ljava/lang/String;
+    //   206: astore_3
+    //   207: aload_0
+    //   208: aload 5
+    //   210: putfield 122	com/squareup/okhttp/internal/io/RealConnection:socket	Ljava/net/Socket;
+    //   213: aload_0
+    //   214: aload_0
+    //   215: getfield 122	com/squareup/okhttp/internal/io/RealConnection:socket	Ljava/net/Socket;
+    //   218: invokestatic 85	okio/Okio:source	(Ljava/net/Socket;)Lokio/Source;
+    //   221: invokestatic 89	okio/Okio:buffer	(Lokio/Source;)Lokio/BufferedSource;
+    //   224: putfield 91	com/squareup/okhttp/internal/io/RealConnection:source	Lokio/BufferedSource;
+    //   227: aload_0
+    //   228: aload_0
+    //   229: getfield 122	com/squareup/okhttp/internal/io/RealConnection:socket	Ljava/net/Socket;
+    //   232: invokestatic 94	okio/Okio:sink	(Ljava/net/Socket;)Lokio/Sink;
+    //   235: invokestatic 97	okio/Okio:buffer	(Lokio/Sink;)Lokio/BufferedSink;
+    //   238: putfield 99	com/squareup/okhttp/internal/io/RealConnection:sink	Lokio/BufferedSink;
+    //   241: aload_0
+    //   242: aload 4
+    //   244: putfield 281	com/squareup/okhttp/internal/io/RealConnection:handshake	Lcom/squareup/okhttp/Handshake;
+    //   247: aload_3
+    //   248: ifnull +11 -> 259
+    //   251: aload_3
+    //   252: invokestatic 284	com/squareup/okhttp/Protocol:get	(Ljava/lang/String;)Lcom/squareup/okhttp/Protocol;
+    //   255: astore_3
+    //   256: goto +7 -> 263
+    //   259: getstatic 118	com/squareup/okhttp/Protocol:HTTP_1_1	Lcom/squareup/okhttp/Protocol;
+    //   262: astore_3
+    //   263: aload_0
+    //   264: aload_3
+    //   265: putfield 120	com/squareup/okhttp/internal/io/RealConnection:protocol	Lcom/squareup/okhttp/Protocol;
+    //   268: aload 5
+    //   270: ifnull +11 -> 281
+    //   273: invokestatic 71	com/squareup/okhttp/internal/Platform:get	()Lcom/squareup/okhttp/internal/Platform;
+    //   276: aload 5
+    //   278: invokevirtual 288	com/squareup/okhttp/internal/Platform:afterHandshake	(Ljavax/net/ssl/SSLSocket;)V
+    //   281: return
+    //   282: aload 4
+    //   284: invokevirtual 267	com/squareup/okhttp/Handshake:peerCertificates	()Ljava/util/List;
+    //   287: iconst_0
+    //   288: invokeinterface 293 2 0
+    //   293: checkcast 295	java/security/cert/X509Certificate
+    //   296: astore_3
+    //   297: new 162	java/lang/StringBuilder
+    //   300: dup
+    //   301: invokespecial 163	java/lang/StringBuilder:<init>	()V
+    //   304: astore 4
+    //   306: aload 4
+    //   308: ldc_w 297
+    //   311: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   314: pop
+    //   315: aload 4
+    //   317: aload 8
+    //   319: invokevirtual 192	com/squareup/okhttp/Address:getUriHost	()Ljava/lang/String;
+    //   322: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   325: pop
+    //   326: aload 4
+    //   328: ldc_w 299
+    //   331: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   334: pop
+    //   335: aload 4
+    //   337: ldc_w 301
+    //   340: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   343: pop
+    //   344: aload 4
+    //   346: aload_3
+    //   347: invokestatic 305	com/squareup/okhttp/CertificatePinner:pin	(Ljava/security/cert/Certificate;)Ljava/lang/String;
+    //   350: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   353: pop
+    //   354: aload 4
+    //   356: ldc_w 307
+    //   359: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   362: pop
+    //   363: aload 4
+    //   365: aload_3
+    //   366: invokevirtual 311	java/security/cert/X509Certificate:getSubjectDN	()Ljava/security/Principal;
+    //   369: invokeinterface 316 1 0
+    //   374: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   377: pop
+    //   378: aload 4
+    //   380: ldc_w 318
+    //   383: invokevirtual 169	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   386: pop
+    //   387: aload 4
+    //   389: aload_3
+    //   390: invokestatic 324	com/squareup/okhttp/internal/tls/OkHostnameVerifier:allSubjectAltNames	(Ljava/security/cert/X509Certificate;)Ljava/util/List;
+    //   393: invokevirtual 172	java/lang/StringBuilder:append	(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+    //   396: pop
+    //   397: new 326	javax/net/ssl/SSLPeerUnverifiedException
+    //   400: dup
+    //   401: aload 4
+    //   403: invokevirtual 175	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   406: invokespecial 327	javax/net/ssl/SSLPeerUnverifiedException:<init>	(Ljava/lang/String;)V
+    //   409: athrow
+    //   410: astore_3
+    //   411: aload 5
+    //   413: astore 4
+    //   415: goto +54 -> 469
+    //   418: astore 4
+    //   420: aload 5
+    //   422: astore_3
+    //   423: aload 4
+    //   425: astore 5
+    //   427: goto +12 -> 439
+    //   430: astore_3
+    //   431: goto +38 -> 469
+    //   434: astore 5
+    //   436: aload 7
+    //   438: astore_3
+    //   439: aload_3
+    //   440: astore 4
+    //   442: aload 5
+    //   444: invokestatic 333	com/squareup/okhttp/internal/Util:isAndroidGetsocknameError	(Ljava/lang/AssertionError;)Z
+    //   447: ifeq +16 -> 463
+    //   450: aload_3
+    //   451: astore 4
+    //   453: new 55	java/io/IOException
+    //   456: dup
+    //   457: aload 5
+    //   459: invokespecial 336	java/io/IOException:<init>	(Ljava/lang/Throwable;)V
+    //   462: athrow
+    //   463: aload_3
+    //   464: astore 4
+    //   466: aload 5
+    //   468: athrow
+    //   469: aload 4
+    //   471: ifnull +11 -> 482
+    //   474: invokestatic 71	com/squareup/okhttp/internal/Platform:get	()Lcom/squareup/okhttp/internal/Platform;
+    //   477: aload 4
+    //   479: invokevirtual 288	com/squareup/okhttp/internal/Platform:afterHandshake	(Ljavax/net/ssl/SSLSocket;)V
+    //   482: aload 4
+    //   484: invokestatic 340	com/squareup/okhttp/internal/Util:closeQuietly	(Ljava/net/Socket;)V
+    //   487: aload_3
+    //   488: athrow
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	489	0	this	RealConnection
+    //   0	489	1	paramInt1	int
+    //   0	489	2	paramInt2	int
+    //   0	489	3	paramConnectionSpecSelector	ConnectionSpecSelector
+    //   33	381	4	localObject1	Object
+    //   418	6	4	localAssertionError1	AssertionError
+    //   440	43	4	localConnectionSpecSelector	ConnectionSpecSelector
+    //   30	396	5	localObject2	Object
+    //   434	33	5	localAssertionError2	AssertionError
+    //   39	149	6	localObject3	Object
+    //   36	401	7	localConnectionSpec	ConnectionSpec
+    //   23	295	8	localAddress	Address
+    // Exception table:
+    //   from	to	target	type
+    //   66	100	410	finally
+    //   100	187	410	finally
+    //   190	207	410	finally
+    //   207	247	410	finally
+    //   251	256	410	finally
+    //   259	263	410	finally
+    //   263	268	410	finally
+    //   282	410	410	finally
+    //   66	100	418	java/lang/AssertionError
+    //   100	187	418	java/lang/AssertionError
+    //   190	207	418	java/lang/AssertionError
+    //   207	247	418	java/lang/AssertionError
+    //   251	256	418	java/lang/AssertionError
+    //   259	263	418	java/lang/AssertionError
+    //   263	268	418	java/lang/AssertionError
+    //   282	410	418	java/lang/AssertionError
+    //   41	66	430	finally
+    //   442	450	430	finally
+    //   453	463	430	finally
+    //   466	469	430	finally
+    //   41	66	434	java/lang/AssertionError
+  }
+  
+  private void createTunnel(int paramInt1, int paramInt2)
+    throws IOException
+  {
+    Object localObject1 = createTunnelRequest();
+    Object localObject2 = ((Request)localObject1).httpUrl();
+    Object localObject3 = new StringBuilder();
+    ((StringBuilder)localObject3).append("CONNECT ");
+    ((StringBuilder)localObject3).append(((HttpUrl)localObject2).host());
+    ((StringBuilder)localObject3).append(":");
+    ((StringBuilder)localObject3).append(((HttpUrl)localObject2).port());
+    ((StringBuilder)localObject3).append(" HTTP/1.1");
+    localObject2 = ((StringBuilder)localObject3).toString();
+    do
+    {
+      localObject3 = new Http1xStream(null, source, sink);
+      source.timeout().timeout(paramInt1, TimeUnit.MILLISECONDS);
+      sink.timeout().timeout(paramInt2, TimeUnit.MILLISECONDS);
+      ((Http1xStream)localObject3).writeRequest(((Request)localObject1).headers(), (String)localObject2);
+      ((Http1xStream)localObject3).finishRequest();
+      localObject1 = ((Http1xStream)localObject3).readResponse().request((Request)localObject1).build();
+      long l2 = OkHeaders.contentLength((Response)localObject1);
+      long l1 = l2;
+      if (l2 == -1L) {
+        l1 = 0L;
+      }
+      localObject3 = ((Http1xStream)localObject3).newFixedLengthSource(l1);
+      Util.skipAll((Source)localObject3, Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
+      ((Source)localObject3).close();
+      int i = ((Response)localObject1).code();
+      if (i == 200) {
+        break label320;
+      }
+      if (i != 407) {
+        break;
+      }
+      localObject1 = OkHeaders.processAuthHeader(route.getAddress().getAuthenticator(), (Response)localObject1, route.getProxy());
+    } while (localObject1 != null);
+    throw new IOException("Failed to authenticate with proxy");
+    localObject2 = new StringBuilder();
+    ((StringBuilder)localObject2).append("Unexpected response code for CONNECT: ");
+    ((StringBuilder)localObject2).append(((Response)localObject1).code());
+    throw new IOException(((StringBuilder)localObject2).toString());
+    label320:
+    if ((source.buffer().exhausted()) && (sink.buffer().exhausted())) {
+      return;
+    }
+    localObject1 = new IOException("TLS tunnel buffered too many bytes!");
+    for (;;)
+    {
+      throw ((Throwable)localObject1);
+    }
+  }
+  
+  private Request createTunnelRequest()
+    throws IOException
+  {
+    return new Request.Builder().url(route.getAddress().url()).header("Host", Util.hostHeader(route.getAddress().url())).header("Proxy-Connection", "Keep-Alive").header("User-Agent", Version.userAgent()).build();
+  }
+  
+  private static TrustRootIndex trustRootIndex(SSLSocketFactory paramSSLSocketFactory)
+  {
+    try
+    {
+      if (paramSSLSocketFactory != lastSslSocketFactory)
+      {
+        X509TrustManager localX509TrustManager = Platform.get().trustManager(paramSSLSocketFactory);
+        lastTrustRootIndex = Platform.get().trustRootIndex(localX509TrustManager);
+        lastSslSocketFactory = paramSSLSocketFactory;
+      }
+      paramSSLSocketFactory = lastTrustRootIndex;
+      return paramSSLSocketFactory;
+    }
+    finally {}
+  }
+  
+  public int allocationLimit()
+  {
+    FramedConnection localFramedConnection = framedConnection;
+    if (localFramedConnection != null) {
+      return localFramedConnection.maxConcurrentStreams();
+    }
+    return 1;
+  }
+  
+  public void cancel()
+  {
+    Util.closeQuietly(rawSocket);
+  }
+  
+  public void connect(int paramInt1, int paramInt2, int paramInt3, List<ConnectionSpec> paramList, boolean paramBoolean)
+    throws RouteException
+  {
+    if (protocol == null)
+    {
+      ConnectionSpecSelector localConnectionSpecSelector = new ConnectionSpecSelector(paramList);
+      Proxy localProxy = route.getProxy();
+      Address localAddress = route.getAddress();
+      Object localObject;
+      if ((route.getAddress().getSslSocketFactory() == null) && (!paramList.contains(ConnectionSpec.CLEARTEXT)))
+      {
+        localObject = new StringBuilder();
+        ((StringBuilder)localObject).append("CLEARTEXT communication not supported: ");
+        ((StringBuilder)localObject).append(paramList);
+        throw new RouteException(new UnknownServiceException(((StringBuilder)localObject).toString()));
+      }
+      paramList = null;
+      while (protocol == null)
+      {
+        try
+        {
+          if ((localProxy.type() != Proxy.Type.DIRECT) && (localProxy.type() != Proxy.Type.HTTP)) {
+            localObject = new Socket(localProxy);
+          } else {
+            localObject = localAddress.getSocketFactory().createSocket();
+          }
+          rawSocket = ((Socket)localObject);
+          connectSocket(paramInt1, paramInt2, paramInt3, localConnectionSpecSelector);
+        }
+        catch (IOException localIOException)
+        {
+          Util.closeQuietly(socket);
+          Util.closeQuietly(rawSocket);
+          socket = null;
+          rawSocket = null;
+          source = null;
+          sink = null;
+          handshake = null;
+          protocol = null;
+          if (paramList == null) {
+            paramList = new RouteException(localIOException);
+          } else {
+            paramList.addConnectException(localIOException);
+          }
+        }
+        if ((!paramBoolean) || (!localConnectionSpecSelector.connectionFailed(localIOException))) {
+          throw paramList;
+        }
+      }
+      return;
+    }
+    paramList = new IllegalStateException("already connected");
+    for (;;)
+    {
+      throw paramList;
+    }
+  }
+  
+  public Handshake getHandshake()
+  {
+    return handshake;
+  }
+  
+  public Protocol getProtocol()
+  {
+    Protocol localProtocol = protocol;
+    if (localProtocol != null) {
+      return localProtocol;
+    }
+    return Protocol.HTTP_1_1;
+  }
+  
+  public Route getRoute()
+  {
+    return route;
+  }
+  
+  public Socket getSocket()
+  {
+    return socket;
+  }
+  
+  boolean isConnected()
+  {
+    return protocol != null;
+  }
+  
+  public boolean isHealthy(boolean paramBoolean)
+  {
+    if ((!socket.isClosed()) && (!socket.isInputShutdown()))
+    {
+      if (socket.isOutputShutdown()) {
+        return false;
+      }
+      if (framedConnection != null) {
+        return true;
+      }
+      if (!paramBoolean) {}
+    }
+    try
+    {
+      int i = socket.getSoTimeout();
+      try
+      {
+        socket.setSoTimeout(1);
+        paramBoolean = source.exhausted();
+        return !paramBoolean;
+      }
+      finally
+      {
+        socket.setSoTimeout(i);
+      }
+      return true;
+    }
+    catch (SocketTimeoutException localSocketTimeoutException)
+    {
+      return true;
+    }
+    catch (IOException localIOException) {}
+    return false;
+    return false;
+  }
+  
+  public boolean isMultiplexed()
+  {
+    return framedConnection != null;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Connection{");
+    localStringBuilder.append(route.getAddress().url().host());
+    localStringBuilder.append(":");
+    localStringBuilder.append(route.getAddress().url().port());
+    localStringBuilder.append(", proxy=");
+    localStringBuilder.append(route.getProxy());
+    localStringBuilder.append(" hostAddress=");
+    localStringBuilder.append(route.getSocketAddress());
+    localStringBuilder.append(" cipherSuite=");
+    Object localObject = handshake;
+    if (localObject != null) {
+      localObject = ((Handshake)localObject).cipherSuite();
+    } else {
+      localObject = "none";
+    }
+    localStringBuilder.append((String)localObject);
+    localStringBuilder.append(" protocol=");
+    localStringBuilder.append(protocol);
+    localStringBuilder.append('}');
+    return localStringBuilder.toString();
+  }
+}

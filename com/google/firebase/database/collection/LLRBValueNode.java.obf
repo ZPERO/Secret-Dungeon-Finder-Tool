@@ -1,0 +1,267 @@
+package com.google.firebase.database.collection;
+
+import java.util.Comparator;
+
+public abstract class LLRBValueNode<K, V>
+  implements LLRBNode<K, V>
+{
+  private final V value;
+  private final K zzq;
+  private LLRBNode<K, V> zzr;
+  private final LLRBNode<K, V> zzs;
+  
+  LLRBValueNode(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    zzq = paramK;
+    value = paramV;
+    paramK = paramLLRBNode1;
+    if (paramLLRBNode1 == null) {
+      paramK = LLRBEmptyNode.getInstance();
+    }
+    zzr = paramK;
+    paramK = paramLLRBNode2;
+    if (paramLLRBNode2 == null) {
+      paramK = LLRBEmptyNode.getInstance();
+    }
+    zzs = paramK;
+  }
+  
+  private static LLRBNode.Color zzb(LLRBNode paramLLRBNode)
+  {
+    if (paramLLRBNode.isRed()) {
+      return LLRBNode.Color.zzo;
+    }
+    return LLRBNode.Color.zzn;
+  }
+  
+  private final LLRBNode<K, V> zzb()
+  {
+    if (zzr.isEmpty()) {
+      return LLRBEmptyNode.getInstance();
+    }
+    LLRBValueNode localLLRBValueNode;
+    if ((!getLeft().isRed()) && (!getLeft().getLeft().isRed())) {
+      localLLRBValueNode = zzc();
+    } else {
+      localLLRBValueNode = this;
+    }
+    return localLLRBValueNode.zza(null, null, ((LLRBValueNode)zzr).zzb(), null).zzd();
+  }
+  
+  private final LLRBValueNode<K, V> zzc()
+  {
+    LLRBValueNode localLLRBValueNode2 = zzg();
+    LLRBValueNode localLLRBValueNode1 = localLLRBValueNode2;
+    if (localLLRBValueNode2.getRight().getLeft().isRed()) {
+      localLLRBValueNode1 = localLLRBValueNode2.zza(null, null, null, ((LLRBValueNode)localLLRBValueNode2.getRight()).zzf()).zze().zzg();
+    }
+    return localLLRBValueNode1;
+  }
+  
+  private final LLRBValueNode<K, V> zzd()
+  {
+    if ((zzs.isRed()) && (!zzr.isRed())) {
+      localObject2 = zze();
+    } else {
+      localObject2 = this;
+    }
+    Object localObject1 = localObject2;
+    if (zzr.isRed())
+    {
+      localObject1 = localObject2;
+      if (zzr).zzr.isRed()) {
+        localObject1 = ((LLRBValueNode)localObject2).zzf();
+      }
+    }
+    Object localObject2 = localObject1;
+    if (zzr.isRed())
+    {
+      localObject2 = localObject1;
+      if (zzs.isRed()) {
+        localObject2 = ((LLRBValueNode)localObject1).zzg();
+      }
+    }
+    return localObject2;
+  }
+  
+  private final LLRBValueNode<K, V> zze()
+  {
+    LLRBValueNode localLLRBValueNode = (LLRBValueNode)copy(null, null, LLRBNode.Color.zzn, null, zzs).zzr);
+    return (LLRBValueNode)zzs.copy(null, null, zza(), localLLRBValueNode, null);
+  }
+  
+  private final LLRBValueNode<K, V> zzf()
+  {
+    LLRBValueNode localLLRBValueNode = (LLRBValueNode)copy(null, null, LLRBNode.Color.zzn, zzr).zzs, null);
+    return (LLRBValueNode)zzr.copy(null, null, zza(), null, localLLRBValueNode);
+  }
+  
+  private final LLRBValueNode<K, V> zzg()
+  {
+    LLRBNode localLLRBNode1 = zzr;
+    localLLRBNode1 = localLLRBNode1.copy(null, null, zzb(localLLRBNode1), null, null);
+    LLRBNode localLLRBNode2 = zzs;
+    localLLRBNode2 = localLLRBNode2.copy(null, null, zzb(localLLRBNode2), null, null);
+    return (LLRBValueNode)copy(null, null, zzb(this), localLLRBNode1, localLLRBNode2);
+  }
+  
+  public LLRBValueNode<K, V> copy(K paramK, V paramV, LLRBNode.Color paramColor, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2)
+  {
+    Object localObject = paramK;
+    if (paramK == null) {
+      localObject = zzq;
+    }
+    paramK = paramV;
+    if (paramV == null) {
+      paramK = value;
+    }
+    paramV = paramLLRBNode1;
+    if (paramLLRBNode1 == null) {
+      paramV = zzr;
+    }
+    paramLLRBNode1 = paramLLRBNode2;
+    if (paramLLRBNode2 == null) {
+      paramLLRBNode1 = zzs;
+    }
+    if (paramColor == LLRBNode.Color.zzn) {
+      return new LLRBRedValueNode(localObject, paramK, paramV, paramLLRBNode1);
+    }
+    return new LLRBBlackValueNode(localObject, paramK, paramV, paramLLRBNode1);
+  }
+  
+  public K getKey()
+  {
+    return zzq;
+  }
+  
+  public LLRBNode<K, V> getLeft()
+  {
+    return zzr;
+  }
+  
+  public LLRBNode<K, V> getMax()
+  {
+    if (zzs.isEmpty()) {
+      return this;
+    }
+    return zzs.getMax();
+  }
+  
+  public LLRBNode<K, V> getMin()
+  {
+    if (zzr.isEmpty()) {
+      return this;
+    }
+    return zzr.getMin();
+  }
+  
+  public LLRBNode<K, V> getRight()
+  {
+    return zzs;
+  }
+  
+  public V getValue()
+  {
+    return value;
+  }
+  
+  public void inOrderTraversal(LLRBNode.NodeVisitor<K, V> paramNodeVisitor)
+  {
+    zzr.inOrderTraversal(paramNodeVisitor);
+    paramNodeVisitor.visitEntry(zzq, value);
+    zzs.inOrderTraversal(paramNodeVisitor);
+  }
+  
+  public LLRBNode<K, V> insert(K paramK, V paramV, Comparator<K> paramComparator)
+  {
+    int i = paramComparator.compare(paramK, zzq);
+    if (i < 0) {
+      paramK = zza(null, null, zzr.insert(paramK, paramV, paramComparator), null);
+    } else if (i == 0) {
+      paramK = zza(paramK, paramV, null, null);
+    } else {
+      paramK = zza(null, null, null, zzs.insert(paramK, paramV, paramComparator));
+    }
+    return paramK.zzd();
+  }
+  
+  public boolean isEmpty()
+  {
+    return false;
+  }
+  
+  public LLRBNode<K, V> remove(K paramK, Comparator<K> paramComparator)
+  {
+    Object localObject1;
+    if (paramComparator.compare(paramK, zzq) < 0)
+    {
+      if ((!zzr.isEmpty()) && (!zzr.isRed()) && (!zzr).zzr.isRed())) {
+        localObject1 = zzc();
+      } else {
+        localObject1 = this;
+      }
+      paramK = ((LLRBValueNode)localObject1).zza(null, null, zzr.remove(paramK, paramComparator), null);
+    }
+    else
+    {
+      if (zzr.isRed()) {
+        localObject2 = zzf();
+      } else {
+        localObject2 = this;
+      }
+      localObject1 = localObject2;
+      if (!zzs.isEmpty())
+      {
+        localObject1 = localObject2;
+        if (!zzs.isRed())
+        {
+          localObject1 = localObject2;
+          if (!zzs).zzr.isRed())
+          {
+            localObject2 = ((LLRBValueNode)localObject2).zzg();
+            localObject1 = localObject2;
+            if (((LLRBValueNode)localObject2).getLeft().getLeft().isRed()) {
+              localObject1 = ((LLRBValueNode)localObject2).zzf().zzg();
+            }
+          }
+        }
+      }
+      Object localObject2 = localObject1;
+      if (paramComparator.compare(paramK, zzq) == 0)
+      {
+        if (zzs.isEmpty()) {
+          return LLRBEmptyNode.getInstance();
+        }
+        localObject2 = zzs.getMin();
+        localObject2 = ((LLRBValueNode)localObject1).zza(((LLRBNode)localObject2).getKey(), ((LLRBNode)localObject2).getValue(), null, ((LLRBValueNode)zzs).zzb());
+      }
+      paramK = ((LLRBValueNode)localObject2).zza(null, null, null, zzs.remove(paramK, paramComparator));
+    }
+    return paramK.zzd();
+  }
+  
+  public boolean shortCircuitingInOrderTraversal(LLRBNode.ShortCircuitingNodeVisitor<K, V> paramShortCircuitingNodeVisitor)
+  {
+    if ((zzr.shortCircuitingInOrderTraversal(paramShortCircuitingNodeVisitor)) && (paramShortCircuitingNodeVisitor.shouldContinue(zzq, value))) {
+      return zzs.shortCircuitingInOrderTraversal(paramShortCircuitingNodeVisitor);
+    }
+    return false;
+  }
+  
+  public boolean shortCircuitingReverseOrderTraversal(LLRBNode.ShortCircuitingNodeVisitor<K, V> paramShortCircuitingNodeVisitor)
+  {
+    if ((zzs.shortCircuitingReverseOrderTraversal(paramShortCircuitingNodeVisitor)) && (paramShortCircuitingNodeVisitor.shouldContinue(zzq, value))) {
+      return zzr.shortCircuitingReverseOrderTraversal(paramShortCircuitingNodeVisitor);
+    }
+    return false;
+  }
+  
+  protected abstract LLRBNode.Color zza();
+  
+  protected abstract LLRBValueNode<K, V> zza(K paramK, V paramV, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2);
+  
+  void zza(LLRBNode<K, V> paramLLRBNode)
+  {
+    zzr = paramLLRBNode;
+  }
+}

@@ -1,0 +1,52 @@
+package com.google.android.gms.common.server.converter;
+
+import android.os.Parcel;
+import android.os.Parcelable.Creator;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+import com.google.android.gms.common.server.response.FastJsonResponse.FieldConverter;
+
+public final class zaa
+  extends AbstractSafeParcelable
+{
+  public static final Parcelable.Creator<zaa> CREATOR = new zab();
+  private final int zale;
+  private final StringToIntConverter zapk;
+  
+  zaa(int paramInt, StringToIntConverter paramStringToIntConverter)
+  {
+    zale = paramInt;
+    zapk = paramStringToIntConverter;
+  }
+  
+  private zaa(StringToIntConverter paramStringToIntConverter)
+  {
+    zale = 1;
+    zapk = paramStringToIntConverter;
+  }
+  
+  public static zaa zaa(FastJsonResponse.FieldConverter<?, ?> paramFieldConverter)
+  {
+    if ((paramFieldConverter instanceof StringToIntConverter)) {
+      return new zaa((StringToIntConverter)paramFieldConverter);
+    }
+    throw new IllegalArgumentException("Unsupported safe parcelable field converter class.");
+  }
+  
+  public final void writeToParcel(Parcel paramParcel, int paramInt)
+  {
+    int i = SafeParcelWriter.beginObjectHeader(paramParcel);
+    SafeParcelWriter.writeInt(paramParcel, 1, zale);
+    SafeParcelWriter.writeParcelable(paramParcel, 2, zapk, paramInt, false);
+    SafeParcelWriter.finishObjectHeader(paramParcel, i);
+  }
+  
+  public final FastJsonResponse.FieldConverter<?, ?> zaci()
+  {
+    StringToIntConverter localStringToIntConverter = zapk;
+    if (localStringToIntConverter != null) {
+      return localStringToIntConverter;
+    }
+    throw new IllegalStateException("There was no converter wrapped in this ConverterWrapper.");
+  }
+}

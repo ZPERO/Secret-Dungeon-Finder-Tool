@@ -1,0 +1,85 @@
+package com.google.firebase.components;
+
+import com.google.firebase.events.Event;
+import com.google.firebase.events.Publisher;
+import com.google.firebase.inject.Provider;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
+final class RestrictedComponentContainer
+  extends AbstractComponentContainer
+{
+  private final Set<Class<?>> allowedDirectInterfaces;
+  private final Set<Class<?>> allowedProviderInterfaces;
+  private final Set<Class<?>> allowedPublishedEvents;
+  private final ComponentContainer delegateContainer;
+  
+  RestrictedComponentContainer(Component paramComponent, ComponentContainer paramComponentContainer)
+  {
+    HashSet localHashSet1 = new HashSet();
+    HashSet localHashSet2 = new HashSet();
+    Iterator localIterator = paramComponent.getDependencies().iterator();
+    while (localIterator.hasNext())
+    {
+      Dependency localDependency = (Dependency)localIterator.next();
+      if (localDependency.isDirectInjection()) {
+        localHashSet1.add(localDependency.getInterface());
+      } else {
+        localHashSet2.add(localDependency.getInterface());
+      }
+    }
+    if (!paramComponent.getPublishedEvents().isEmpty()) {
+      localHashSet1.add(Publisher.class);
+    }
+    allowedDirectInterfaces = Collections.unmodifiableSet(localHashSet1);
+    allowedProviderInterfaces = Collections.unmodifiableSet(localHashSet2);
+    allowedPublishedEvents = paramComponent.getPublishedEvents();
+    delegateContainer = paramComponentContainer;
+  }
+  
+  public Provider getProvider(Class paramClass)
+  {
+    if (allowedProviderInterfaces.contains(paramClass)) {
+      return delegateContainer.getProvider(paramClass);
+    }
+    throw new IllegalArgumentException(String.format("Requesting Provider<%s> is not allowed.", new Object[] { paramClass }));
+  }
+  
+  public Object getValue(Class paramClass)
+  {
+    if (allowedDirectInterfaces.contains(paramClass))
+    {
+      Object localObject = delegateContainer.getValue(paramClass);
+      if (!paramClass.equals(Publisher.class)) {
+        return localObject;
+      }
+      return new RestrictedPublisher(allowedPublishedEvents, (Publisher)localObject);
+    }
+    throw new IllegalArgumentException(String.format("Requesting %s is not allowed.", new Object[] { paramClass }));
+  }
+  
+  private static class RestrictedPublisher
+    implements Publisher
+  {
+    private final Set<Class<?>> allowedPublishedEvents;
+    private final Publisher delegate;
+    
+    public RestrictedPublisher(Set paramSet, Publisher paramPublisher)
+    {
+      allowedPublishedEvents = paramSet;
+      delegate = paramPublisher;
+    }
+    
+    public void publish(Event paramEvent)
+    {
+      if (allowedPublishedEvents.contains(paramEvent.getType()))
+      {
+        delegate.publish(paramEvent);
+        return;
+      }
+      throw new IllegalArgumentException(String.format("Attempting to publish an undeclared event %s.", new Object[] { paramEvent }));
+    }
+  }
+}

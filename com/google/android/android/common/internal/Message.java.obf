@@ -1,0 +1,26 @@
+package com.google.android.gms.common.internal;
+
+import android.os.Parcel;
+import android.os.Parcelable.Creator;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+
+@Deprecated
+public final class zzr
+  extends AbstractSafeParcelable
+{
+  public static final Parcelable.Creator<zzr> CREATOR = new zzs();
+  private final int zzg;
+  
+  zzr(int paramInt)
+  {
+    zzg = paramInt;
+  }
+  
+  public final void writeToParcel(Parcel paramParcel, int paramInt)
+  {
+    paramInt = SafeParcelWriter.beginObjectHeader(paramParcel);
+    SafeParcelWriter.writeInt(paramParcel, 1, zzg);
+    SafeParcelWriter.finishObjectHeader(paramParcel, paramInt);
+  }
+}

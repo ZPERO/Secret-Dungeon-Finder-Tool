@@ -1,0 +1,707 @@
+package androidx.recyclerview.widget;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
+public class DiffUtil
+{
+  private static final Comparator<Snake> SNAKE_COMPARATOR = new Comparator()
+  {
+    public int compare(DiffUtil.Snake paramAnonymousSnake1, DiffUtil.Snake paramAnonymousSnake2)
+    {
+      int j = x - x;
+      int i = j;
+      if (j == 0) {
+        i = y - y;
+      }
+      return i;
+    }
+  };
+  
+  private DiffUtil() {}
+  
+  public static DiffResult calculateDiff(Callback paramCallback)
+  {
+    return calculateDiff(paramCallback, true);
+  }
+  
+  public static DiffResult calculateDiff(Callback paramCallback, boolean paramBoolean)
+  {
+    int i = paramCallback.getOldListSize();
+    int j = paramCallback.getNewListSize();
+    ArrayList localArrayList1 = new ArrayList();
+    ArrayList localArrayList2 = new ArrayList();
+    localArrayList2.add(new Range(0, i, 0, j));
+    i = Math.abs(i - j) + (i + j);
+    j = i * 2;
+    int[] arrayOfInt1 = new int[j];
+    int[] arrayOfInt2 = new int[j];
+    ArrayList localArrayList3 = new ArrayList();
+    while (!localArrayList2.isEmpty())
+    {
+      Range localRange2 = (Range)localArrayList2.remove(localArrayList2.size() - 1);
+      Snake localSnake = diffPartial(paramCallback, oldListStart, oldListEnd, newListStart, newListEnd, arrayOfInt1, arrayOfInt2, i);
+      if (localSnake != null)
+      {
+        if (size > 0) {
+          localArrayList1.add(localSnake);
+        }
+        x += oldListStart;
+        y += newListStart;
+        Range localRange1;
+        if (localArrayList3.isEmpty()) {
+          localRange1 = new Range();
+        } else {
+          localRange1 = (Range)localArrayList3.remove(localArrayList3.size() - 1);
+        }
+        oldListStart = oldListStart;
+        newListStart = newListStart;
+        if (reverse)
+        {
+          oldListEnd = x;
+          newListEnd = y;
+        }
+        else if (removal)
+        {
+          oldListEnd = (x - 1);
+          newListEnd = y;
+        }
+        else
+        {
+          oldListEnd = x;
+          newListEnd = (y - 1);
+        }
+        localArrayList2.add(localRange1);
+        if (reverse)
+        {
+          if (removal)
+          {
+            oldListStart = (x + size + 1);
+            newListStart = (y + size);
+          }
+          else
+          {
+            oldListStart = (x + size);
+            newListStart = (y + size + 1);
+          }
+        }
+        else
+        {
+          oldListStart = (x + size);
+          newListStart = (y + size);
+        }
+        localArrayList2.add(localRange2);
+      }
+      else
+      {
+        localArrayList3.add(localRange2);
+      }
+    }
+    Collections.sort(localArrayList1, SNAKE_COMPARATOR);
+    return new DiffResult(paramCallback, localArrayList1, arrayOfInt1, arrayOfInt2, paramBoolean);
+  }
+  
+  private static Snake diffPartial(Callback paramCallback, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int paramInt5)
+  {
+    paramInt2 -= paramInt1;
+    int i1 = paramInt4 - paramInt3;
+    if ((paramInt2 >= 1) && (i1 >= 1))
+    {
+      int i2 = paramInt2 - i1;
+      int i3 = (paramInt2 + i1 + 1) / 2;
+      paramInt4 = paramInt5 - i3 - 1;
+      int i = paramInt5 + i3 + 1;
+      Arrays.fill(paramArrayOfInt1, paramInt4, i, 0);
+      Arrays.fill(paramArrayOfInt2, paramInt4 + i2, i + i2, paramInt2);
+      if (i2 % 2 != 0) {
+        i = 1;
+      } else {
+        i = 0;
+      }
+      int j = 0;
+      while (j <= i3)
+      {
+        int k = -j;
+        int m = k;
+        boolean bool;
+        label202:
+        int n;
+        while (m <= j)
+        {
+          if (m != k) {
+            if (m != j)
+            {
+              paramInt4 = paramInt5 + m;
+              if (paramArrayOfInt1[(paramInt4 - 1)] < paramArrayOfInt1[(paramInt4 + 1)]) {}
+            }
+            else
+            {
+              paramInt4 = paramArrayOfInt1[(paramInt5 + m - 1)] + 1;
+              bool = true;
+              break label202;
+            }
+          }
+          paramInt4 = paramArrayOfInt1[(paramInt5 + m + 1)];
+          bool = false;
+          n = paramInt4 - m;
+          while ((paramInt4 < paramInt2) && (n < i1) && (paramCallback.areItemsTheSame(paramInt1 + paramInt4, paramInt3 + n)))
+          {
+            paramInt4 += 1;
+            n += 1;
+          }
+          n = paramInt5 + m;
+          paramArrayOfInt1[n] = paramInt4;
+          if ((i != 0) && (m >= i2 - j + 1) && (m <= i2 + j - 1) && (paramArrayOfInt1[n] >= paramArrayOfInt2[n]))
+          {
+            paramCallback = new Snake();
+            x = paramArrayOfInt2[n];
+            y = (x - m);
+            size = (paramArrayOfInt1[n] - paramArrayOfInt2[n]);
+            removal = bool;
+            reverse = false;
+            return paramCallback;
+          }
+          m += 2;
+        }
+        m = k;
+        while (m <= j)
+        {
+          int i4 = m + i2;
+          if (i4 != j + i2) {
+            if (i4 != k + i2)
+            {
+              paramInt4 = paramInt5 + i4;
+              if (paramArrayOfInt2[(paramInt4 - 1)] < paramArrayOfInt2[(paramInt4 + 1)]) {}
+            }
+            else
+            {
+              paramInt4 = paramArrayOfInt2[(paramInt5 + i4 + 1)] - 1;
+              bool = true;
+              break label473;
+            }
+          }
+          paramInt4 = paramArrayOfInt2[(paramInt5 + i4 - 1)];
+          bool = false;
+          label473:
+          n = paramInt4 - i4;
+          while ((paramInt4 > 0) && (n > 0) && (paramCallback.areItemsTheSame(paramInt1 + paramInt4 - 1, paramInt3 + n - 1)))
+          {
+            paramInt4 -= 1;
+            n -= 1;
+          }
+          n = paramInt5 + i4;
+          paramArrayOfInt2[n] = paramInt4;
+          if ((i == 0) && (i4 >= k) && (i4 <= j) && (paramArrayOfInt1[n] >= paramArrayOfInt2[n]))
+          {
+            paramCallback = new Snake();
+            x = paramArrayOfInt2[n];
+            y = (x - i4);
+            size = (paramArrayOfInt1[n] - paramArrayOfInt2[n]);
+            removal = bool;
+            reverse = true;
+            return paramCallback;
+          }
+          m += 2;
+        }
+        j += 1;
+      }
+      throw new IllegalStateException("DiffUtil hit an unexpected case while trying to calculate the optimal path. Please make sure your data is not changing during the diff calculation.");
+    }
+    return null;
+  }
+  
+  public static abstract class Callback
+  {
+    public Callback() {}
+    
+    public abstract boolean areContentsTheSame(int paramInt1, int paramInt2);
+    
+    public abstract boolean areItemsTheSame(int paramInt1, int paramInt2);
+    
+    public Object getChangePayload(int paramInt1, int paramInt2)
+    {
+      return null;
+    }
+    
+    public abstract int getNewListSize();
+    
+    public abstract int getOldListSize();
+  }
+  
+  public static class DiffResult
+  {
+    private static final int FLAG_CHANGED = 2;
+    private static final int FLAG_IGNORE = 16;
+    private static final int FLAG_MASK = 31;
+    private static final int FLAG_MOVED_CHANGED = 4;
+    private static final int FLAG_MOVED_NOT_CHANGED = 8;
+    private static final int FLAG_NOT_CHANGED = 1;
+    private static final int FLAG_OFFSET = 5;
+    public static final int NO_POSITION = -1;
+    private final DiffUtil.Callback mCallback;
+    private final boolean mDetectMoves;
+    private final int[] mNewItemStatuses;
+    private final int mNewListSize;
+    private final int[] mOldItemStatuses;
+    private final int mOldListSize;
+    private final List<DiffUtil.Snake> mSnakes;
+    
+    DiffResult(DiffUtil.Callback paramCallback, List<DiffUtil.Snake> paramList, int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+    {
+      mSnakes = paramList;
+      mOldItemStatuses = paramArrayOfInt1;
+      mNewItemStatuses = paramArrayOfInt2;
+      Arrays.fill(mOldItemStatuses, 0);
+      Arrays.fill(mNewItemStatuses, 0);
+      mCallback = paramCallback;
+      mOldListSize = paramCallback.getOldListSize();
+      mNewListSize = paramCallback.getNewListSize();
+      mDetectMoves = paramBoolean;
+      addRootSnake();
+      findMatchingItems();
+    }
+    
+    private void addRootSnake()
+    {
+      DiffUtil.Snake localSnake;
+      if (mSnakes.isEmpty()) {
+        localSnake = null;
+      } else {
+        localSnake = (DiffUtil.Snake)mSnakes.get(0);
+      }
+      if ((localSnake == null) || (x != 0) || (y != 0))
+      {
+        localSnake = new DiffUtil.Snake();
+        x = 0;
+        y = 0;
+        removal = false;
+        size = 0;
+        reverse = false;
+        mSnakes.add(0, localSnake);
+      }
+    }
+    
+    private void dispatchAdditions(List<DiffUtil.PostponedUpdate> paramList, ListUpdateCallback paramListUpdateCallback, int paramInt1, int paramInt2, int paramInt3)
+    {
+      if (!mDetectMoves)
+      {
+        paramListUpdateCallback.onInserted(paramInt1, paramInt2);
+        return;
+      }
+      paramInt2 -= 1;
+      while (paramInt2 >= 0)
+      {
+        Object localObject = mNewItemStatuses;
+        int i = paramInt3 + paramInt2;
+        int j = localObject[i] & 0x1F;
+        if (j != 0)
+        {
+          if ((j != 4) && (j != 8))
+          {
+            if (j == 16)
+            {
+              paramList.add(new DiffUtil.PostponedUpdate(i, paramInt1, false));
+            }
+            else
+            {
+              paramList = new StringBuilder();
+              paramList.append("unknown flag for pos ");
+              paramList.append(i);
+              paramList.append(" ");
+              paramList.append(Long.toBinaryString(j));
+              throw new IllegalStateException(paramList.toString());
+            }
+          }
+          else
+          {
+            int k = mNewItemStatuses[i] >> 5;
+            paramListUpdateCallback.onMoved(removePostponedUpdatecurrentPos, paramInt1);
+            if (j == 4) {
+              paramListUpdateCallback.onChanged(paramInt1, 1, mCallback.getChangePayload(k, i));
+            }
+          }
+        }
+        else
+        {
+          paramListUpdateCallback.onInserted(paramInt1, 1);
+          localObject = paramList.iterator();
+          while (((Iterator)localObject).hasNext())
+          {
+            DiffUtil.PostponedUpdate localPostponedUpdate = (DiffUtil.PostponedUpdate)((Iterator)localObject).next();
+            currentPos += 1;
+          }
+        }
+        paramInt2 -= 1;
+      }
+    }
+    
+    private void dispatchRemovals(List<DiffUtil.PostponedUpdate> paramList, ListUpdateCallback paramListUpdateCallback, int paramInt1, int paramInt2, int paramInt3)
+    {
+      if (!mDetectMoves)
+      {
+        paramListUpdateCallback.onRemoved(paramInt1, paramInt2);
+        return;
+      }
+      paramInt2 -= 1;
+      while (paramInt2 >= 0)
+      {
+        Object localObject = mOldItemStatuses;
+        int i = paramInt3 + paramInt2;
+        int j = localObject[i] & 0x1F;
+        if (j != 0)
+        {
+          if ((j != 4) && (j != 8))
+          {
+            if (j == 16)
+            {
+              paramList.add(new DiffUtil.PostponedUpdate(i, paramInt1 + paramInt2, true));
+            }
+            else
+            {
+              paramList = new StringBuilder();
+              paramList.append("unknown flag for pos ");
+              paramList.append(i);
+              paramList.append(" ");
+              paramList.append(Long.toBinaryString(j));
+              throw new IllegalStateException(paramList.toString());
+            }
+          }
+          else
+          {
+            int k = mOldItemStatuses[i] >> 5;
+            localObject = removePostponedUpdate(paramList, k, false);
+            paramListUpdateCallback.onMoved(paramInt1 + paramInt2, currentPos - 1);
+            if (j == 4) {
+              paramListUpdateCallback.onChanged(currentPos - 1, 1, mCallback.getChangePayload(i, k));
+            }
+          }
+        }
+        else
+        {
+          paramListUpdateCallback.onRemoved(paramInt1 + paramInt2, 1);
+          localObject = paramList.iterator();
+          while (((Iterator)localObject).hasNext())
+          {
+            DiffUtil.PostponedUpdate localPostponedUpdate = (DiffUtil.PostponedUpdate)((Iterator)localObject).next();
+            currentPos -= 1;
+          }
+        }
+        paramInt2 -= 1;
+      }
+    }
+    
+    private void findAddition(int paramInt1, int paramInt2, int paramInt3)
+    {
+      if (mOldItemStatuses[(paramInt1 - 1)] != 0) {
+        return;
+      }
+      findMatchingItem(paramInt1, paramInt2, paramInt3, false);
+    }
+    
+    private boolean findMatchingItem(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean)
+    {
+      int i;
+      int j;
+      int k;
+      if (paramBoolean)
+      {
+        i = paramInt2 - 1;
+        paramInt2 = paramInt1;
+        j = i;
+      }
+      else
+      {
+        k = paramInt1 - 1;
+        j = k;
+        i = paramInt2;
+        paramInt2 = k;
+      }
+      while (paramInt3 >= 0)
+      {
+        Object localObject = (DiffUtil.Snake)mSnakes.get(paramInt3);
+        int m = x;
+        int n = size;
+        int i1 = y;
+        int i2 = size;
+        k = 8;
+        if (paramBoolean)
+        {
+          paramInt2 -= 1;
+          while (paramInt2 >= m + n)
+          {
+            if (mCallback.areItemsTheSame(paramInt2, j))
+            {
+              if (!mCallback.areContentsTheSame(paramInt2, j)) {
+                k = 4;
+              }
+              mNewItemStatuses[j] = (paramInt2 << 5 | 0x10);
+              mOldItemStatuses[paramInt2] = (j << 5 | k);
+              return true;
+            }
+            paramInt2 -= 1;
+          }
+        }
+        paramInt2 = i - 1;
+        while (paramInt2 >= i1 + i2)
+        {
+          if (mCallback.areItemsTheSame(j, paramInt2))
+          {
+            if (!mCallback.areContentsTheSame(j, paramInt2)) {
+              k = 4;
+            }
+            localObject = mOldItemStatuses;
+            paramInt1 -= 1;
+            localObject[paramInt1] = (paramInt2 << 5 | 0x10);
+            mNewItemStatuses[paramInt2] = (paramInt1 << 5 | k);
+            return true;
+          }
+          paramInt2 -= 1;
+        }
+        paramInt2 = x;
+        i = y;
+        paramInt3 -= 1;
+      }
+      return false;
+    }
+    
+    private void findMatchingItems()
+    {
+      int j = mOldListSize;
+      int i = mNewListSize;
+      int k = mSnakes.size() - 1;
+      while (k >= 0)
+      {
+        DiffUtil.Snake localSnake = (DiffUtil.Snake)mSnakes.get(k);
+        int i2 = x;
+        int i3 = size;
+        int n = y;
+        int i1 = size;
+        int m;
+        if (mDetectMoves)
+        {
+          for (;;)
+          {
+            m = i;
+            if (j <= i2 + i3) {
+              break;
+            }
+            findAddition(j, i, k);
+            j -= 1;
+          }
+          while (m > n + i1)
+          {
+            findRemoval(j, m, k);
+            m -= 1;
+          }
+        }
+        i = 0;
+        while (i < size)
+        {
+          m = x + i;
+          n = y + i;
+          if (mCallback.areContentsTheSame(m, n)) {
+            j = 1;
+          } else {
+            j = 2;
+          }
+          mOldItemStatuses[m] = (n << 5 | j);
+          mNewItemStatuses[n] = (m << 5 | j);
+          i += 1;
+        }
+        j = x;
+        i = y;
+        k -= 1;
+      }
+    }
+    
+    private void findRemoval(int paramInt1, int paramInt2, int paramInt3)
+    {
+      if (mNewItemStatuses[(paramInt2 - 1)] != 0) {
+        return;
+      }
+      findMatchingItem(paramInt1, paramInt2, paramInt3, true);
+    }
+    
+    private static DiffUtil.PostponedUpdate removePostponedUpdate(List<DiffUtil.PostponedUpdate> paramList, int paramInt, boolean paramBoolean)
+    {
+      int i = paramList.size() - 1;
+      while (i >= 0)
+      {
+        DiffUtil.PostponedUpdate localPostponedUpdate1 = (DiffUtil.PostponedUpdate)paramList.get(i);
+        if ((posInOwnerList == paramInt) && (removal == paramBoolean))
+        {
+          paramList.remove(i);
+          while (i < paramList.size())
+          {
+            DiffUtil.PostponedUpdate localPostponedUpdate2 = (DiffUtil.PostponedUpdate)paramList.get(i);
+            int j = currentPos;
+            if (paramBoolean) {
+              paramInt = 1;
+            } else {
+              paramInt = -1;
+            }
+            currentPos = (j + paramInt);
+            i += 1;
+          }
+          return localPostponedUpdate1;
+        }
+        i -= 1;
+      }
+      return null;
+    }
+    
+    public int convertNewPositionToOld(int paramInt)
+    {
+      if (paramInt >= 0)
+      {
+        localObject = mNewItemStatuses;
+        if (paramInt < localObject.length)
+        {
+          paramInt = localObject[paramInt];
+          if ((paramInt & 0x1F) == 0) {
+            return -1;
+          }
+          return paramInt >> 5;
+        }
+      }
+      Object localObject = new StringBuilder();
+      ((StringBuilder)localObject).append("Index out of bounds - passed position = ");
+      ((StringBuilder)localObject).append(paramInt);
+      ((StringBuilder)localObject).append(", new list size = ");
+      ((StringBuilder)localObject).append(mNewItemStatuses.length);
+      throw new IndexOutOfBoundsException(((StringBuilder)localObject).toString());
+    }
+    
+    public int convertOldPositionToNew(int paramInt)
+    {
+      if (paramInt >= 0)
+      {
+        localObject = mOldItemStatuses;
+        if (paramInt < localObject.length)
+        {
+          paramInt = localObject[paramInt];
+          if ((paramInt & 0x1F) == 0) {
+            return -1;
+          }
+          return paramInt >> 5;
+        }
+      }
+      Object localObject = new StringBuilder();
+      ((StringBuilder)localObject).append("Index out of bounds - passed position = ");
+      ((StringBuilder)localObject).append(paramInt);
+      ((StringBuilder)localObject).append(", old list size = ");
+      ((StringBuilder)localObject).append(mOldItemStatuses.length);
+      throw new IndexOutOfBoundsException(((StringBuilder)localObject).toString());
+    }
+    
+    public void dispatchUpdatesTo(ListUpdateCallback paramListUpdateCallback)
+    {
+      if ((paramListUpdateCallback instanceof BatchingListUpdateCallback)) {
+        paramListUpdateCallback = (BatchingListUpdateCallback)paramListUpdateCallback;
+      } else {
+        paramListUpdateCallback = new BatchingListUpdateCallback(paramListUpdateCallback);
+      }
+      ArrayList localArrayList = new ArrayList();
+      int j = mOldListSize;
+      int k = mNewListSize;
+      int i = mSnakes.size();
+      i -= 1;
+      while (i >= 0)
+      {
+        DiffUtil.Snake localSnake = (DiffUtil.Snake)mSnakes.get(i);
+        int m = size;
+        int n = x + m;
+        int i1 = y + m;
+        if (n < j) {
+          dispatchRemovals(localArrayList, paramListUpdateCallback, n, j - n, n);
+        }
+        if (i1 < k) {
+          dispatchAdditions(localArrayList, paramListUpdateCallback, n, k - i1, i1);
+        }
+        j = m - 1;
+        while (j >= 0)
+        {
+          if ((mOldItemStatuses[(x + j)] & 0x1F) == 2) {
+            paramListUpdateCallback.onChanged(x + j, 1, mCallback.getChangePayload(x + j, y + j));
+          }
+          j -= 1;
+        }
+        j = x;
+        k = y;
+        i -= 1;
+      }
+      paramListUpdateCallback.dispatchLastEvent();
+    }
+    
+    public void dispatchUpdatesTo(RecyclerView.Adapter paramAdapter)
+    {
+      dispatchUpdatesTo(new AdapterListUpdateCallback(paramAdapter));
+    }
+    
+    List<DiffUtil.Snake> getSnakes()
+    {
+      return mSnakes;
+    }
+  }
+  
+  public static abstract class ItemCallback<T>
+  {
+    public ItemCallback() {}
+    
+    public abstract boolean areContentsTheSame(T paramT1, T paramT2);
+    
+    public abstract boolean areItemsTheSame(T paramT1, T paramT2);
+    
+    public Object getChangePayload(T paramT1, T paramT2)
+    {
+      return null;
+    }
+  }
+  
+  private static class PostponedUpdate
+  {
+    int currentPos;
+    int posInOwnerList;
+    boolean removal;
+    
+    public PostponedUpdate(int paramInt1, int paramInt2, boolean paramBoolean)
+    {
+      posInOwnerList = paramInt1;
+      currentPos = paramInt2;
+      removal = paramBoolean;
+    }
+  }
+  
+  static class Range
+  {
+    int newListEnd;
+    int newListStart;
+    int oldListEnd;
+    int oldListStart;
+    
+    public Range() {}
+    
+    public Range(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    {
+      oldListStart = paramInt1;
+      oldListEnd = paramInt2;
+      newListStart = paramInt3;
+      newListEnd = paramInt4;
+    }
+  }
+  
+  static class Snake
+  {
+    boolean removal;
+    boolean reverse;
+    int size;
+    int x;
+    int y;
+    
+    Snake() {}
+  }
+}

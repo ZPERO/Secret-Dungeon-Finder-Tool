@@ -1,0 +1,32 @@
+package com.google.firebase.functions;
+
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
+import com.google.firebase.auth.internal.InternalAuthProvider;
+import com.google.firebase.iid.internal.FirebaseInstanceIdInternal;
+import com.google.firebase.inject.Provider;
+
+class FirebaseContextProvider
+  implements ContextProvider
+{
+  private final Provider<FirebaseInstanceIdInternal> instanceId;
+  private final Provider<InternalAuthProvider> tokenProvider;
+  
+  FirebaseContextProvider(Provider<InternalAuthProvider> paramProvider, Provider<FirebaseInstanceIdInternal> paramProvider1)
+  {
+    tokenProvider = paramProvider;
+    instanceId = paramProvider1;
+  }
+  
+  public Task<HttpsCallableContext> getContext()
+  {
+    Object localObject = tokenProvider;
+    if (localObject == null)
+    {
+      localObject = new TaskCompletionSource();
+      ((TaskCompletionSource)localObject).setResult(new HttpsCallableContext(null, ((FirebaseInstanceIdInternal)instanceId.get()).getToken()));
+      return ((TaskCompletionSource)localObject).getTask();
+    }
+    return ((InternalAuthProvider)((Provider)localObject).get()).getAccessToken(false).continueWith(FirebaseContextProvider..Lambda.1.lambdaFactory$(this));
+  }
+}

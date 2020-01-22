@@ -1,0 +1,451 @@
+package com.squareup.okhttp.internal.http;
+
+import com.squareup.okhttp.Address;
+import com.squareup.okhttp.ConnectionPool;
+import com.squareup.okhttp.Route;
+import com.squareup.okhttp.internal.Internal;
+import com.squareup.okhttp.internal.RouteDatabase;
+import com.squareup.okhttp.internal.Util;
+import com.squareup.okhttp.internal.io.RealConnection;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
+import java.security.cert.CertificateException;
+import java.util.List;
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import okio.Sink;
+
+public final class StreamAllocation
+{
+  public final Address address;
+  private boolean canceled;
+  private RealConnection connection;
+  private final ConnectionPool connectionPool;
+  private boolean released;
+  private RouteSelector routeSelector;
+  private HttpStream stream;
+  
+  public StreamAllocation(ConnectionPool paramConnectionPool, Address paramAddress)
+  {
+    connectionPool = paramConnectionPool;
+    address = paramAddress;
+  }
+  
+  private void connectionFailed(IOException paramIOException)
+  {
+    synchronized (connectionPool)
+    {
+      if (routeSelector != null) {
+        if (connection.streamCount == 0)
+        {
+          Route localRoute = connection.getRoute();
+          routeSelector.connectFailed(localRoute, paramIOException);
+        }
+        else
+        {
+          routeSelector = null;
+        }
+      }
+      connectionFailed();
+      return;
+    }
+  }
+  
+  private void deallocate(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    ConnectionPool localConnectionPool = connectionPool;
+    if (paramBoolean3) {}
+    try
+    {
+      stream = null;
+      if (paramBoolean2) {
+        released = true;
+      }
+      if (connection == null) {
+        break label189;
+      }
+      if (paramBoolean1) {
+        connection.noNewStreams = true;
+      }
+      if ((stream != null) || ((!released) && (!connection.noNewStreams))) {
+        break label189;
+      }
+      release(connection);
+      if (connection.streamCount > 0) {
+        routeSelector = null;
+      }
+      if (!connection.allocations.isEmpty()) {
+        break label183;
+      }
+      connection.idleAtNanos = System.nanoTime();
+      if (!Internal.instance.connectionBecameIdle(connectionPool, connection)) {
+        break label183;
+      }
+      localRealConnection = connection;
+    }
+    finally
+    {
+      for (;;)
+      {
+        RealConnection localRealConnection;
+        continue;
+        Object localObject2 = null;
+        continue;
+        localObject2 = null;
+      }
+    }
+    connection = null;
+    if (localRealConnection != null) {
+      Util.closeQuietly(localRealConnection.getSocket());
+    }
+    return;
+    throw localRealConnection;
+  }
+  
+  private RealConnection findConnection(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean)
+    throws IOException, RouteException
+  {
+    synchronized (connectionPool)
+    {
+      if (!released)
+      {
+        if (stream == null)
+        {
+          if (!canceled)
+          {
+            RealConnection localRealConnection = connection;
+            if ((localRealConnection != null) && (!noNewStreams)) {
+              return localRealConnection;
+            }
+            localRealConnection = Internal.instance.get(connectionPool, address, this);
+            if (localRealConnection != null)
+            {
+              connection = localRealConnection;
+              return localRealConnection;
+            }
+            if (routeSelector == null) {
+              routeSelector = new RouteSelector(address, routeDatabase());
+            }
+            localRealConnection = new RealConnection(routeSelector.next());
+            acquire(localRealConnection);
+            synchronized (connectionPool)
+            {
+              Internal.instance.put(connectionPool, localRealConnection);
+              connection = localRealConnection;
+              if (!canceled)
+              {
+                localRealConnection.connect(paramInt1, paramInt2, paramInt3, address.getConnectionSpecs(), paramBoolean);
+                routeDatabase().connected(localRealConnection.getRoute());
+                return localRealConnection;
+              }
+              throw new IOException("Canceled");
+            }
+          }
+          throw new IOException("Canceled");
+        }
+        throw new IllegalStateException("stream != null");
+      }
+      throw new IllegalStateException("released");
+    }
+  }
+  
+  private RealConnection findHealthyConnection(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, boolean paramBoolean2)
+    throws IOException, RouteException
+  {
+    for (;;)
+    {
+      RealConnection localRealConnection = findConnection(paramInt1, paramInt2, paramInt3, paramBoolean1);
+      synchronized (connectionPool)
+      {
+        if (streamCount == 0) {
+          return localRealConnection;
+        }
+        if (localRealConnection.isHealthy(paramBoolean2)) {
+          return localRealConnection;
+        }
+        connectionFailed();
+      }
+    }
+    for (;;)
+    {
+      throw localObject;
+    }
+  }
+  
+  private boolean isRecoverable(RouteException paramRouteException)
+  {
+    paramRouteException = paramRouteException.getLastConnectException();
+    if ((paramRouteException instanceof ProtocolException)) {
+      return false;
+    }
+    if ((paramRouteException instanceof InterruptedIOException)) {
+      return paramRouteException instanceof SocketTimeoutException;
+    }
+    if (((paramRouteException instanceof SSLHandshakeException)) && ((paramRouteException.getCause() instanceof CertificateException))) {
+      return false;
+    }
+    return !(paramRouteException instanceof SSLPeerUnverifiedException);
+  }
+  
+  private boolean isRecoverable(IOException paramIOException)
+  {
+    if ((paramIOException instanceof ProtocolException)) {
+      return false;
+    }
+    return !(paramIOException instanceof InterruptedIOException);
+  }
+  
+  private void release(RealConnection paramRealConnection)
+  {
+    int j = allocations.size();
+    int i = 0;
+    while (i < j)
+    {
+      if (((Reference)allocations.get(i)).get() == this)
+      {
+        allocations.remove(i);
+        return;
+      }
+      i += 1;
+    }
+    paramRealConnection = new IllegalStateException();
+    for (;;)
+    {
+      throw paramRealConnection;
+    }
+  }
+  
+  private RouteDatabase routeDatabase()
+  {
+    return Internal.instance.routeDatabase(connectionPool);
+  }
+  
+  public void acquire(RealConnection paramRealConnection)
+  {
+    allocations.add(new WeakReference(this));
+  }
+  
+  public void cancel()
+  {
+    synchronized (connectionPool)
+    {
+      canceled = true;
+      HttpStream localHttpStream = stream;
+      RealConnection localRealConnection = connection;
+      if (localHttpStream != null)
+      {
+        localHttpStream.cancel();
+        return;
+      }
+      if (localRealConnection != null) {
+        localRealConnection.cancel();
+      }
+      return;
+    }
+  }
+  
+  public RealConnection connection()
+  {
+    try
+    {
+      RealConnection localRealConnection = connection;
+      return localRealConnection;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public void connectionFailed()
+  {
+    deallocate(true, false, true);
+  }
+  
+  /* Error */
+  public HttpStream newStream(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, boolean paramBoolean2)
+    throws RouteException, IOException
+  {
+    // Byte code:
+    //   0: aload_0
+    //   1: iload_1
+    //   2: iload_2
+    //   3: iload_3
+    //   4: iload 4
+    //   6: iload 5
+    //   8: invokespecial 235	com/squareup/okhttp/internal/http/StreamAllocation:findHealthyConnection	(IIIZZ)Lcom/squareup/okhttp/internal/io/RealConnection;
+    //   11: astore 7
+    //   13: aload 7
+    //   15: getfield 239	com/squareup/okhttp/internal/io/RealConnection:framedConnection	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+    //   18: ifnull +21 -> 39
+    //   21: new 241	com/squareup/okhttp/internal/http/Http2xStream
+    //   24: dup
+    //   25: aload_0
+    //   26: aload 7
+    //   28: getfield 239	com/squareup/okhttp/internal/io/RealConnection:framedConnection	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+    //   31: invokespecial 244	com/squareup/okhttp/internal/http/Http2xStream:<init>	(Lcom/squareup/okhttp/internal/http/StreamAllocation;Lcom/squareup/okhttp/internal/framed/FramedConnection;)V
+    //   34: astore 6
+    //   36: goto +70 -> 106
+    //   39: aload 7
+    //   41: invokevirtual 98	com/squareup/okhttp/internal/io/RealConnection:getSocket	()Ljava/net/Socket;
+    //   44: iload_2
+    //   45: invokevirtual 250	java/net/Socket:setSoTimeout	(I)V
+    //   48: aload 7
+    //   50: getfield 254	com/squareup/okhttp/internal/io/RealConnection:source	Lokio/BufferedSource;
+    //   53: invokeinterface 260 1 0
+    //   58: iload_2
+    //   59: i2l
+    //   60: getstatic 266	java/util/concurrent/TimeUnit:MILLISECONDS	Ljava/util/concurrent/TimeUnit;
+    //   63: invokevirtual 271	okio/Timeout:timeout	(JLjava/util/concurrent/TimeUnit;)Lokio/Timeout;
+    //   66: pop
+    //   67: aload 7
+    //   69: getfield 275	com/squareup/okhttp/internal/io/RealConnection:sink	Lokio/BufferedSink;
+    //   72: invokeinterface 278 1 0
+    //   77: iload_3
+    //   78: i2l
+    //   79: getstatic 266	java/util/concurrent/TimeUnit:MILLISECONDS	Ljava/util/concurrent/TimeUnit;
+    //   82: invokevirtual 271	okio/Timeout:timeout	(JLjava/util/concurrent/TimeUnit;)Lokio/Timeout;
+    //   85: pop
+    //   86: new 280	com/squareup/okhttp/internal/http/Http1xStream
+    //   89: dup
+    //   90: aload_0
+    //   91: aload 7
+    //   93: getfield 254	com/squareup/okhttp/internal/io/RealConnection:source	Lokio/BufferedSource;
+    //   96: aload 7
+    //   98: getfield 275	com/squareup/okhttp/internal/io/RealConnection:sink	Lokio/BufferedSink;
+    //   101: invokespecial 283	com/squareup/okhttp/internal/http/Http1xStream:<init>	(Lcom/squareup/okhttp/internal/http/StreamAllocation;Lokio/BufferedSource;Lokio/BufferedSink;)V
+    //   104: astore 6
+    //   106: aload_0
+    //   107: getfield 24	com/squareup/okhttp/internal/http/StreamAllocation:connectionPool	Lcom/squareup/okhttp/ConnectionPool;
+    //   110: astore 8
+    //   112: aload 8
+    //   114: monitorenter
+    //   115: aload 7
+    //   117: aload 7
+    //   119: getfield 39	com/squareup/okhttp/internal/io/RealConnection:streamCount	I
+    //   122: iconst_1
+    //   123: iadd
+    //   124: putfield 39	com/squareup/okhttp/internal/io/RealConnection:streamCount	I
+    //   127: aload_0
+    //   128: aload 6
+    //   130: putfield 55	com/squareup/okhttp/internal/http/StreamAllocation:stream	Lcom/squareup/okhttp/internal/http/HttpStream;
+    //   133: aload 8
+    //   135: monitorexit
+    //   136: aload 6
+    //   138: areturn
+    //   139: astore 6
+    //   141: aload 8
+    //   143: monitorexit
+    //   144: aload 6
+    //   146: athrow
+    //   147: astore 6
+    //   149: new 110	com/squareup/okhttp/internal/http/RouteException
+    //   152: dup
+    //   153: aload 6
+    //   155: invokespecial 285	com/squareup/okhttp/internal/http/RouteException:<init>	(Ljava/io/IOException;)V
+    //   158: athrow
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	159	0	this	StreamAllocation
+    //   0	159	1	paramInt1	int
+    //   0	159	2	paramInt2	int
+    //   0	159	3	paramInt3	int
+    //   0	159	4	paramBoolean1	boolean
+    //   0	159	5	paramBoolean2	boolean
+    //   34	103	6	localObject1	Object
+    //   139	6	6	localObject2	Object
+    //   147	7	6	localIOException	IOException
+    //   11	107	7	localRealConnection	RealConnection
+    // Exception table:
+    //   from	to	target	type
+    //   115	136	139	finally
+    //   141	144	139	finally
+    //   0	36	147	java/io/IOException
+    //   39	106	147	java/io/IOException
+    //   106	115	147	java/io/IOException
+    //   144	147	147	java/io/IOException
+  }
+  
+  public void noNewStreams()
+  {
+    deallocate(true, false, false);
+  }
+  
+  public boolean recover(RouteException paramRouteException)
+  {
+    if (connection != null) {
+      connectionFailed(paramRouteException.getLastConnectException());
+    }
+    RouteSelector localRouteSelector = routeSelector;
+    return ((localRouteSelector == null) || (localRouteSelector.hasNext())) && (isRecoverable(paramRouteException));
+  }
+  
+  public boolean recover(IOException paramIOException, Sink paramSink)
+  {
+    RealConnection localRealConnection = connection;
+    int i;
+    if (localRealConnection != null)
+    {
+      i = streamCount;
+      connectionFailed(paramIOException);
+      if (i == 1) {
+        return false;
+      }
+    }
+    if ((paramSink != null) && (!(paramSink instanceof RetryableSink))) {
+      i = 0;
+    } else {
+      i = 1;
+    }
+    paramSink = routeSelector;
+    if (((paramSink == null) || (paramSink.hasNext())) && (isRecoverable(paramIOException))) {
+      return i != 0;
+    }
+    return false;
+  }
+  
+  public void release()
+  {
+    deallocate(false, true, false);
+  }
+  
+  public HttpStream stream()
+  {
+    synchronized (connectionPool)
+    {
+      HttpStream localHttpStream = stream;
+      return localHttpStream;
+    }
+  }
+  
+  public void streamFinished(HttpStream paramHttpStream)
+  {
+    ConnectionPool localConnectionPool = connectionPool;
+    if (paramHttpStream != null) {}
+    try
+    {
+      if (paramHttpStream == stream)
+      {
+        deallocate(false, false, true);
+        return;
+      }
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("expected ");
+      localStringBuilder.append(stream);
+      localStringBuilder.append(" but was ");
+      localStringBuilder.append(paramHttpStream);
+      throw new IllegalStateException(localStringBuilder.toString());
+    }
+    finally {}
+  }
+  
+  public String toString()
+  {
+    return address.toString();
+  }
+}

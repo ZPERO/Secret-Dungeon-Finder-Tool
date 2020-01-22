@@ -1,0 +1,179 @@
+package okio;
+
+import java.io.IOException;
+import java.util.zip.Deflater;
+
+public final class DeflaterSink
+  implements Sink
+{
+  private boolean closed;
+  private final Deflater deflater;
+  private final BufferedSink sink;
+  
+  DeflaterSink(BufferedSink paramBufferedSink, Deflater paramDeflater)
+  {
+    if (paramBufferedSink != null)
+    {
+      if (paramDeflater != null)
+      {
+        sink = paramBufferedSink;
+        deflater = paramDeflater;
+        return;
+      }
+      throw new IllegalArgumentException("inflater == null");
+    }
+    throw new IllegalArgumentException("source == null");
+  }
+  
+  public DeflaterSink(Sink paramSink, Deflater paramDeflater)
+  {
+    this(Okio.buffer(paramSink), paramDeflater);
+  }
+  
+  private void deflate(boolean paramBoolean)
+    throws IOException
+  {
+    Buffer localBuffer = sink.buffer();
+    Segment localSegment;
+    do
+    {
+      for (;;)
+      {
+        localSegment = localBuffer.writableSegment(1);
+        int i;
+        if (paramBoolean) {
+          i = deflater.deflate(data, limit, 8192 - limit, 2);
+        } else {
+          i = deflater.deflate(data, limit, 8192 - limit);
+        }
+        if (i <= 0) {
+          break;
+        }
+        limit += i;
+        size += i;
+        sink.emitCompleteSegments();
+      }
+    } while (!deflater.needsInput());
+    if (pos == limit)
+    {
+      head = localSegment.pop();
+      SegmentPool.recycle(localSegment);
+    }
+  }
+  
+  /* Error */
+  public void close()
+    throws IOException
+  {
+    // Byte code:
+    //   0: aload_0
+    //   1: getfield 106	okio/DeflaterSink:closed	Z
+    //   4: ifeq +4 -> 8
+    //   7: return
+    //   8: aconst_null
+    //   9: astore_2
+    //   10: aload_0
+    //   11: invokevirtual 109	okio/DeflaterSink:finishDeflate	()V
+    //   14: goto +4 -> 18
+    //   17: astore_2
+    //   18: aload_0
+    //   19: getfield 21	okio/DeflaterSink:deflater	Ljava/util/zip/Deflater;
+    //   22: invokevirtual 112	java/util/zip/Deflater:end	()V
+    //   25: aload_2
+    //   26: astore_1
+    //   27: goto +12 -> 39
+    //   30: astore_3
+    //   31: aload_2
+    //   32: astore_1
+    //   33: aload_2
+    //   34: ifnonnull +5 -> 39
+    //   37: aload_3
+    //   38: astore_1
+    //   39: aload_0
+    //   40: getfield 19	okio/DeflaterSink:sink	Lokio/BufferedSink;
+    //   43: invokeinterface 114 1 0
+    //   48: aload_1
+    //   49: astore_2
+    //   50: goto +12 -> 62
+    //   53: astore_3
+    //   54: aload_1
+    //   55: astore_2
+    //   56: aload_1
+    //   57: ifnonnull +5 -> 62
+    //   60: aload_3
+    //   61: astore_2
+    //   62: aload_0
+    //   63: iconst_1
+    //   64: putfield 106	okio/DeflaterSink:closed	Z
+    //   67: aload_2
+    //   68: ifnull +7 -> 75
+    //   71: aload_2
+    //   72: invokestatic 120	okio/Util:sneakyRethrow	(Ljava/lang/Throwable;)V
+    //   75: return
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	76	0	this	DeflaterSink
+    //   26	31	1	localObject1	Object
+    //   9	1	2	localObject2	Object
+    //   17	17	2	localObject3	Object
+    //   49	23	2	localObject4	Object
+    //   30	8	3	localObject5	Object
+    //   53	8	3	localObject6	Object
+    // Exception table:
+    //   from	to	target	type
+    //   10	14	17	finally
+    //   18	25	30	finally
+    //   39	48	53	finally
+  }
+  
+  void finishDeflate()
+    throws IOException
+  {
+    deflater.finish();
+    deflate(false);
+  }
+  
+  public void flush()
+    throws IOException
+  {
+    deflate(true);
+    sink.flush();
+  }
+  
+  public Timeout timeout()
+  {
+    return sink.timeout();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("DeflaterSink(");
+    localStringBuilder.append(sink);
+    localStringBuilder.append(")");
+    return localStringBuilder.toString();
+  }
+  
+  public void write(Buffer paramBuffer, long paramLong)
+    throws IOException
+  {
+    Util.checkOffsetAndCount(size, 0L, paramLong);
+    while (paramLong > 0L)
+    {
+      Segment localSegment = head;
+      int i = (int)Math.min(paramLong, limit - pos);
+      deflater.setInput(data, pos, i);
+      deflate(false);
+      long l1 = size;
+      long l2 = i;
+      size = (l1 - l2);
+      pos += i;
+      if (pos == limit)
+      {
+        head = localSegment.pop();
+        SegmentPool.recycle(localSegment);
+      }
+      paramLong -= l2;
+    }
+  }
+}

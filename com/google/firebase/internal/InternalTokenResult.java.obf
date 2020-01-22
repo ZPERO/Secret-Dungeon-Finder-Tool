@@ -1,0 +1,38 @@
+package com.google.firebase.internal;
+
+import com.google.android.gms.common.internal.Objects;
+import com.google.android.gms.common.internal.Objects.ToStringHelper;
+
+public class InternalTokenResult
+{
+  private String token;
+  
+  public InternalTokenResult(String paramString)
+  {
+    token = paramString;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (!(paramObject instanceof InternalTokenResult)) {
+      return false;
+    }
+    paramObject = (InternalTokenResult)paramObject;
+    return Objects.equal(token, token);
+  }
+  
+  public String getToken()
+  {
+    return token;
+  }
+  
+  public int hashCode()
+  {
+    return Objects.hashCode(new Object[] { token });
+  }
+  
+  public String toString()
+  {
+    return Objects.toStringHelper(this).add("token", token).toString();
+  }
+}

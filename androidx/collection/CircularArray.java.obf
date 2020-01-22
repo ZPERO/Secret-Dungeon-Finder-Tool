@@ -1,0 +1,240 @@
+package androidx.collection;
+
+public final class CircularArray<E>
+{
+  private int mCapacityBitmask;
+  private E[] mElements;
+  private int mHead;
+  private int mTail;
+  
+  public CircularArray()
+  {
+    this(8);
+  }
+  
+  public CircularArray(int paramInt)
+  {
+    if (paramInt >= 1)
+    {
+      if (paramInt <= 1073741824)
+      {
+        int i = paramInt;
+        if (Integer.bitCount(paramInt) != 1) {
+          i = Integer.highestOneBit(paramInt - 1) << 1;
+        }
+        mCapacityBitmask = (i - 1);
+        mElements = ((Object[])new Object[i]);
+        return;
+      }
+      throw new IllegalArgumentException("capacity must be <= 2^30");
+    }
+    throw new IllegalArgumentException("capacity must be >= 1");
+  }
+  
+  private void doubleCapacity()
+  {
+    Object[] arrayOfObject1 = mElements;
+    int i = arrayOfObject1.length;
+    int j = mHead;
+    int k = i - j;
+    int m = i << 1;
+    if (m >= 0)
+    {
+      Object[] arrayOfObject2 = new Object[m];
+      System.arraycopy(arrayOfObject1, j, arrayOfObject2, 0, k);
+      System.arraycopy(mElements, 0, arrayOfObject2, k, mHead);
+      mElements = ((Object[])arrayOfObject2);
+      mHead = 0;
+      mTail = i;
+      mCapacityBitmask = (m - 1);
+      return;
+    }
+    throw new RuntimeException("Max array capacity exceeded");
+  }
+  
+  public void addFirst(E paramE)
+  {
+    mHead = (mHead - 1 & mCapacityBitmask);
+    Object[] arrayOfObject = mElements;
+    int i = mHead;
+    arrayOfObject[i] = paramE;
+    if (i == mTail) {
+      doubleCapacity();
+    }
+  }
+  
+  public void addLast(E paramE)
+  {
+    Object[] arrayOfObject = mElements;
+    int i = mTail;
+    arrayOfObject[i] = paramE;
+    mTail = (mCapacityBitmask & i + 1);
+    if (mTail == mHead) {
+      doubleCapacity();
+    }
+  }
+  
+  public void clear()
+  {
+    removeFromStart(size());
+  }
+  
+  public E get(int paramInt)
+  {
+    if ((paramInt >= 0) && (paramInt < size()))
+    {
+      Object[] arrayOfObject = mElements;
+      int i = mHead;
+      return arrayOfObject[(mCapacityBitmask & i + paramInt)];
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  public E getFirst()
+  {
+    int i = mHead;
+    if (i != mTail) {
+      return mElements[i];
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  public E getLast()
+  {
+    int i = mHead;
+    int j = mTail;
+    if (i != j) {
+      return mElements[(j - 1 & mCapacityBitmask)];
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  public boolean isEmpty()
+  {
+    return mHead == mTail;
+  }
+  
+  public E popFirst()
+  {
+    int i = mHead;
+    if (i != mTail)
+    {
+      Object[] arrayOfObject = mElements;
+      Object localObject = arrayOfObject[i];
+      arrayOfObject[i] = null;
+      mHead = (i + 1 & mCapacityBitmask);
+      return localObject;
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  public E popLast()
+  {
+    int i = mHead;
+    int j = mTail;
+    if (i != j)
+    {
+      i = mCapacityBitmask & j - 1;
+      Object[] arrayOfObject = mElements;
+      Object localObject = arrayOfObject[i];
+      arrayOfObject[i] = null;
+      mTail = i;
+      return localObject;
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  public void removeFromEnd(int paramInt)
+  {
+    if (paramInt <= 0) {
+      return;
+    }
+    if (paramInt <= size())
+    {
+      int i = 0;
+      int j = mTail;
+      if (paramInt < j) {
+        i = j - paramInt;
+      }
+      j = i;
+      int k;
+      for (;;)
+      {
+        k = mTail;
+        if (j >= k) {
+          break;
+        }
+        mElements[j] = null;
+        j += 1;
+      }
+      i = k - i;
+      paramInt -= i;
+      mTail = (k - i);
+      if (paramInt > 0)
+      {
+        mTail = mElements.length;
+        i = mTail - paramInt;
+        paramInt = i;
+        while (paramInt < mTail)
+        {
+          mElements[paramInt] = null;
+          paramInt += 1;
+        }
+        mTail = i;
+      }
+      return;
+    }
+    ArrayIndexOutOfBoundsException localArrayIndexOutOfBoundsException = new ArrayIndexOutOfBoundsException();
+    for (;;)
+    {
+      throw localArrayIndexOutOfBoundsException;
+    }
+  }
+  
+  public void removeFromStart(int paramInt)
+  {
+    if (paramInt <= 0) {
+      return;
+    }
+    if (paramInt <= size())
+    {
+      int j = mElements.length;
+      int k = mHead;
+      int i = j;
+      if (paramInt < j - k) {
+        i = k + paramInt;
+      }
+      j = mHead;
+      while (j < i)
+      {
+        mElements[j] = null;
+        j += 1;
+      }
+      j = mHead;
+      k = i - j;
+      i = paramInt - k;
+      mHead = (mCapacityBitmask & j + k);
+      if (i > 0)
+      {
+        paramInt = 0;
+        while (paramInt < i)
+        {
+          mElements[paramInt] = null;
+          paramInt += 1;
+        }
+        mHead = i;
+      }
+      return;
+    }
+    ArrayIndexOutOfBoundsException localArrayIndexOutOfBoundsException = new ArrayIndexOutOfBoundsException();
+    for (;;)
+    {
+      throw localArrayIndexOutOfBoundsException;
+    }
+  }
+  
+  public int size()
+  {
+    return mTail - mHead & mCapacityBitmask;
+  }
+}

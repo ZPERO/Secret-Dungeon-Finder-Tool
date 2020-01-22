@@ -1,0 +1,1288 @@
+package com.squareup.okhttp.internal.framed;
+
+import com.squareup.okhttp.Protocol;
+import com.squareup.okhttp.internal.Internal;
+import com.squareup.okhttp.internal.NamedRunnable;
+import com.squareup.okhttp.internal.Util;
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.ByteString;
+import okio.Okio;
+
+public final class FramedConnection
+  implements Closeable
+{
+  private static final int OKHTTP_CLIENT_WINDOW_SIZE = 16777216;
+  private static final ExecutorService executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue(), Util.threadFactory("OkHttp FramedConnection", true));
+  long bytesLeftInWriteWindow;
+  final boolean client;
+  private final Set<Integer> currentPushRequests = new LinkedHashSet();
+  final FrameWriter frameWriter;
+  private final String hostName;
+  private long idleStartTimeNs = System.nanoTime();
+  private int lastGoodStreamId;
+  private final Listener listener;
+  private int nextPingId;
+  private int nextStreamId;
+  Settings okHttpSettings = new Settings();
+  final Settings peerSettings = new Settings();
+  private Map<Integer, Ping> pings;
+  final Protocol protocol;
+  private final ExecutorService pushExecutor;
+  private final PushObserver pushObserver;
+  final Reader readerRunnable;
+  private boolean receivedInitialPeerSettings = false;
+  private boolean shutdown;
+  final Socket socket;
+  private final Map<Integer, FramedStream> streams = new HashMap();
+  long unacknowledgedBytesRead = 0L;
+  final Variant variant;
+  
+  private FramedConnection(Builder paramBuilder)
+    throws IOException
+  {
+    protocol = protocol;
+    pushObserver = pushObserver;
+    client = client;
+    listener = listener;
+    boolean bool = client;
+    int j = 2;
+    if (bool) {
+      i = 1;
+    } else {
+      i = 2;
+    }
+    nextStreamId = i;
+    if ((client) && (protocol == Protocol.HTTP_2)) {
+      nextStreamId += 2;
+    }
+    int i = j;
+    if (client) {
+      i = 1;
+    }
+    nextPingId = i;
+    if (client) {
+      okHttpSettings.set(7, 0, 16777216);
+    }
+    hostName = hostName;
+    if (protocol == Protocol.HTTP_2)
+    {
+      variant = new Http2();
+      pushExecutor = new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue(), Util.threadFactory(String.format("OkHttp %s Push Observer", new Object[] { hostName }), true));
+      peerSettings.set(7, 0, 65535);
+      peerSettings.set(5, 0, 16384);
+    }
+    else
+    {
+      if (protocol != Protocol.SPDY_3) {
+        break label403;
+      }
+      variant = new Spdy3();
+      pushExecutor = null;
+    }
+    bytesLeftInWriteWindow = peerSettings.getInitialWindowSize(65536);
+    socket = socket;
+    frameWriter = variant.newWriter(sink, client);
+    readerRunnable = new Reader(variant.newReader(source, client), null);
+    new Thread(readerRunnable).start();
+    return;
+    label403:
+    throw new AssertionError(protocol);
+  }
+  
+  private void close(ErrorCode paramErrorCode1, ErrorCode paramErrorCode2)
+    throws IOException
+  {
+    Ping[] arrayOfPing = null;
+    try
+    {
+      shutdown(paramErrorCode1);
+      paramErrorCode1 = null;
+    }
+    catch (IOException paramErrorCode1) {}
+    try
+    {
+      boolean bool = streams.isEmpty();
+      j = 0;
+      if (bool) {
+        break label281;
+      }
+      arrayOfFramedStream = (FramedStream[])streams.values().toArray(new FramedStream[streams.size()]);
+      streams.clear();
+      setIdle(false);
+    }
+    finally
+    {
+      for (;;)
+      {
+        int j;
+        Object localObject;
+        int k;
+        int i;
+        for (;;)
+        {
+          throw paramErrorCode1;
+        }
+        FramedStream[] arrayOfFramedStream = null;
+      }
+    }
+    if (pings != null)
+    {
+      arrayOfPing = (Ping[])pings.values().toArray(new Ping[pings.size()]);
+      pings = null;
+    }
+    localObject = paramErrorCode1;
+    if (arrayOfFramedStream != null)
+    {
+      k = arrayOfFramedStream.length;
+      i = 0;
+      while (i < k)
+      {
+        localObject = arrayOfFramedStream[i];
+        try
+        {
+          ((FramedStream)localObject).close(paramErrorCode2);
+          localObject = paramErrorCode1;
+        }
+        catch (IOException localIOException)
+        {
+          localObject = paramErrorCode1;
+          if (paramErrorCode1 != null) {
+            localObject = localIOException;
+          }
+        }
+        i += 1;
+        paramErrorCode1 = (ErrorCode)localObject;
+      }
+      localObject = paramErrorCode1;
+    }
+    if (arrayOfPing != null)
+    {
+      k = arrayOfPing.length;
+      i = j;
+      while (i < k)
+      {
+        arrayOfPing[i].cancel();
+        i += 1;
+      }
+    }
+    try
+    {
+      frameWriter.close();
+      paramErrorCode1 = (ErrorCode)localObject;
+    }
+    catch (IOException paramErrorCode2)
+    {
+      paramErrorCode1 = (ErrorCode)localObject;
+      if (localObject == null) {
+        paramErrorCode1 = paramErrorCode2;
+      }
+    }
+    try
+    {
+      socket.close();
+    }
+    catch (IOException paramErrorCode1) {}
+    if (paramErrorCode1 == null) {
+      return;
+    }
+    throw paramErrorCode1;
+  }
+  
+  private FramedStream newStream(int paramInt, List<Header> paramList, boolean paramBoolean1, boolean paramBoolean2)
+    throws IOException
+  {
+    boolean bool = paramBoolean1 ^ true;
+    paramBoolean2 ^= true;
+    synchronized (frameWriter)
+    {
+      try
+      {
+        if (!shutdown)
+        {
+          int i = nextStreamId;
+          nextStreamId += 2;
+          FramedStream localFramedStream = new FramedStream(i, this, bool, paramBoolean2, paramList);
+          if (localFramedStream.isOpen())
+          {
+            streams.put(Integer.valueOf(i), localFramedStream);
+            setIdle(false);
+          }
+          if (paramInt == 0)
+          {
+            frameWriter.synStream(bool, paramBoolean2, i, paramInt, paramList);
+          }
+          else
+          {
+            if (client) {
+              break label157;
+            }
+            frameWriter.pushPromise(paramInt, i, paramList);
+          }
+          if (!paramBoolean1) {
+            frameWriter.flush();
+          }
+          return localFramedStream;
+          label157:
+          throw new IllegalArgumentException("client streams shouldn't have associated stream IDs");
+        }
+        throw new IOException("shutdown");
+      }
+      finally {}
+    }
+  }
+  
+  private void pushDataLater(final int paramInt1, BufferedSource paramBufferedSource, final int paramInt2, final boolean paramBoolean)
+    throws IOException
+  {
+    final Buffer localBuffer = new Buffer();
+    long l = paramInt2;
+    paramBufferedSource.require(l);
+    paramBufferedSource.read(localBuffer, l);
+    if (localBuffer.size() == l)
+    {
+      pushExecutor.execute(new NamedRunnable("OkHttp %s Push Data[%s]", new Object[] { hostName, Integer.valueOf(paramInt1) })
+      {
+        public void execute()
+        {
+          try
+          {
+            boolean bool = pushObserver.onData(paramInt1, localBuffer, paramInt2, paramBoolean);
+            if (bool) {
+              frameWriter.rstStream(paramInt1, ErrorCode.CANCEL);
+            }
+            if ((bool) || (paramBoolean)) {
+              synchronized (FramedConnection.this)
+              {
+                currentPushRequests.remove(Integer.valueOf(paramInt1));
+                return;
+              }
+            }
+            return;
+          }
+          catch (IOException localIOException) {}
+        }
+      });
+      return;
+    }
+    paramBufferedSource = new StringBuilder();
+    paramBufferedSource.append(localBuffer.size());
+    paramBufferedSource.append(" != ");
+    paramBufferedSource.append(paramInt2);
+    throw new IOException(paramBufferedSource.toString());
+  }
+  
+  private void pushHeadersLater(final int paramInt, final List<Header> paramList, final boolean paramBoolean)
+  {
+    pushExecutor.execute(new NamedRunnable("OkHttp %s Push Headers[%s]", new Object[] { hostName, Integer.valueOf(paramInt) })
+    {
+      public void execute()
+      {
+        boolean bool = pushObserver.onHeaders(paramInt, paramList, paramBoolean);
+        if (bool) {}
+        try
+        {
+          frameWriter.rstStream(paramInt, ErrorCode.CANCEL);
+          if ((bool) || (paramBoolean)) {
+            synchronized (FramedConnection.this)
+            {
+              currentPushRequests.remove(Integer.valueOf(paramInt));
+              return;
+            }
+          }
+          return;
+        }
+        catch (IOException localIOException) {}
+      }
+    });
+  }
+  
+  private void pushRequestLater(final int paramInt, final List<Header> paramList)
+  {
+    try
+    {
+      if (currentPushRequests.contains(Integer.valueOf(paramInt)))
+      {
+        writeSynResetLater(paramInt, ErrorCode.PROTOCOL_ERROR);
+        return;
+      }
+      currentPushRequests.add(Integer.valueOf(paramInt));
+      pushExecutor.execute(new NamedRunnable("OkHttp %s Push Request[%s]", new Object[] { hostName, Integer.valueOf(paramInt) })
+      {
+        public void execute()
+        {
+          if (pushObserver.onRequest(paramInt, paramList)) {}
+          try
+          {
+            frameWriter.rstStream(paramInt, ErrorCode.CANCEL);
+            synchronized (FramedConnection.this)
+            {
+              currentPushRequests.remove(Integer.valueOf(paramInt));
+              return;
+            }
+            return;
+          }
+          catch (IOException localIOException) {}
+        }
+      });
+      return;
+    }
+    finally {}
+  }
+  
+  private void pushResetLater(final int paramInt, final ErrorCode paramErrorCode)
+  {
+    pushExecutor.execute(new NamedRunnable("OkHttp %s Push Reset[%s]", new Object[] { hostName, Integer.valueOf(paramInt) })
+    {
+      public void execute()
+      {
+        pushObserver.onReset(paramInt, paramErrorCode);
+        synchronized (FramedConnection.this)
+        {
+          currentPushRequests.remove(Integer.valueOf(paramInt));
+          return;
+        }
+      }
+    });
+  }
+  
+  private boolean pushedStream(int paramInt)
+  {
+    return (protocol == Protocol.HTTP_2) && (paramInt != 0) && ((paramInt & 0x1) == 0);
+  }
+  
+  private Ping removePing(int paramInt)
+  {
+    try
+    {
+      Ping localPing;
+      if (pings != null) {
+        localPing = (Ping)pings.remove(Integer.valueOf(paramInt));
+      } else {
+        localPing = null;
+      }
+      return localPing;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  private void setIdle(boolean paramBoolean)
+  {
+    if (paramBoolean) {}
+    for (;;)
+    {
+      try
+      {
+        l = System.nanoTime();
+        idleStartTimeNs = l;
+        return;
+      }
+      finally
+      {
+        Object localObject1;
+        continue;
+      }
+      throw localObject1;
+      long l = Long.MAX_VALUE;
+    }
+  }
+  
+  private void writePing(boolean paramBoolean, int paramInt1, int paramInt2, Ping paramPing)
+    throws IOException
+  {
+    FrameWriter localFrameWriter = frameWriter;
+    if (paramPing != null) {}
+    try
+    {
+      paramPing.send();
+      frameWriter.ping(paramBoolean, paramInt1, paramInt2);
+      return;
+    }
+    finally {}
+  }
+  
+  private void writePingLater(final boolean paramBoolean, final int paramInt1, final int paramInt2, final Ping paramPing)
+  {
+    executor.execute(new NamedRunnable("OkHttp %s ping %08x%08x", new Object[] { hostName, Integer.valueOf(paramInt1), Integer.valueOf(paramInt2) })
+    {
+      public void execute()
+      {
+        try
+        {
+          FramedConnection.this.writePing(paramBoolean, paramInt1, paramInt2, paramPing);
+          return;
+        }
+        catch (IOException localIOException) {}
+      }
+    });
+  }
+  
+  void addBytesToWriteWindow(long paramLong)
+  {
+    bytesLeftInWriteWindow += paramLong;
+    if (paramLong > 0L) {
+      notifyAll();
+    }
+  }
+  
+  public void close()
+    throws IOException
+  {
+    close(ErrorCode.NO_ERROR, ErrorCode.CANCEL);
+  }
+  
+  public void flush()
+    throws IOException
+  {
+    frameWriter.flush();
+  }
+  
+  public long getIdleStartTimeNs()
+  {
+    try
+    {
+      long l = idleStartTimeNs;
+      return l;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public Protocol getProtocol()
+  {
+    return protocol;
+  }
+  
+  FramedStream getStream(int paramInt)
+  {
+    try
+    {
+      FramedStream localFramedStream = (FramedStream)streams.get(Integer.valueOf(paramInt));
+      return localFramedStream;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public boolean isIdle()
+  {
+    try
+    {
+      long l = idleStartTimeNs;
+      boolean bool;
+      if (l != Long.MAX_VALUE) {
+        bool = true;
+      } else {
+        bool = false;
+      }
+      return bool;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public int maxConcurrentStreams()
+  {
+    try
+    {
+      int i = peerSettings.getMaxConcurrentStreams(Integer.MAX_VALUE);
+      return i;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public FramedStream newStream(List<Header> paramList, boolean paramBoolean1, boolean paramBoolean2)
+    throws IOException
+  {
+    return newStream(0, paramList, paramBoolean1, paramBoolean2);
+  }
+  
+  public int openStreamCount()
+  {
+    try
+    {
+      int i = streams.size();
+      return i;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public Ping ping()
+    throws IOException
+  {
+    Ping localPing = new Ping();
+    try
+    {
+      if (!shutdown)
+      {
+        int i = nextPingId;
+        nextPingId += 2;
+        if (pings == null) {
+          pings = new HashMap();
+        }
+        pings.put(Integer.valueOf(i), localPing);
+        writePing(false, i, 1330343787, localPing);
+        return localPing;
+      }
+      throw new IOException("shutdown");
+    }
+    finally {}
+  }
+  
+  public FramedStream pushStream(int paramInt, List<Header> paramList, boolean paramBoolean)
+    throws IOException
+  {
+    if (!client)
+    {
+      if (protocol == Protocol.HTTP_2) {
+        return newStream(paramInt, paramList, paramBoolean, false);
+      }
+      throw new IllegalStateException("protocol != HTTP_2");
+    }
+    throw new IllegalStateException("Client cannot push requests.");
+  }
+  
+  FramedStream removeStream(int paramInt)
+  {
+    try
+    {
+      FramedStream localFramedStream = (FramedStream)streams.remove(Integer.valueOf(paramInt));
+      if ((localFramedStream != null) && (streams.isEmpty())) {
+        setIdle(true);
+      }
+      notifyAll();
+      return localFramedStream;
+    }
+    finally {}
+  }
+  
+  public void sendConnectionPreface()
+    throws IOException
+  {
+    frameWriter.connectionPreface();
+    frameWriter.settings(okHttpSettings);
+    int i = okHttpSettings.getInitialWindowSize(65536);
+    if (i != 65536) {
+      frameWriter.windowUpdate(0, i - 65536);
+    }
+  }
+  
+  public void setSettings(Settings paramSettings)
+    throws IOException
+  {
+    synchronized (frameWriter)
+    {
+      try
+      {
+        if (!shutdown)
+        {
+          okHttpSettings.merge(paramSettings);
+          frameWriter.settings(paramSettings);
+          return;
+        }
+        throw new IOException("shutdown");
+      }
+      finally {}
+    }
+  }
+  
+  public void shutdown(ErrorCode paramErrorCode)
+    throws IOException
+  {
+    synchronized (frameWriter)
+    {
+      try
+      {
+        if (shutdown) {
+          return;
+        }
+        shutdown = true;
+        int i = lastGoodStreamId;
+        frameWriter.goAway(i, paramErrorCode, Util.EMPTY_BYTE_ARRAY);
+        return;
+      }
+      finally {}
+    }
+  }
+  
+  /* Error */
+  public void writeData(int paramInt, boolean paramBoolean, Buffer paramBuffer, long paramLong)
+    throws IOException
+  {
+    // Byte code:
+    //   0: lload 4
+    //   2: lstore 8
+    //   4: lload 4
+    //   6: lconst_0
+    //   7: lcmp
+    //   8: ifne +17 -> 25
+    //   11: aload_0
+    //   12: getfield 241	com/squareup/okhttp/internal/framed/FramedConnection:frameWriter	Lcom/squareup/okhttp/internal/framed/FrameWriter;
+    //   15: iload_2
+    //   16: iload_1
+    //   17: aload_3
+    //   18: iconst_0
+    //   19: invokeinterface 613 5 0
+    //   24: return
+    //   25: lload 8
+    //   27: lconst_0
+    //   28: lcmp
+    //   29: ifle +159 -> 188
+    //   32: aload_0
+    //   33: monitorenter
+    //   34: aload_0
+    //   35: getfield 223	com/squareup/okhttp/internal/framed/FramedConnection:bytesLeftInWriteWindow	J
+    //   38: lconst_0
+    //   39: lcmp
+    //   40: ifgt +37 -> 77
+    //   43: aload_0
+    //   44: getfield 124	com/squareup/okhttp/internal/framed/FramedConnection:streams	Ljava/util/Map;
+    //   47: iload_1
+    //   48: invokestatic 416	java/lang/Integer:valueOf	(I)Ljava/lang/Integer;
+    //   51: invokeinterface 616 2 0
+    //   56: ifeq +10 -> 66
+    //   59: aload_0
+    //   60: invokevirtual 619	java/lang/Object:wait	()V
+    //   63: goto -29 -> 34
+    //   66: new 118	java/io/IOException
+    //   69: dup
+    //   70: ldc_w 621
+    //   73: invokespecial 440	java/io/IOException:<init>	(Ljava/lang/String;)V
+    //   76: athrow
+    //   77: lload 8
+    //   79: aload_0
+    //   80: getfield 223	com/squareup/okhttp/internal/framed/FramedConnection:bytesLeftInWriteWindow	J
+    //   83: invokestatic 627	java/lang/Math:min	(JJ)J
+    //   86: l2i
+    //   87: aload_0
+    //   88: getfield 241	com/squareup/okhttp/internal/framed/FramedConnection:frameWriter	Lcom/squareup/okhttp/internal/framed/FrameWriter;
+    //   91: invokeinterface 630 1 0
+    //   96: invokestatic 633	java/lang/Math:min	(II)I
+    //   99: istore 6
+    //   101: aload_0
+    //   102: getfield 223	com/squareup/okhttp/internal/framed/FramedConnection:bytesLeftInWriteWindow	J
+    //   105: lstore 4
+    //   107: iload 6
+    //   109: i2l
+    //   110: lstore 10
+    //   112: aload_0
+    //   113: lload 4
+    //   115: lload 10
+    //   117: lsub
+    //   118: putfield 223	com/squareup/okhttp/internal/framed/FramedConnection:bytesLeftInWriteWindow	J
+    //   121: aload_0
+    //   122: monitorexit
+    //   123: lload 8
+    //   125: lload 10
+    //   127: lsub
+    //   128: lstore 8
+    //   130: aload_0
+    //   131: getfield 241	com/squareup/okhttp/internal/framed/FramedConnection:frameWriter	Lcom/squareup/okhttp/internal/framed/FrameWriter;
+    //   134: astore 12
+    //   136: iload_2
+    //   137: ifeq +16 -> 153
+    //   140: lload 8
+    //   142: lconst_0
+    //   143: lcmp
+    //   144: ifne +9 -> 153
+    //   147: iconst_1
+    //   148: istore 7
+    //   150: goto +6 -> 156
+    //   153: iconst_0
+    //   154: istore 7
+    //   156: aload 12
+    //   158: iload 7
+    //   160: iload_1
+    //   161: aload_3
+    //   162: iload 6
+    //   164: invokeinterface 613 5 0
+    //   169: goto -144 -> 25
+    //   172: astore_3
+    //   173: goto +11 -> 184
+    //   176: new 635	java/io/InterruptedIOException
+    //   179: dup
+    //   180: invokespecial 636	java/io/InterruptedIOException:<init>	()V
+    //   183: athrow
+    //   184: aload_0
+    //   185: monitorexit
+    //   186: aload_3
+    //   187: athrow
+    //   188: return
+    //   189: astore_3
+    //   190: goto -14 -> 176
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	193	0	this	FramedConnection
+    //   0	193	1	paramInt	int
+    //   0	193	2	paramBoolean	boolean
+    //   0	193	3	paramBuffer	Buffer
+    //   0	193	4	paramLong	long
+    //   99	64	6	i	int
+    //   148	11	7	bool	boolean
+    //   2	139	8	l1	long
+    //   110	16	10	l2	long
+    //   134	23	12	localFrameWriter	FrameWriter
+    // Exception table:
+    //   from	to	target	type
+    //   34	63	172	finally
+    //   66	77	172	finally
+    //   77	107	172	finally
+    //   112	123	172	finally
+    //   176	184	172	finally
+    //   184	186	172	finally
+    //   34	63	189	java/lang/InterruptedException
+    //   66	77	189	java/lang/InterruptedException
+  }
+  
+  void writeSynReply(int paramInt, boolean paramBoolean, List<Header> paramList)
+    throws IOException
+  {
+    frameWriter.synReply(paramBoolean, paramInt, paramList);
+  }
+  
+  void writeSynReset(int paramInt, ErrorCode paramErrorCode)
+    throws IOException
+  {
+    frameWriter.rstStream(paramInt, paramErrorCode);
+  }
+  
+  void writeSynResetLater(final int paramInt, final ErrorCode paramErrorCode)
+  {
+    executor.submit(new NamedRunnable("OkHttp %s stream %d", new Object[] { hostName, Integer.valueOf(paramInt) })
+    {
+      public void execute()
+      {
+        try
+        {
+          writeSynReset(paramInt, paramErrorCode);
+          return;
+        }
+        catch (IOException localIOException) {}
+      }
+    });
+  }
+  
+  void writeWindowUpdateLater(final int paramInt, final long paramLong)
+  {
+    executor.execute(new NamedRunnable("OkHttp Window Update %s stream %d", new Object[] { hostName, Integer.valueOf(paramInt) })
+    {
+      public void execute()
+      {
+        try
+        {
+          frameWriter.windowUpdate(paramInt, paramLong);
+          return;
+        }
+        catch (IOException localIOException) {}
+      }
+    });
+  }
+  
+  public static class Builder
+  {
+    private boolean client;
+    private String hostName;
+    private FramedConnection.Listener listener = FramedConnection.Listener.REFUSE_INCOMING_STREAMS;
+    private Protocol protocol = Protocol.SPDY_3;
+    private PushObserver pushObserver = PushObserver.CANCEL;
+    private BufferedSink sink;
+    private Socket socket;
+    private BufferedSource source;
+    
+    public Builder(boolean paramBoolean)
+      throws IOException
+    {
+      client = paramBoolean;
+    }
+    
+    public FramedConnection build()
+      throws IOException
+    {
+      return new FramedConnection(this, null);
+    }
+    
+    public Builder listener(FramedConnection.Listener paramListener)
+    {
+      listener = paramListener;
+      return this;
+    }
+    
+    public Builder protocol(Protocol paramProtocol)
+    {
+      protocol = paramProtocol;
+      return this;
+    }
+    
+    public Builder pushObserver(PushObserver paramPushObserver)
+    {
+      pushObserver = paramPushObserver;
+      return this;
+    }
+    
+    public Builder socket(Socket paramSocket)
+      throws IOException
+    {
+      return socket(paramSocket, ((InetSocketAddress)paramSocket.getRemoteSocketAddress()).getHostName(), Okio.buffer(Okio.source(paramSocket)), Okio.buffer(Okio.sink(paramSocket)));
+    }
+    
+    public Builder socket(Socket paramSocket, String paramString, BufferedSource paramBufferedSource, BufferedSink paramBufferedSink)
+    {
+      socket = paramSocket;
+      hostName = paramString;
+      source = paramBufferedSource;
+      sink = paramBufferedSink;
+      return this;
+    }
+  }
+  
+  public static abstract class Listener
+  {
+    public static final Listener REFUSE_INCOMING_STREAMS = new Listener()
+    {
+      public void onStream(FramedStream paramAnonymousFramedStream)
+        throws IOException
+      {
+        paramAnonymousFramedStream.close(ErrorCode.REFUSED_STREAM);
+      }
+    };
+    
+    public Listener() {}
+    
+    public void onSettings(FramedConnection paramFramedConnection) {}
+    
+    public abstract void onStream(FramedStream paramFramedStream)
+      throws IOException;
+  }
+  
+  class Reader
+    extends NamedRunnable
+    implements FrameReader.Handler
+  {
+    final FrameReader frameReader;
+    
+    private Reader(FrameReader paramFrameReader)
+    {
+      super(new Object[] { hostName });
+      frameReader = paramFrameReader;
+    }
+    
+    private void ackSettingsLater(final Settings paramSettings)
+    {
+      FramedConnection.executor.execute(new NamedRunnable("OkHttp %s ACK Settings", new Object[] { hostName })
+      {
+        public void execute()
+        {
+          try
+          {
+            frameWriter.ackSettings(paramSettings);
+            return;
+          }
+          catch (IOException localIOException) {}
+        }
+      });
+    }
+    
+    public void ackSettings() {}
+    
+    public void alternateService(int paramInt1, String paramString1, ByteString paramByteString, String paramString2, int paramInt2, long paramLong) {}
+    
+    public void data(boolean paramBoolean, int paramInt1, BufferedSource paramBufferedSource, int paramInt2)
+      throws IOException
+    {
+      if (FramedConnection.this.pushedStream(paramInt1))
+      {
+        FramedConnection.this.pushDataLater(paramInt1, paramBufferedSource, paramInt2, paramBoolean);
+        return;
+      }
+      FramedStream localFramedStream = getStream(paramInt1);
+      if (localFramedStream == null)
+      {
+        writeSynResetLater(paramInt1, ErrorCode.INVALID_STREAM);
+        paramBufferedSource.skip(paramInt2);
+        return;
+      }
+      localFramedStream.receiveData(paramBufferedSource, paramInt2);
+      if (paramBoolean) {
+        localFramedStream.receiveFin();
+      }
+    }
+    
+    /* Error */
+    protected void execute()
+    {
+      // Byte code:
+      //   0: getstatic 106	com/squareup/okhttp/internal/framed/ErrorCode:INTERNAL_ERROR	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   3: astore_3
+      //   4: getstatic 106	com/squareup/okhttp/internal/framed/ErrorCode:INTERNAL_ERROR	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   7: astore 5
+      //   9: aload_3
+      //   10: astore_1
+      //   11: aload_3
+      //   12: astore_2
+      //   13: aload_0
+      //   14: getfield 23	com/squareup/okhttp/internal/framed/FramedConnection$Reader:this$0	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+      //   17: getfield 110	com/squareup/okhttp/internal/framed/FramedConnection:client	Z
+      //   20: ifne +16 -> 36
+      //   23: aload_3
+      //   24: astore_1
+      //   25: aload_3
+      //   26: astore_2
+      //   27: aload_0
+      //   28: getfield 36	com/squareup/okhttp/internal/framed/FramedConnection$Reader:frameReader	Lcom/squareup/okhttp/internal/framed/FrameReader;
+      //   31: invokeinterface 115 1 0
+      //   36: aload_3
+      //   37: astore_1
+      //   38: aload_3
+      //   39: astore_2
+      //   40: aload_0
+      //   41: getfield 36	com/squareup/okhttp/internal/framed/FramedConnection$Reader:frameReader	Lcom/squareup/okhttp/internal/framed/FrameReader;
+      //   44: aload_0
+      //   45: invokeinterface 119 2 0
+      //   50: ifeq +6 -> 56
+      //   53: goto -17 -> 36
+      //   56: aload_3
+      //   57: astore_1
+      //   58: aload_3
+      //   59: astore_2
+      //   60: getstatic 122	com/squareup/okhttp/internal/framed/ErrorCode:NO_ERROR	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   63: astore_3
+      //   64: aload_3
+      //   65: astore_1
+      //   66: aload_3
+      //   67: astore_2
+      //   68: getstatic 125	com/squareup/okhttp/internal/framed/ErrorCode:CANCEL	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   71: astore 4
+      //   73: aload_0
+      //   74: getfield 23	com/squareup/okhttp/internal/framed/FramedConnection$Reader:this$0	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+      //   77: astore 5
+      //   79: aload_3
+      //   80: astore_2
+      //   81: aload 4
+      //   83: astore_1
+      //   84: aload 5
+      //   86: astore_3
+      //   87: goto +28 -> 115
+      //   90: astore_2
+      //   91: goto +38 -> 129
+      //   94: aload_2
+      //   95: astore_1
+      //   96: getstatic 128	com/squareup/okhttp/internal/framed/ErrorCode:PROTOCOL_ERROR	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   99: astore_2
+      //   100: aload_2
+      //   101: astore_1
+      //   102: getstatic 128	com/squareup/okhttp/internal/framed/ErrorCode:PROTOCOL_ERROR	Lcom/squareup/okhttp/internal/framed/ErrorCode;
+      //   105: astore 4
+      //   107: aload_0
+      //   108: getfield 23	com/squareup/okhttp/internal/framed/FramedConnection$Reader:this$0	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+      //   111: astore_3
+      //   112: aload 4
+      //   114: astore_1
+      //   115: aload_3
+      //   116: aload_2
+      //   117: aload_1
+      //   118: invokestatic 132	com/squareup/okhttp/internal/framed/FramedConnection:access$1200	(Lcom/squareup/okhttp/internal/framed/FramedConnection;Lcom/squareup/okhttp/internal/framed/ErrorCode;Lcom/squareup/okhttp/internal/framed/ErrorCode;)V
+      //   121: aload_0
+      //   122: getfield 36	com/squareup/okhttp/internal/framed/FramedConnection$Reader:frameReader	Lcom/squareup/okhttp/internal/framed/FrameReader;
+      //   125: invokestatic 138	com/squareup/okhttp/internal/Util:closeQuietly	(Ljava/io/Closeable;)V
+      //   128: return
+      //   129: aload_0
+      //   130: getfield 23	com/squareup/okhttp/internal/framed/FramedConnection$Reader:this$0	Lcom/squareup/okhttp/internal/framed/FramedConnection;
+      //   133: aload_1
+      //   134: aload 5
+      //   136: invokestatic 132	com/squareup/okhttp/internal/framed/FramedConnection:access$1200	(Lcom/squareup/okhttp/internal/framed/FramedConnection;Lcom/squareup/okhttp/internal/framed/ErrorCode;Lcom/squareup/okhttp/internal/framed/ErrorCode;)V
+      //   139: aload_0
+      //   140: getfield 36	com/squareup/okhttp/internal/framed/FramedConnection$Reader:frameReader	Lcom/squareup/okhttp/internal/framed/FrameReader;
+      //   143: invokestatic 138	com/squareup/okhttp/internal/Util:closeQuietly	(Ljava/io/Closeable;)V
+      //   146: goto +5 -> 151
+      //   149: aload_2
+      //   150: athrow
+      //   151: goto -2 -> 149
+      //   154: astore_1
+      //   155: goto -61 -> 94
+      //   158: astore_1
+      //   159: goto -38 -> 121
+      //   162: astore_1
+      //   163: goto -24 -> 139
+      // Local variable table:
+      //   start	length	slot	name	signature
+      //   0	166	0	this	Reader
+      //   10	124	1	localObject1	Object
+      //   154	1	1	localIOException1	IOException
+      //   158	1	1	localIOException2	IOException
+      //   162	1	1	localIOException3	IOException
+      //   12	69	2	localObject2	Object
+      //   90	5	2	localObject3	Object
+      //   99	51	2	localErrorCode1	ErrorCode
+      //   3	113	3	localObject4	Object
+      //   71	42	4	localErrorCode2	ErrorCode
+      //   7	128	5	localObject5	Object
+      // Exception table:
+      //   from	to	target	type
+      //   13	23	90	finally
+      //   27	36	90	finally
+      //   40	53	90	finally
+      //   60	64	90	finally
+      //   68	73	90	finally
+      //   96	100	90	finally
+      //   102	107	90	finally
+      //   13	23	154	java/io/IOException
+      //   27	36	154	java/io/IOException
+      //   40	53	154	java/io/IOException
+      //   60	64	154	java/io/IOException
+      //   68	73	154	java/io/IOException
+      //   73	79	158	java/io/IOException
+      //   107	112	158	java/io/IOException
+      //   115	121	158	java/io/IOException
+      //   129	139	162	java/io/IOException
+    }
+    
+    public void goAway(int paramInt, ErrorCode arg2, ByteString paramByteString)
+    {
+      paramByteString.size();
+      synchronized (FramedConnection.this)
+      {
+        paramByteString = (FramedStream[])streams.values().toArray(new FramedStream[streams.size()]);
+        FramedConnection.access$1602(FramedConnection.this, true);
+        int j = paramByteString.length;
+        int i = 0;
+        while (i < j)
+        {
+          ??? = paramByteString[i];
+          if ((???.getId() > paramInt) && (???.isLocallyInitiated()))
+          {
+            ???.receiveRstStream(ErrorCode.REFUSED_STREAM);
+            removeStream(???.getId());
+          }
+          i += 1;
+        }
+        return;
+      }
+      for (;;)
+      {
+        throw paramByteString;
+      }
+    }
+    
+    public void headers(boolean paramBoolean1, boolean paramBoolean2, int paramInt1, int paramInt2, final List<Header> paramList, HeadersMode paramHeadersMode)
+    {
+      if (FramedConnection.this.pushedStream(paramInt1))
+      {
+        FramedConnection.this.pushHeadersLater(paramInt1, paramList, paramBoolean2);
+        return;
+      }
+      synchronized (FramedConnection.this)
+      {
+        if (shutdown) {
+          return;
+        }
+        FramedStream localFramedStream = getStream(paramInt1);
+        if (localFramedStream == null)
+        {
+          if (paramHeadersMode.failIfStreamAbsent())
+          {
+            writeSynResetLater(paramInt1, ErrorCode.INVALID_STREAM);
+            return;
+          }
+          if (paramInt1 <= lastGoodStreamId) {
+            return;
+          }
+          if (paramInt1 % 2 == nextStreamId % 2) {
+            return;
+          }
+          paramList = new FramedStream(paramInt1, FramedConnection.this, paramBoolean1, paramBoolean2, paramList);
+          FramedConnection.access$1702(FramedConnection.this, paramInt1);
+          streams.put(Integer.valueOf(paramInt1), paramList);
+          FramedConnection.executor.execute(new NamedRunnable("OkHttp %s stream %d", new Object[] { hostName, Integer.valueOf(paramInt1) })
+          {
+            public void execute()
+            {
+              try
+              {
+                listener.onStream(paramList);
+                return;
+              }
+              catch (IOException localIOException1)
+              {
+                Logger localLogger = Internal.logger;
+                Level localLevel = Level.INFO;
+                StringBuilder localStringBuilder = new StringBuilder();
+                localStringBuilder.append("FramedConnection.Listener failure for ");
+                localStringBuilder.append(hostName);
+                localLogger.log(localLevel, localStringBuilder.toString(), localIOException1);
+                try
+                {
+                  paramList.close(ErrorCode.PROTOCOL_ERROR);
+                  return;
+                }
+                catch (IOException localIOException2) {}
+              }
+            }
+          });
+          return;
+        }
+        if (paramHeadersMode.failIfStreamPresent())
+        {
+          localFramedStream.closeLater(ErrorCode.PROTOCOL_ERROR);
+          removeStream(paramInt1);
+          return;
+        }
+        localFramedStream.receiveHeaders(paramList, paramHeadersMode);
+        if (paramBoolean2) {
+          localFramedStream.receiveFin();
+        }
+        return;
+      }
+    }
+    
+    public void ping(boolean paramBoolean, int paramInt1, int paramInt2)
+    {
+      if (paramBoolean)
+      {
+        Ping localPing = FramedConnection.this.removePing(paramInt1);
+        if (localPing != null) {
+          localPing.receive();
+        }
+      }
+      else
+      {
+        FramedConnection.this.writePingLater(true, paramInt1, paramInt2, null);
+      }
+    }
+    
+    public void priority(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean) {}
+    
+    public void pushPromise(int paramInt1, int paramInt2, List<Header> paramList)
+    {
+      FramedConnection.this.pushRequestLater(paramInt2, paramList);
+    }
+    
+    public void rstStream(int paramInt, ErrorCode paramErrorCode)
+    {
+      if (FramedConnection.this.pushedStream(paramInt))
+      {
+        FramedConnection.this.pushResetLater(paramInt, paramErrorCode);
+        return;
+      }
+      FramedStream localFramedStream = removeStream(paramInt);
+      if (localFramedStream != null) {
+        localFramedStream.receiveRstStream(paramErrorCode);
+      }
+    }
+    
+    public void settings(boolean paramBoolean, Settings paramSettings)
+    {
+      long l1;
+      synchronized (FramedConnection.this)
+      {
+        int i = peerSettings.getInitialWindowSize(65536);
+        if (paramBoolean) {
+          peerSettings.clear();
+        }
+        peerSettings.merge(paramSettings);
+        if (getProtocol() == Protocol.HTTP_2) {
+          ackSettingsLater(paramSettings);
+        }
+        int j = peerSettings.getInitialWindowSize(65536);
+        paramSettings = null;
+        if ((j != -1) && (j != i))
+        {
+          long l2 = j - i;
+          if (!receivedInitialPeerSettings)
+          {
+            addBytesToWriteWindow(l2);
+            FramedConnection.access$2302(FramedConnection.this, true);
+          }
+          l1 = l2;
+          if (!streams.isEmpty())
+          {
+            paramSettings = (FramedStream[])streams.values().toArray(new FramedStream[streams.size()]);
+            l1 = l2;
+          }
+          ExecutorService localExecutorService = FramedConnection.executor;
+          String str = hostName;
+          i = 0;
+          localExecutorService.execute(new NamedRunnable("OkHttp %s settings", new Object[] { str })
+          {
+            public void execute()
+            {
+              listener.onSettings(FramedConnection.this);
+            }
+          });
+          if ((paramSettings != null) && (l1 != 0L))
+          {
+            j = paramSettings.length;
+            while (i < j) {
+              synchronized (paramSettings[i])
+              {
+                ???.addBytesToWriteWindow(l1);
+                i += 1;
+              }
+            }
+          }
+          return;
+        }
+      }
+    }
+    
+    public void windowUpdate(int paramInt, long paramLong)
+    {
+      if (paramInt == 0) {
+        synchronized (FramedConnection.this)
+        {
+          FramedConnection localFramedConnection = FramedConnection.this;
+          bytesLeftInWriteWindow += paramLong;
+          notifyAll();
+          return;
+        }
+      }
+      ??? = getStream(paramInt);
+      if (??? != null) {
+        try
+        {
+          ((FramedStream)???).addBytesToWriteWindow(paramLong);
+          return;
+        }
+        finally {}
+      }
+    }
+  }
+}

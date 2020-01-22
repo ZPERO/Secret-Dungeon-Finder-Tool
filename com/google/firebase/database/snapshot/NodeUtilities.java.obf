@@ -1,0 +1,139 @@
+package com.google.firebase.database.snapshot;
+
+import com.google.firebase.database.DatabaseException;
+import com.google.firebase.database.collection.ImmutableSortedMap.Builder;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class NodeUtilities
+{
+  public NodeUtilities() {}
+  
+  public static Node NodeFromJSON(Object paramObject)
+    throws DatabaseException
+  {
+    return NodeFromJSON(paramObject, PriorityUtilities.NullPriority());
+  }
+  
+  public static Node NodeFromJSON(Object paramObject, Node paramNode)
+    throws DatabaseException
+  {
+    Object localObject1 = paramObject;
+    Node localNode1 = paramNode;
+    try
+    {
+      if ((paramObject instanceof Map))
+      {
+        localObject2 = (Map)paramObject;
+        if (((Map)localObject2).containsKey(".priority")) {
+          paramNode = PriorityUtilities.parsePriority(((Map)localObject2).get(".priority"));
+        }
+        localObject1 = paramObject;
+        localNode1 = paramNode;
+        if (((Map)localObject2).containsKey(".value"))
+        {
+          localObject1 = ((Map)localObject2).get(".value");
+          localNode1 = paramNode;
+        }
+      }
+      if (localObject1 == null) {
+        return EmptyNode.Empty();
+      }
+      if ((localObject1 instanceof String)) {
+        return new StringNode((String)localObject1, localNode1);
+      }
+      if ((localObject1 instanceof Long)) {
+        return new LongNode((Long)localObject1, localNode1);
+      }
+      if ((localObject1 instanceof Integer)) {
+        return new LongNode(Long.valueOf(((Integer)localObject1).intValue()), localNode1);
+      }
+      if ((localObject1 instanceof Double)) {
+        return new DoubleNode((Double)localObject1, localNode1);
+      }
+      if ((localObject1 instanceof Boolean)) {
+        return new BooleanNode((Boolean)localObject1, localNode1);
+      }
+      if ((!(localObject1 instanceof Map)) && (!(localObject1 instanceof List)))
+      {
+        paramObject = new StringBuilder();
+        paramObject.append("Failed to parse node with class ");
+        paramObject.append(localObject1.getClass().toString());
+        throw new DatabaseException(paramObject.toString());
+      }
+      if ((localObject1 instanceof Map))
+      {
+        localObject1 = (Map)localObject1;
+        if (((Map)localObject1).containsKey(".sv")) {
+          return new DeferredValueNode((Map)localObject1, localNode1);
+        }
+        paramNode = new HashMap(((Map)localObject1).size());
+        localObject2 = ((Map)localObject1).keySet().iterator();
+        for (;;)
+        {
+          paramObject = paramNode;
+          if (!((Iterator)localObject2).hasNext()) {
+            break;
+          }
+          paramObject = (String)((Iterator)localObject2).next();
+          if (!paramObject.startsWith("."))
+          {
+            Node localNode2 = NodeFromJSON(((Map)localObject1).get(paramObject));
+            if (!localNode2.isEmpty()) {
+              paramNode.put(ChildKey.fromString(paramObject), localNode2);
+            }
+          }
+        }
+      }
+      localObject1 = (List)localObject1;
+      paramNode = new HashMap(((List)localObject1).size());
+      i = 0;
+    }
+    catch (ClassCastException paramObject)
+    {
+      for (;;)
+      {
+        Object localObject2;
+        int i;
+        paramObject = new DatabaseException("Failed to parse node", paramObject);
+        for (;;)
+        {
+          throw paramObject;
+        }
+        i += 1;
+      }
+    }
+    paramObject = paramNode;
+    if (i < ((List)localObject1).size())
+    {
+      paramObject = new StringBuilder();
+      paramObject.append("");
+      paramObject.append(i);
+      paramObject = paramObject.toString();
+      localObject2 = NodeFromJSON(((List)localObject1).get(i));
+      if (!((Node)localObject2).isEmpty()) {
+        paramNode.put(ChildKey.fromString(paramObject), localObject2);
+      }
+    }
+    else
+    {
+      if (paramObject.isEmpty()) {
+        return EmptyNode.Empty();
+      }
+      paramObject = new ChildrenNode(ImmutableSortedMap.Builder.fromMap(paramObject, ChildrenNode.NAME_ONLY_COMPARATOR), localNode1);
+      return paramObject;
+    }
+  }
+  
+  public static int nameAndPriorityCompare(ChildKey paramChildKey1, Node paramNode1, ChildKey paramChildKey2, Node paramNode2)
+  {
+    int i = paramNode1.compareTo(paramNode2);
+    if (i != 0) {
+      return i;
+    }
+    return paramChildKey1.compareTo(paramChildKey2);
+  }
+}

@@ -1,0 +1,32 @@
+package com.google.android.gms.common.internal;
+
+public final class zzh
+{
+  private final String mPackageName;
+  private final int zzdt;
+  private final String zzej;
+  private final boolean zzek;
+  
+  public zzh(String paramString1, String paramString2, boolean paramBoolean, int paramInt)
+  {
+    mPackageName = paramString1;
+    zzej = paramString2;
+    zzek = paramBoolean;
+    zzdt = 129;
+  }
+  
+  final String getPackageName()
+  {
+    return mPackageName;
+  }
+  
+  final int zzq()
+  {
+    return zzdt;
+  }
+  
+  final String zzt()
+  {
+    return zzej;
+  }
+}

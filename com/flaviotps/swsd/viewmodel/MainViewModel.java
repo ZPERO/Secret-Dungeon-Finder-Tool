@@ -1,0 +1,195 @@
+package com.flaviotps.swsd.viewmodel;
+
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
+import com.flaviotps.swsd.enum.MonsterElement;
+import com.flaviotps.swsd.enum.MonsterElement.Companion;
+import com.flaviotps.swsd.enum.ServerLocation;
+import com.flaviotps.swsd.enum.ServerLocation.Companion;
+import com.flaviotps.swsd.model.MonsterModel;
+import com.flaviotps.swsd.model.SecretDungeonModel;
+import com.flaviotps.swsd.repository.SecretDungeonRepository;
+import com.flaviotps.swsd.repository.SecretDungeonRepository.Companion;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import kotlin.Lazy;
+import kotlin.LazyKt__LazyJVMKt;
+import kotlin.Metadata;
+import kotlin.collections.CollectionsKt__MutableCollectionsKt;
+import kotlin.collections.CollectionsKt___CollectionsKt;
+import kotlin.jvm.functions.Function0;
+import kotlin.jvm.functions.Function1;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.jvm.internal.Lambda;
+import kotlin.reflect.KProperty;
+import kotlin.text.StringsKt__StringsJVMKt;
+
+@Metadata(bv={1, 0, 3}, d1={"\000>\n\002\030\002\n\002\030\002\n\002\b\002\n\002\030\002\n\002\b\005\n\002\030\002\n\002\020 \n\002\030\002\n\000\n\002\020\002\n\002\b\005\n\002\020\"\n\002\020\016\n\002\b\006\n\002\030\002\n\002\b\005\030\0002\0020\001B\005?\006\002\020\002J\006\020\r\032\0020\016J\024\020\017\032\b\022\004\022\0020\f0\n2\006\020\020\032\0020\fJJ\020\021\032\b\022\004\022\0020\f0\0132\f\020\022\032\b\022\004\022\0020\f0\0132\016\020\023\032\n\022\004\022\0020\025\030\0010\0242\016\020\026\032\n\022\004\022\0020\025\030\0010\0242\016\020\027\032\n\022\004\022\0020\025\030\0010\024J,\020\030\032\b\022\004\022\0020\f0\0132\016\020\026\032\n\022\004\022\0020\025\030\0010\0242\f\020\022\032\b\022\004\022\0020\f0\013H\002J,\020\031\032\b\022\004\022\0020\f0\0132\016\020\027\032\n\022\004\022\0020\025\030\0010\0242\f\020\022\032\b\022\004\022\0020\f0\013H\002J,\020\032\032\b\022\004\022\0020\f0\0132\016\020\023\032\n\022\004\022\0020\025\030\0010\0242\f\020\022\032\b\022\004\022\0020\f0\013H\002J\022\020\033\032\016\022\n\022\b\022\004\022\0020\f0\0130\034J\016\020\035\032\0020\0162\006\020\020\032\0020\fJ\016\020\036\032\0020\0162\006\020\020\032\0020\fJ\026\020\037\032\0020\0162\006\020\020\032\0020\f2\006\020 \032\0020\025R\033\020\003\032\0020\0048BX??\002?\006\f\n\004\b\007\020\b\032\004\b\005\020\006R\032\020\t\032\016\022\n\022\b\022\004\022\0020\f0\0130\nX?\016?\006\002\n\000?\006!"}, d2={"Lcom/flaviotps/swsd/viewmodel/MainViewModel;", "Landroidx/lifecycle/ViewModel;", "()V", "secretDungeonRepository", "Lcom/flaviotps/swsd/repository/SecretDungeonRepository;", "getSecretDungeonRepository", "()Lcom/flaviotps/swsd/repository/SecretDungeonRepository;", "secretDungeonRepository$delegate", "Lkotlin/Lazy;", "secretDungeons", "Landroidx/lifecycle/MutableLiveData;", "", "Lcom/flaviotps/swsd/model/SecretDungeonModel;", "clearExpired", "", "delete", "secretDungeonModel", "filter", "list", "serverSet", "", "", "elementSet", "monsterSet", "filterByElement", "filterByMonster", "filterByServer", "getSecretDungeons", "Landroidx/lifecycle/LiveData;", "removeFromList", "report", "requestFriend", "token", "app_release"}, k=1, mv={1, 1, 16})
+public final class MainViewModel
+  extends ViewModel
+{
+  private final Lazy secretDungeonRepository$delegate = LazyKt__LazyJVMKt.lazy((Function0)secretDungeonRepository.2.INSTANCE);
+  private MutableLiveData<List<SecretDungeonModel>> secretDungeons = getSecretDungeonRepository().getSecretDungeons();
+  
+  public MainViewModel() {}
+  
+  private final List filterByElement(Set paramSet, List paramList)
+  {
+    if (paramSet != null)
+    {
+      if (paramSet.isEmpty()) {
+        return paramList;
+      }
+      List localList = (List)new ArrayList();
+      paramList = paramList.iterator();
+      while (paramList.hasNext())
+      {
+        SecretDungeonModel localSecretDungeonModel = (SecretDungeonModel)paramList.next();
+        Iterator localIterator = paramSet.iterator();
+        while (localIterator.hasNext())
+        {
+          String str = (String)localIterator.next();
+          if (MonsterElement.Companion.getMonsterByElement(str) == localSecretDungeonModel.getMonster().getElement()) {
+            localList.add(localSecretDungeonModel);
+          }
+        }
+      }
+      return localList;
+    }
+    return paramList;
+  }
+  
+  private final List filterByMonster(Set paramSet, List paramList)
+  {
+    if (paramSet != null)
+    {
+      if (paramSet.isEmpty()) {
+        return paramList;
+      }
+      List localList = (List)new ArrayList();
+      paramList = paramList.iterator();
+      while (paramList.hasNext())
+      {
+        SecretDungeonModel localSecretDungeonModel = (SecretDungeonModel)paramList.next();
+        Iterator localIterator = paramSet.iterator();
+        while (localIterator.hasNext()) {
+          if (StringsKt__StringsJVMKt.equals(StringsKt__StringsJVMKt.replace$default((String)localIterator.next(), " ", "", false, 4, null), StringsKt__StringsJVMKt.replace$default(localSecretDungeonModel.getMonster().getGenericName(), " ", "", false, 4, null), true)) {
+            localList.add(localSecretDungeonModel);
+          }
+        }
+      }
+      return localList;
+    }
+    return paramList;
+  }
+  
+  private final List filterByServer(Set paramSet, List paramList)
+  {
+    if (paramSet != null)
+    {
+      if (paramSet.isEmpty()) {
+        return paramList;
+      }
+      List localList = (List)new ArrayList();
+      paramList = paramList.iterator();
+      while (paramList.hasNext())
+      {
+        SecretDungeonModel localSecretDungeonModel = (SecretDungeonModel)paramList.next();
+        Iterator localIterator = paramSet.iterator();
+        while (localIterator.hasNext())
+        {
+          String str = (String)localIterator.next();
+          if (ServerLocation.Companion.getServerType(str) == localSecretDungeonModel.getServerLocation()) {
+            localList.add(localSecretDungeonModel);
+          }
+        }
+      }
+      return localList;
+    }
+    return paramList;
+  }
+  
+  private final SecretDungeonRepository getSecretDungeonRepository()
+  {
+    Lazy localLazy = secretDungeonRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[0];
+    return (SecretDungeonRepository)localLazy.getValue();
+  }
+  
+  public final void clearExpired()
+  {
+    List localList = (List)secretDungeons.getValue();
+    if (localList != null) {
+      localList = CollectionsKt___CollectionsKt.toMutableList((Collection)localList);
+    } else {
+      localList = null;
+    }
+    if (localList != null) {
+      CollectionsKt__MutableCollectionsKt.removeAll(localList, (Function1)clearExpired.1.INSTANCE);
+    }
+    secretDungeons.postValue(localList);
+  }
+  
+  public final MutableLiveData delete(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "secretDungeonModel");
+    return getSecretDungeonRepository().delete(paramSecretDungeonModel);
+  }
+  
+  public final List filter(List paramList, Set paramSet1, Set paramSet2, Set paramSet3)
+  {
+    Intrinsics.checkParameterIsNotNull(paramList, "list");
+    return filterByElement(paramSet2, filterByMonster(paramSet3, filterByServer(paramSet1, paramList)));
+  }
+  
+  public final LiveData getSecretDungeons()
+  {
+    return (LiveData)secretDungeons;
+  }
+  
+  public final void removeFromList(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "secretDungeonModel");
+    List localList = (List)secretDungeons.getValue();
+    if (localList != null) {
+      localList = CollectionsKt___CollectionsKt.toMutableList((Collection)localList);
+    } else {
+      localList = null;
+    }
+    if (localList != null) {
+      CollectionsKt__MutableCollectionsKt.removeAll(localList, (Function1)new Lambda(paramSecretDungeonModel)
+      {
+        public final boolean invoke(SecretDungeonModel paramAnonymousSecretDungeonModel)
+        {
+          Intrinsics.checkParameterIsNotNull(paramAnonymousSecretDungeonModel, "it");
+          return (paramAnonymousSecretDungeonModel.getKey() != null) && (Intrinsics.areEqual(paramAnonymousSecretDungeonModel.getKey(), getKey()));
+        }
+      });
+    }
+    secretDungeons.postValue(localList);
+  }
+  
+  public final void report(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "secretDungeonModel");
+  }
+  
+  public final void requestFriend(SecretDungeonModel paramSecretDungeonModel, String paramString)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "secretDungeonModel");
+    Intrinsics.checkParameterIsNotNull(paramString, "token");
+    int i;
+    if (((CharSequence)paramSecretDungeonModel.getFcmToken()).length() > 0) {
+      i = 1;
+    } else {
+      i = 0;
+    }
+    if (i != 0) {
+      getSecretDungeonRepository().requestFriend(paramSecretDungeonModel, paramString);
+    }
+  }
+}

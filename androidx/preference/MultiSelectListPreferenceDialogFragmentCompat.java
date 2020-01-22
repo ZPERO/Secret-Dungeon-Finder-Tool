@@ -1,0 +1,113 @@
+package androidx.preference;
+
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnMultiChoiceClickListener;
+import android.os.Bundle;
+import androidx.appcompat.app.AlertDialog.Builder;
+import androidx.fragment.package_8.Fragment;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+public class MultiSelectListPreferenceDialogFragmentCompat
+  extends PreferenceDialogFragmentCompat
+{
+  private static final String SAVE_STATE_CHANGED = "MultiSelectListPreferenceDialogFragmentCompat.changed";
+  private static final String SAVE_STATE_ENTRIES = "MultiSelectListPreferenceDialogFragmentCompat.entries";
+  private static final String SAVE_STATE_ENTRY_VALUES = "MultiSelectListPreferenceDialogFragmentCompat.entryValues";
+  private static final String SAVE_STATE_VALUES = "MultiSelectListPreferenceDialogFragmentCompat.values";
+  CharSequence[] mEntries;
+  CharSequence[] mEntryValues;
+  Set<String> mNewValues = new HashSet();
+  boolean mPreferenceChanged;
+  
+  public MultiSelectListPreferenceDialogFragmentCompat() {}
+  
+  private MultiSelectListPreference getListPreference()
+  {
+    return (MultiSelectListPreference)getPreference();
+  }
+  
+  public static MultiSelectListPreferenceDialogFragmentCompat newInstance(String paramString)
+  {
+    MultiSelectListPreferenceDialogFragmentCompat localMultiSelectListPreferenceDialogFragmentCompat = new MultiSelectListPreferenceDialogFragmentCompat();
+    Bundle localBundle = new Bundle(1);
+    localBundle.putString("key", paramString);
+    localMultiSelectListPreferenceDialogFragmentCompat.setArguments(localBundle);
+    return localMultiSelectListPreferenceDialogFragmentCompat;
+  }
+  
+  public void onCreate(Bundle paramBundle)
+  {
+    super.onCreate(paramBundle);
+    if (paramBundle == null)
+    {
+      paramBundle = getListPreference();
+      if ((paramBundle.getEntries() != null) && (paramBundle.getEntryValues() != null))
+      {
+        mNewValues.clear();
+        mNewValues.addAll(paramBundle.getValues());
+        mPreferenceChanged = false;
+        mEntries = paramBundle.getEntries();
+        mEntryValues = paramBundle.getEntryValues();
+        return;
+      }
+      throw new IllegalStateException("MultiSelectListPreference requires an entries array and an entryValues array.");
+    }
+    mNewValues.clear();
+    mNewValues.addAll(paramBundle.getStringArrayList("MultiSelectListPreferenceDialogFragmentCompat.values"));
+    mPreferenceChanged = paramBundle.getBoolean("MultiSelectListPreferenceDialogFragmentCompat.changed", false);
+    mEntries = paramBundle.getCharSequenceArray("MultiSelectListPreferenceDialogFragmentCompat.entries");
+    mEntryValues = paramBundle.getCharSequenceArray("MultiSelectListPreferenceDialogFragmentCompat.entryValues");
+  }
+  
+  public void onDialogClosed(boolean paramBoolean)
+  {
+    if ((paramBoolean) && (mPreferenceChanged))
+    {
+      MultiSelectListPreference localMultiSelectListPreference = getListPreference();
+      if (localMultiSelectListPreference.callChangeListener(mNewValues)) {
+        localMultiSelectListPreference.setValues(mNewValues);
+      }
+    }
+    mPreferenceChanged = false;
+  }
+  
+  protected void onPrepareDialogBuilder(AlertDialog.Builder paramBuilder)
+  {
+    super.onPrepareDialogBuilder(paramBuilder);
+    int j = mEntryValues.length;
+    boolean[] arrayOfBoolean = new boolean[j];
+    int i = 0;
+    while (i < j)
+    {
+      arrayOfBoolean[i] = mNewValues.contains(mEntryValues[i].toString());
+      i += 1;
+    }
+    paramBuilder.setMultiChoiceItems(mEntries, arrayOfBoolean, new DialogInterface.OnMultiChoiceClickListener()
+    {
+      public void onClick(DialogInterface paramAnonymousDialogInterface, int paramAnonymousInt, boolean paramAnonymousBoolean)
+      {
+        if (paramAnonymousBoolean)
+        {
+          paramAnonymousDialogInterface = MultiSelectListPreferenceDialogFragmentCompat.this;
+          paramAnonymousBoolean = mPreferenceChanged;
+          mPreferenceChanged = (mNewValues.add(mEntryValues[paramAnonymousInt].toString()) | paramAnonymousBoolean);
+          return;
+        }
+        paramAnonymousDialogInterface = MultiSelectListPreferenceDialogFragmentCompat.this;
+        paramAnonymousBoolean = mPreferenceChanged;
+        mPreferenceChanged = (mNewValues.remove(mEntryValues[paramAnonymousInt].toString()) | paramAnonymousBoolean);
+      }
+    });
+  }
+  
+  public void onSaveInstanceState(Bundle paramBundle)
+  {
+    super.onSaveInstanceState(paramBundle);
+    paramBundle.putStringArrayList("MultiSelectListPreferenceDialogFragmentCompat.values", new ArrayList(mNewValues));
+    paramBundle.putBoolean("MultiSelectListPreferenceDialogFragmentCompat.changed", mPreferenceChanged);
+    paramBundle.putCharSequenceArray("MultiSelectListPreferenceDialogFragmentCompat.entries", mEntries);
+    paramBundle.putCharSequenceArray("MultiSelectListPreferenceDialogFragmentCompat.entryValues", mEntryValues);
+  }
+}

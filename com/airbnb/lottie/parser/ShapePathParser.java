@@ -1,0 +1,52 @@
+package com.airbnb.lottie.parser;
+
+import com.airbnb.lottie.LottieComposition;
+import com.airbnb.lottie.model.animatable.AnimatableShapeValue;
+import com.airbnb.lottie.model.content.ShapePath;
+import com.airbnb.lottie.parser.moshi.JsonReader;
+import com.airbnb.lottie.parser.moshi.JsonReader.Options;
+import java.io.IOException;
+
+class ShapePathParser
+{
+  static JsonReader.Options NAMES = JsonReader.Options.init(new String[] { "nm", "ind", "ks", "hd" });
+  
+  private ShapePathParser() {}
+  
+  static ShapePath parse(JsonReader paramJsonReader, LottieComposition paramLottieComposition)
+    throws IOException
+  {
+    int i = 0;
+    String str = null;
+    AnimatableShapeValue localAnimatableShapeValue = null;
+    boolean bool = false;
+    while (paramJsonReader.hasNext())
+    {
+      int j = paramJsonReader.selectName(NAMES);
+      if (j != 0)
+      {
+        if (j != 1)
+        {
+          if (j != 2)
+          {
+            if (j != 3) {
+              paramJsonReader.skipValue();
+            } else {
+              bool = paramJsonReader.nextBoolean();
+            }
+          }
+          else {
+            localAnimatableShapeValue = AnimatableValueParser.parseShapeData(paramJsonReader, paramLottieComposition);
+          }
+        }
+        else {
+          i = paramJsonReader.nextInt();
+        }
+      }
+      else {
+        str = paramJsonReader.nextString();
+      }
+    }
+    return new ShapePath(str, i, localAnimatableShapeValue, bool);
+  }
+}

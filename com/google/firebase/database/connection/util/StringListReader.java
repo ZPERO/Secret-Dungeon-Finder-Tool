@@ -1,0 +1,214 @@
+package com.google.firebase.database.connection.util;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.CharBuffer;
+import java.util.Iterator;
+import java.util.List;
+
+public class StringListReader
+  extends Reader
+{
+  private int charPos;
+  private boolean closed = false;
+  private boolean frozen = false;
+  private int markedCharPos = charPos;
+  private int markedStringListPos = stringListPos;
+  private int stringListPos;
+  private List<String> strings = null;
+  
+  public StringListReader() {}
+  
+  private long advance(long paramLong)
+  {
+    long l1 = 0L;
+    while ((stringListPos < strings.size()) && (l1 < paramLong))
+    {
+      int i = currentStringRemainingChars();
+      long l2 = paramLong - l1;
+      long l3 = i;
+      if (l2 < l3)
+      {
+        charPos = ((int)(charPos + l2));
+        l1 += l2;
+      }
+      else
+      {
+        l1 += l3;
+        charPos = 0;
+        stringListPos += 1;
+      }
+    }
+    return l1;
+  }
+  
+  private void checkState()
+    throws IOException
+  {
+    if (!closed)
+    {
+      if (frozen) {
+        return;
+      }
+      throw new IOException("Reader needs to be frozen before read operations can be called");
+    }
+    throw new IOException("Stream already closed");
+  }
+  
+  private String currentString()
+  {
+    if (stringListPos < strings.size()) {
+      return (String)strings.get(stringListPos);
+    }
+    return null;
+  }
+  
+  private int currentStringRemainingChars()
+  {
+    String str = currentString();
+    if (str == null) {
+      return 0;
+    }
+    return str.length() - charPos;
+  }
+  
+  public void addString(String paramString)
+  {
+    if (!frozen)
+    {
+      if (paramString.length() > 0) {
+        strings.add(paramString);
+      }
+    }
+    else {
+      throw new IllegalStateException("Trying to add string after reading");
+    }
+  }
+  
+  public void close()
+    throws IOException
+  {
+    checkState();
+    closed = true;
+  }
+  
+  public void freeze()
+  {
+    if (!frozen)
+    {
+      frozen = true;
+      return;
+    }
+    throw new IllegalStateException("Trying to freeze frozen StringListReader");
+  }
+  
+  public void mark(int paramInt)
+    throws IOException
+  {
+    checkState();
+    markedCharPos = charPos;
+    markedStringListPos = stringListPos;
+  }
+  
+  public boolean markSupported()
+  {
+    return true;
+  }
+  
+  public int read()
+    throws IOException
+  {
+    checkState();
+    String str = currentString();
+    if (str == null) {
+      return -1;
+    }
+    int i = str.charAt(charPos);
+    advance(1L);
+    return i;
+  }
+  
+  public int read(CharBuffer paramCharBuffer)
+    throws IOException
+  {
+    checkState();
+    int j = paramCharBuffer.remaining();
+    String str = currentString();
+    int i = 0;
+    while ((j > 0) && (str != null))
+    {
+      int k = Math.min(str.length() - charPos, j);
+      str = (String)strings.get(stringListPos);
+      int m = charPos;
+      paramCharBuffer.put(str, m, m + k);
+      j -= k;
+      i += k;
+      advance(k);
+      str = currentString();
+    }
+    if (i <= 0)
+    {
+      if (str != null) {
+        return i;
+      }
+      return -1;
+    }
+    return i;
+  }
+  
+  public int read(char[] paramArrayOfChar, int paramInt1, int paramInt2)
+    throws IOException
+  {
+    checkState();
+    String str = currentString();
+    int i = 0;
+    while ((str != null) && (i < paramInt2))
+    {
+      int j = Math.min(currentStringRemainingChars(), paramInt2 - i);
+      int k = charPos;
+      str.getChars(k, k + j, paramArrayOfChar, paramInt1 + i);
+      i += j;
+      advance(j);
+      str = currentString();
+    }
+    if (i <= 0)
+    {
+      if (str != null) {
+        return i;
+      }
+      return -1;
+    }
+    return i;
+  }
+  
+  public boolean ready()
+    throws IOException
+  {
+    checkState();
+    return true;
+  }
+  
+  public void reset()
+    throws IOException
+  {
+    charPos = markedCharPos;
+    stringListPos = markedStringListPos;
+  }
+  
+  public long skip(long paramLong)
+    throws IOException
+  {
+    checkState();
+    return advance(paramLong);
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    Iterator localIterator = strings.iterator();
+    while (localIterator.hasNext()) {
+      localStringBuilder.append((String)localIterator.next());
+    }
+    return localStringBuilder.toString();
+  }
+}

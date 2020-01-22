@@ -1,0 +1,192 @@
+package com.google.firebase.functions;
+
+import android.content.Context;
+import android.content.Intent;
+import android.os.Handler;
+import android.util.Log;
+import com.google.android.android.common.internal.Preconditions;
+import com.google.android.android.security.ProviderInstaller.ProviderInstallListener;
+import com.google.android.android.tasks.Task;
+import com.google.firebase.FirebaseApp;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Request.Builder;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+public class FirebaseFunctions
+{
+  private static boolean providerInstallStarted = false;
+  private static final com.google.android.gms.tasks.TaskCompletionSource<Void> providerInstalled = new com.google.android.android.tasks.TaskCompletionSource();
+  private final OkHttpClient client = new OkHttpClient();
+  private final ContextProvider contextProvider;
+  private final String projectId;
+  private final String region;
+  private final Serializer serializer = new Serializer();
+  private String urlFormat = "https://%1$s-%2$s.cloudfunctions.net/%3$s";
+  
+  FirebaseFunctions(Context paramContext, String paramString1, String paramString2, ContextProvider paramContextProvider)
+  {
+    contextProvider = ((ContextProvider)Preconditions.checkNotNull(paramContextProvider));
+    projectId = ((String)Preconditions.checkNotNull(paramString1));
+    region = ((String)Preconditions.checkNotNull(paramString2));
+    maybeInstallProviders(paramContext);
+  }
+  
+  private Task call(final String paramString, Object paramObject, HttpsCallableContext paramHttpsCallableContext)
+  {
+    if (paramString != null)
+    {
+      paramString = getURL(paramString);
+      HashMap localHashMap = new HashMap();
+      localHashMap.put("data", serializer.encode(paramObject));
+      paramObject = new JSONObject(localHashMap);
+      paramObject = RequestBody.create(MediaType.parse("application/json"), paramObject.toString());
+      paramObject = new Request.Builder().url(paramString).post(paramObject);
+      paramString = paramObject;
+      if (paramHttpsCallableContext.getAuthToken() != null)
+      {
+        paramString = new StringBuilder();
+        paramString.append("Bearer ");
+        paramString.append(paramHttpsCallableContext.getAuthToken());
+        paramString = paramObject.header("Authorization", paramString.toString());
+      }
+      paramObject = paramString;
+      if (paramHttpsCallableContext.getInstanceIdToken() != null) {
+        paramObject = paramString.header("Firebase-Instance-ID-Token", paramHttpsCallableContext.getInstanceIdToken());
+      }
+      paramString = new com.google.android.android.tasks.TaskCompletionSource();
+      client.newCall(paramObject.build()).enqueue(new Callback()
+      {
+        public void onFailure(Request paramAnonymousRequest, IOException paramAnonymousIOException)
+        {
+          paramString.setException(paramAnonymousIOException);
+        }
+        
+        public void onResponse(Response paramAnonymousResponse)
+          throws IOException
+        {
+          Object localObject = FirebaseFunctionsException.Code.fromHttpStatus(paramAnonymousResponse.code());
+          paramAnonymousResponse = paramAnonymousResponse.body().string();
+          localObject = FirebaseFunctionsException.fromResponse((FirebaseFunctionsException.Code)localObject, paramAnonymousResponse, serializer);
+          if (localObject != null)
+          {
+            paramString.setException((Exception)localObject);
+            return;
+          }
+          try
+          {
+            JSONObject localJSONObject = new JSONObject(paramAnonymousResponse);
+            localObject = localJSONObject.opt("data");
+            paramAnonymousResponse = (Response)localObject;
+            if (localObject == null) {
+              paramAnonymousResponse = localJSONObject.opt("result");
+            }
+            if (paramAnonymousResponse == null)
+            {
+              paramAnonymousResponse = new FirebaseFunctionsException("Response is missing data field.", FirebaseFunctionsException.Code.INTERNAL, null);
+              paramString.setException(paramAnonymousResponse);
+              return;
+            }
+            paramAnonymousResponse = new HttpsCallableResult(serializer.decode(paramAnonymousResponse));
+            paramString.setResult(paramAnonymousResponse);
+            return;
+          }
+          catch (JSONException paramAnonymousResponse)
+          {
+            paramAnonymousResponse = new FirebaseFunctionsException("Response is not valid JSON object.", FirebaseFunctionsException.Code.INTERNAL, null, paramAnonymousResponse);
+            paramString.setException(paramAnonymousResponse);
+          }
+        }
+      });
+      return paramString.getTask();
+    }
+    throw new IllegalArgumentException("name cannot be null");
+  }
+  
+  public static FirebaseFunctions getInstance()
+  {
+    return getInstance(FirebaseApp.getInstance(), "us-central1");
+  }
+  
+  public static FirebaseFunctions getInstance(FirebaseApp paramFirebaseApp)
+  {
+    return getInstance(paramFirebaseApp, "us-central1");
+  }
+  
+  public static FirebaseFunctions getInstance(FirebaseApp paramFirebaseApp, String paramString)
+  {
+    Preconditions.checkNotNull(paramFirebaseApp, "You must call FirebaseApp.initializeApp first.");
+    Preconditions.checkNotNull(paramString);
+    paramFirebaseApp = (FunctionsMultiResourceComponent)paramFirebaseApp.get(FunctionsMultiResourceComponent.class);
+    Preconditions.checkNotNull(paramFirebaseApp, "Functions component does not exist.");
+    return paramFirebaseApp.getInstance(paramString);
+  }
+  
+  public static FirebaseFunctions getInstance(String paramString)
+  {
+    return getInstance(FirebaseApp.getInstance(), paramString);
+  }
+  
+  private static void maybeInstallProviders(Context paramContext)
+  {
+    Object localObject = providerInstalled;
+    try
+    {
+      if (providerInstallStarted) {
+        return;
+      }
+      providerInstallStarted = true;
+      localObject = FirebaseFunctions..Lambda.1.lambdaFactory$(paramContext);
+      new Handler(paramContext.getMainLooper()).post((Runnable)localObject);
+      return;
+    }
+    catch (Throwable paramContext)
+    {
+      throw paramContext;
+    }
+  }
+  
+  Task call(String paramString, Object paramObject)
+  {
+    return providerInstalled.getTask().continueWithTask(FirebaseFunctions..Lambda.4.lambdaFactory$(this)).continueWithTask(FirebaseFunctions..Lambda.5.lambdaFactory$(this, paramString, paramObject));
+  }
+  
+  public HttpsCallableReference getHttpsCallable(String paramString)
+  {
+    return new HttpsCallableReference(this, paramString);
+  }
+  
+  URL getURL(String paramString)
+  {
+    paramString = String.format(urlFormat, new Object[] { region, projectId, paramString });
+    try
+    {
+      paramString = new URL(paramString);
+      return paramString;
+    }
+    catch (MalformedURLException paramString)
+    {
+      throw new IllegalStateException(paramString);
+    }
+  }
+  
+  public void useFunctionsEmulator(String paramString)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramString);
+    localStringBuilder.append("/%2$s/%1$s/%3$s");
+    urlFormat = localStringBuilder.toString();
+  }
+}

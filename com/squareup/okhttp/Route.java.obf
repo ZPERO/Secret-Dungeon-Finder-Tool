@@ -1,0 +1,81 @@
+package com.squareup.okhttp;
+
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.Proxy.Type;
+
+public final class Route
+{
+  final Address address;
+  final InetSocketAddress inetSocketAddress;
+  final Proxy proxy;
+  
+  public Route(Address paramAddress, Proxy paramProxy, InetSocketAddress paramInetSocketAddress)
+  {
+    if (paramAddress != null)
+    {
+      if (paramProxy != null)
+      {
+        if (paramInetSocketAddress != null)
+        {
+          address = paramAddress;
+          proxy = paramProxy;
+          inetSocketAddress = paramInetSocketAddress;
+          return;
+        }
+        throw new NullPointerException("inetSocketAddress == null");
+      }
+      throw new NullPointerException("proxy == null");
+    }
+    throw new NullPointerException("address == null");
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    boolean bool3 = paramObject instanceof Route;
+    boolean bool2 = false;
+    boolean bool1 = bool2;
+    if (bool3)
+    {
+      paramObject = (Route)paramObject;
+      bool1 = bool2;
+      if (address.equals(address))
+      {
+        bool1 = bool2;
+        if (proxy.equals(proxy))
+        {
+          bool1 = bool2;
+          if (inetSocketAddress.equals(inetSocketAddress)) {
+            bool1 = true;
+          }
+        }
+      }
+    }
+    return bool1;
+  }
+  
+  public Address getAddress()
+  {
+    return address;
+  }
+  
+  public Proxy getProxy()
+  {
+    return proxy;
+  }
+  
+  public InetSocketAddress getSocketAddress()
+  {
+    return inetSocketAddress;
+  }
+  
+  public int hashCode()
+  {
+    return ((527 + address.hashCode()) * 31 + proxy.hashCode()) * 31 + inetSocketAddress.hashCode();
+  }
+  
+  public boolean requiresTunnel()
+  {
+    return (address.sslSocketFactory != null) && (proxy.type() == Proxy.Type.HTTP);
+  }
+}

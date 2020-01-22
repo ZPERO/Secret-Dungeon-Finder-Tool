@@ -1,0 +1,1318 @@
+package androidx.preference;
+
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.os.Parcelable.Creator;
+import android.text.TextUtils;
+import android.util.AttributeSet;
+import android.view.AbsSavedState;
+import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
+import android.view.MenuItem;
+import android.view.MenuItem.OnMenuItemClickListener;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.View.OnCreateContextMenuListener;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.content.res.TypedArrayUtils;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+public class Preference
+  implements Comparable<Preference>
+{
+  private static final String CLIPBOARD_ID = "Preference";
+  public static final int DEFAULT_ORDER = Integer.MAX_VALUE;
+  private boolean mAllowDividerAbove = true;
+  private boolean mAllowDividerBelow = true;
+  private boolean mBaseMethodCalled;
+  private final View.OnClickListener mClickListener = new View.OnClickListener()
+  {
+    public void onClick(View paramAnonymousView)
+    {
+      performClick(paramAnonymousView);
+    }
+  };
+  private Context mContext;
+  private boolean mCopyingEnabled;
+  private Object mDefaultValue;
+  private String mDependencyKey;
+  private boolean mDependencyMet = true;
+  private List<Preference> mDependents;
+  private boolean mEnabled = true;
+  private Bundle mExtras;
+  private String mFragment;
+  private boolean mHasId;
+  private boolean mHasSingleLineTitleAttr;
+  private Drawable mIcon;
+  private int mIconResId;
+  private boolean mIconSpaceReserved;
+  private long mId;
+  private Intent mIntent;
+  private String mKey;
+  private int mLayoutResId = R.layout.preference;
+  private OnPreferenceChangeInternalListener mListener;
+  private OnPreferenceChangeListener mOnChangeListener;
+  private OnPreferenceClickListener mOnClickListener;
+  private OnPreferenceCopyListener mOnCopyListener;
+  private int mOrder = Integer.MAX_VALUE;
+  private boolean mParentDependencyMet = true;
+  private PreferenceGroup mParentGroup;
+  private boolean mPersistent = true;
+  private PreferenceDataStore mPreferenceDataStore;
+  private PreferenceManager mPreferenceManager;
+  private boolean mRequiresKey;
+  private boolean mSelectable = true;
+  private boolean mShouldDisableView = true;
+  private boolean mSingleLineTitle = true;
+  private CharSequence mSummary;
+  private SummaryProvider mSummaryProvider;
+  private CharSequence mTitle;
+  private int mViewId = 0;
+  private boolean mVisible = true;
+  private boolean mWasDetached;
+  private int mWidgetLayoutResId;
+  
+  public Preference(Context paramContext)
+  {
+    this(paramContext, null);
+  }
+  
+  public Preference(Context paramContext, AttributeSet paramAttributeSet)
+  {
+    this(paramContext, paramAttributeSet, TypedArrayUtils.getAttr(paramContext, R.attr.preferenceStyle, 16842894));
+  }
+  
+  public Preference(Context paramContext, AttributeSet paramAttributeSet, int paramInt)
+  {
+    this(paramContext, paramAttributeSet, paramInt, 0);
+  }
+  
+  public Preference(Context paramContext, AttributeSet paramAttributeSet, int paramInt1, int paramInt2)
+  {
+    mContext = paramContext;
+    paramContext = paramContext.obtainStyledAttributes(paramAttributeSet, R.styleable.Preference, paramInt1, paramInt2);
+    mIconResId = TypedArrayUtils.getResourceId(paramContext, R.styleable.Preference_icon, R.styleable.Preference_android_icon, 0);
+    mKey = TypedArrayUtils.getString(paramContext, R.styleable.Preference_key, R.styleable.Preference_android_key);
+    mTitle = TypedArrayUtils.getText(paramContext, R.styleable.Preference_title, R.styleable.Preference_android_title);
+    mSummary = TypedArrayUtils.getText(paramContext, R.styleable.Preference_summary, R.styleable.Preference_android_summary);
+    mOrder = TypedArrayUtils.getInt(paramContext, R.styleable.Preference_order, R.styleable.Preference_android_order, Integer.MAX_VALUE);
+    mFragment = TypedArrayUtils.getString(paramContext, R.styleable.Preference_fragment, R.styleable.Preference_android_fragment);
+    mLayoutResId = TypedArrayUtils.getResourceId(paramContext, R.styleable.Preference_layout, R.styleable.Preference_android_layout, R.layout.preference);
+    mWidgetLayoutResId = TypedArrayUtils.getResourceId(paramContext, R.styleable.Preference_widgetLayout, R.styleable.Preference_android_widgetLayout, 0);
+    mEnabled = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_enabled, R.styleable.Preference_android_enabled, true);
+    mSelectable = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_selectable, R.styleable.Preference_android_selectable, true);
+    mPersistent = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_persistent, R.styleable.Preference_android_persistent, true);
+    mDependencyKey = TypedArrayUtils.getString(paramContext, R.styleable.Preference_dependency, R.styleable.Preference_android_dependency);
+    mAllowDividerAbove = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_allowDividerAbove, R.styleable.Preference_allowDividerAbove, mSelectable);
+    mAllowDividerBelow = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_allowDividerBelow, R.styleable.Preference_allowDividerBelow, mSelectable);
+    if (paramContext.hasValue(R.styleable.Preference_defaultValue)) {
+      mDefaultValue = onGetDefaultValue(paramContext, R.styleable.Preference_defaultValue);
+    } else if (paramContext.hasValue(R.styleable.Preference_android_defaultValue)) {
+      mDefaultValue = onGetDefaultValue(paramContext, R.styleable.Preference_android_defaultValue);
+    }
+    mShouldDisableView = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_shouldDisableView, R.styleable.Preference_android_shouldDisableView, true);
+    mHasSingleLineTitleAttr = paramContext.hasValue(R.styleable.Preference_singleLineTitle);
+    if (mHasSingleLineTitleAttr) {
+      mSingleLineTitle = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_singleLineTitle, R.styleable.Preference_android_singleLineTitle, true);
+    }
+    mIconSpaceReserved = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_iconSpaceReserved, R.styleable.Preference_android_iconSpaceReserved, false);
+    mVisible = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_isPreferenceVisible, R.styleable.Preference_isPreferenceVisible, true);
+    mCopyingEnabled = TypedArrayUtils.getBoolean(paramContext, R.styleable.Preference_enableCopying, R.styleable.Preference_enableCopying, false);
+    paramContext.recycle();
+  }
+  
+  private void dispatchSetInitialValue()
+  {
+    if (getPreferenceDataStore() != null)
+    {
+      onSetInitialValue(true, mDefaultValue);
+      return;
+    }
+    if ((shouldPersist()) && (getSharedPreferences().contains(mKey)))
+    {
+      onSetInitialValue(true, null);
+      return;
+    }
+    Object localObject = mDefaultValue;
+    if (localObject != null) {
+      onSetInitialValue(false, localObject);
+    }
+  }
+  
+  private void registerDependency()
+  {
+    if (TextUtils.isEmpty(mDependencyKey)) {
+      return;
+    }
+    Object localObject = findPreferenceInHierarchy(mDependencyKey);
+    if (localObject != null)
+    {
+      ((Preference)localObject).registerDependent(this);
+      return;
+    }
+    localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("Dependency \"");
+    ((StringBuilder)localObject).append(mDependencyKey);
+    ((StringBuilder)localObject).append("\" not found for preference \"");
+    ((StringBuilder)localObject).append(mKey);
+    ((StringBuilder)localObject).append("\" (title: \"");
+    ((StringBuilder)localObject).append(mTitle);
+    ((StringBuilder)localObject).append("\"");
+    throw new IllegalStateException(((StringBuilder)localObject).toString());
+  }
+  
+  private void registerDependent(Preference paramPreference)
+  {
+    if (mDependents == null) {
+      mDependents = new ArrayList();
+    }
+    mDependents.add(paramPreference);
+    paramPreference.onDependencyChanged(this, shouldDisableDependents());
+  }
+  
+  private void setEnabledStateOnViews(View paramView, boolean paramBoolean)
+  {
+    paramView.setEnabled(paramBoolean);
+    if ((paramView instanceof ViewGroup))
+    {
+      paramView = (ViewGroup)paramView;
+      int i = paramView.getChildCount() - 1;
+      while (i >= 0)
+      {
+        setEnabledStateOnViews(paramView.getChildAt(i), paramBoolean);
+        i -= 1;
+      }
+    }
+  }
+  
+  private void tryCommit(SharedPreferences.Editor paramEditor)
+  {
+    if (mPreferenceManager.shouldCommit()) {
+      paramEditor.apply();
+    }
+  }
+  
+  private void unregisterDependency()
+  {
+    Object localObject = mDependencyKey;
+    if (localObject != null)
+    {
+      localObject = findPreferenceInHierarchy((String)localObject);
+      if (localObject != null) {
+        ((Preference)localObject).unregisterDependent(this);
+      }
+    }
+  }
+  
+  private void unregisterDependent(Preference paramPreference)
+  {
+    List localList = mDependents;
+    if (localList != null) {
+      localList.remove(paramPreference);
+    }
+  }
+  
+  void assignParent(PreferenceGroup paramPreferenceGroup)
+  {
+    if ((paramPreferenceGroup != null) && (mParentGroup != null)) {
+      throw new IllegalStateException("This preference already has a parent. You must remove the existing parent before assigning a new one.");
+    }
+    mParentGroup = paramPreferenceGroup;
+  }
+  
+  public boolean callChangeListener(Object paramObject)
+  {
+    OnPreferenceChangeListener localOnPreferenceChangeListener = mOnChangeListener;
+    return (localOnPreferenceChangeListener == null) || (localOnPreferenceChangeListener.onPreferenceChange(this, paramObject));
+  }
+  
+  final void clearWasDetached()
+  {
+    mWasDetached = false;
+  }
+  
+  public int compareTo(Preference paramPreference)
+  {
+    int i = mOrder;
+    int j = mOrder;
+    if (i != j) {
+      return i - j;
+    }
+    CharSequence localCharSequence1 = mTitle;
+    CharSequence localCharSequence2 = mTitle;
+    if (localCharSequence1 == localCharSequence2) {
+      return 0;
+    }
+    if (localCharSequence1 == null) {
+      return 1;
+    }
+    if (localCharSequence2 == null) {
+      return -1;
+    }
+    return localCharSequence1.toString().compareToIgnoreCase(mTitle.toString());
+  }
+  
+  void dispatchRestoreInstanceState(Bundle paramBundle)
+  {
+    if (hasKey())
+    {
+      paramBundle = paramBundle.getParcelable(mKey);
+      if (paramBundle != null)
+      {
+        mBaseMethodCalled = false;
+        onRestoreInstanceState(paramBundle);
+        if (mBaseMethodCalled) {
+          return;
+        }
+        throw new IllegalStateException("Derived class did not call super.onRestoreInstanceState()");
+      }
+    }
+  }
+  
+  void dispatchSaveInstanceState(Bundle paramBundle)
+  {
+    if (hasKey())
+    {
+      mBaseMethodCalled = false;
+      Parcelable localParcelable = onSaveInstanceState();
+      if (mBaseMethodCalled)
+      {
+        if (localParcelable != null) {
+          paramBundle.putParcelable(mKey, localParcelable);
+        }
+      }
+      else {
+        throw new IllegalStateException("Derived class did not call super.onSaveInstanceState()");
+      }
+    }
+  }
+  
+  protected <T extends Preference> T findPreferenceInHierarchy(String paramString)
+  {
+    PreferenceManager localPreferenceManager = mPreferenceManager;
+    if (localPreferenceManager == null) {
+      return null;
+    }
+    return localPreferenceManager.findPreference(paramString);
+  }
+  
+  public Context getContext()
+  {
+    return mContext;
+  }
+  
+  public String getDependency()
+  {
+    return mDependencyKey;
+  }
+  
+  public Bundle getExtras()
+  {
+    if (mExtras == null) {
+      mExtras = new Bundle();
+    }
+    return mExtras;
+  }
+  
+  StringBuilder getFilterableStringBuilder()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    CharSequence localCharSequence = getTitle();
+    if (!TextUtils.isEmpty(localCharSequence))
+    {
+      localStringBuilder.append(localCharSequence);
+      localStringBuilder.append(' ');
+    }
+    localCharSequence = getSummary();
+    if (!TextUtils.isEmpty(localCharSequence))
+    {
+      localStringBuilder.append(localCharSequence);
+      localStringBuilder.append(' ');
+    }
+    if (localStringBuilder.length() > 0) {
+      localStringBuilder.setLength(localStringBuilder.length() - 1);
+    }
+    return localStringBuilder;
+  }
+  
+  public String getFragment()
+  {
+    return mFragment;
+  }
+  
+  public Drawable getIcon()
+  {
+    if (mIcon == null)
+    {
+      int i = mIconResId;
+      if (i != 0) {
+        mIcon = AppCompatResources.getDrawable(mContext, i);
+      }
+    }
+    return mIcon;
+  }
+  
+  long getId()
+  {
+    return mId;
+  }
+  
+  public Intent getIntent()
+  {
+    return mIntent;
+  }
+  
+  public String getKey()
+  {
+    return mKey;
+  }
+  
+  public final int getLayoutResource()
+  {
+    return mLayoutResId;
+  }
+  
+  public OnPreferenceChangeListener getOnPreferenceChangeListener()
+  {
+    return mOnChangeListener;
+  }
+  
+  public OnPreferenceClickListener getOnPreferenceClickListener()
+  {
+    return mOnClickListener;
+  }
+  
+  public int getOrder()
+  {
+    return mOrder;
+  }
+  
+  public PreferenceGroup getParent()
+  {
+    return mParentGroup;
+  }
+  
+  protected boolean getPersistedBoolean(boolean paramBoolean)
+  {
+    if (!shouldPersist()) {
+      return paramBoolean;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getBoolean(mKey, paramBoolean);
+    }
+    return mPreferenceManager.getSharedPreferences().getBoolean(mKey, paramBoolean);
+  }
+  
+  protected float getPersistedFloat(float paramFloat)
+  {
+    if (!shouldPersist()) {
+      return paramFloat;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getFloat(mKey, paramFloat);
+    }
+    return mPreferenceManager.getSharedPreferences().getFloat(mKey, paramFloat);
+  }
+  
+  protected int getPersistedInt(int paramInt)
+  {
+    if (!shouldPersist()) {
+      return paramInt;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getInt(mKey, paramInt);
+    }
+    return mPreferenceManager.getSharedPreferences().getInt(mKey, paramInt);
+  }
+  
+  protected long getPersistedLong(long paramLong)
+  {
+    if (!shouldPersist()) {
+      return paramLong;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getLong(mKey, paramLong);
+    }
+    return mPreferenceManager.getSharedPreferences().getLong(mKey, paramLong);
+  }
+  
+  protected String getPersistedString(String paramString)
+  {
+    if (!shouldPersist()) {
+      return paramString;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getString(mKey, paramString);
+    }
+    return mPreferenceManager.getSharedPreferences().getString(mKey, paramString);
+  }
+  
+  public Set<String> getPersistedStringSet(Set<String> paramSet)
+  {
+    if (!shouldPersist()) {
+      return paramSet;
+    }
+    PreferenceDataStore localPreferenceDataStore = getPreferenceDataStore();
+    if (localPreferenceDataStore != null) {
+      return localPreferenceDataStore.getStringSet(mKey, paramSet);
+    }
+    return mPreferenceManager.getSharedPreferences().getStringSet(mKey, paramSet);
+  }
+  
+  public PreferenceDataStore getPreferenceDataStore()
+  {
+    Object localObject = mPreferenceDataStore;
+    if (localObject != null) {
+      return localObject;
+    }
+    localObject = mPreferenceManager;
+    if (localObject != null) {
+      return ((PreferenceManager)localObject).getPreferenceDataStore();
+    }
+    return null;
+  }
+  
+  public PreferenceManager getPreferenceManager()
+  {
+    return mPreferenceManager;
+  }
+  
+  public SharedPreferences getSharedPreferences()
+  {
+    if ((mPreferenceManager != null) && (getPreferenceDataStore() == null)) {
+      return mPreferenceManager.getSharedPreferences();
+    }
+    return null;
+  }
+  
+  public boolean getShouldDisableView()
+  {
+    return mShouldDisableView;
+  }
+  
+  public CharSequence getSummary()
+  {
+    if (getSummaryProvider() != null) {
+      return getSummaryProvider().provideSummary(this);
+    }
+    return mSummary;
+  }
+  
+  public final SummaryProvider getSummaryProvider()
+  {
+    return mSummaryProvider;
+  }
+  
+  public CharSequence getTitle()
+  {
+    return mTitle;
+  }
+  
+  public final int getWidgetLayoutResource()
+  {
+    return mWidgetLayoutResId;
+  }
+  
+  public boolean hasKey()
+  {
+    return TextUtils.isEmpty(mKey) ^ true;
+  }
+  
+  public boolean isCopyingEnabled()
+  {
+    return mCopyingEnabled;
+  }
+  
+  public boolean isEnabled()
+  {
+    return (mEnabled) && (mDependencyMet) && (mParentDependencyMet);
+  }
+  
+  public boolean isIconSpaceReserved()
+  {
+    return mIconSpaceReserved;
+  }
+  
+  public boolean isPersistent()
+  {
+    return mPersistent;
+  }
+  
+  public boolean isSelectable()
+  {
+    return mSelectable;
+  }
+  
+  public final boolean isShown()
+  {
+    if (!isVisible()) {
+      return false;
+    }
+    if (getPreferenceManager() == null) {
+      return false;
+    }
+    if (this == getPreferenceManager().getPreferenceScreen()) {
+      return true;
+    }
+    PreferenceGroup localPreferenceGroup = getParent();
+    if (localPreferenceGroup == null) {
+      return false;
+    }
+    return localPreferenceGroup.isShown();
+  }
+  
+  public boolean isSingleLineTitle()
+  {
+    return mSingleLineTitle;
+  }
+  
+  public final boolean isVisible()
+  {
+    return mVisible;
+  }
+  
+  protected void notifyChanged()
+  {
+    OnPreferenceChangeInternalListener localOnPreferenceChangeInternalListener = mListener;
+    if (localOnPreferenceChangeInternalListener != null) {
+      localOnPreferenceChangeInternalListener.onPreferenceChange(this);
+    }
+  }
+  
+  public void notifyDependencyChange(boolean paramBoolean)
+  {
+    List localList = mDependents;
+    if (localList == null) {
+      return;
+    }
+    int j = localList.size();
+    int i = 0;
+    while (i < j)
+    {
+      ((Preference)localList.get(i)).onDependencyChanged(this, paramBoolean);
+      i += 1;
+    }
+  }
+  
+  protected void notifyHierarchyChanged()
+  {
+    OnPreferenceChangeInternalListener localOnPreferenceChangeInternalListener = mListener;
+    if (localOnPreferenceChangeInternalListener != null) {
+      localOnPreferenceChangeInternalListener.onPreferenceHierarchyChange(this);
+    }
+  }
+  
+  public void onAttached()
+  {
+    registerDependency();
+  }
+  
+  protected void onAttachedToHierarchy(PreferenceManager paramPreferenceManager)
+  {
+    mPreferenceManager = paramPreferenceManager;
+    if (!mHasId) {
+      mId = paramPreferenceManager.getNextId();
+    }
+    dispatchSetInitialValue();
+  }
+  
+  protected void onAttachedToHierarchy(PreferenceManager paramPreferenceManager, long paramLong)
+  {
+    mId = paramLong;
+    mHasId = true;
+    try
+    {
+      onAttachedToHierarchy(paramPreferenceManager);
+      return;
+    }
+    finally
+    {
+      mHasId = false;
+    }
+  }
+  
+  public void onBindViewHolder(PreferenceViewHolder paramPreferenceViewHolder)
+  {
+    View localView = itemView;
+    localView.setOnClickListener(mClickListener);
+    localView.setId(mViewId);
+    Object localObject1 = (TextView)paramPreferenceViewHolder.findViewById(16908304);
+    int j = 8;
+    if (localObject1 != null)
+    {
+      localObject2 = getSummary();
+      if (!TextUtils.isEmpty((CharSequence)localObject2))
+      {
+        ((TextView)localObject1).setText((CharSequence)localObject2);
+        ((TextView)localObject1).setVisibility(0);
+        localObject1 = Integer.valueOf(((TextView)localObject1).getCurrentTextColor());
+      }
+      else
+      {
+        ((TextView)localObject1).setVisibility(8);
+      }
+    }
+    else
+    {
+      localObject1 = null;
+    }
+    Object localObject2 = (TextView)paramPreferenceViewHolder.findViewById(16908310);
+    if (localObject2 != null)
+    {
+      CharSequence localCharSequence = getTitle();
+      if (!TextUtils.isEmpty(localCharSequence))
+      {
+        ((TextView)localObject2).setText(localCharSequence);
+        ((TextView)localObject2).setVisibility(0);
+        if (mHasSingleLineTitleAttr) {
+          ((TextView)localObject2).setSingleLine(mSingleLineTitle);
+        }
+        if ((!isSelectable()) && (isEnabled()) && (localObject1 != null)) {
+          ((TextView)localObject2).setTextColor(((Integer)localObject1).intValue());
+        }
+      }
+      else
+      {
+        ((TextView)localObject2).setVisibility(8);
+      }
+    }
+    localObject1 = (ImageView)paramPreferenceViewHolder.findViewById(16908294);
+    int i;
+    if (localObject1 != null)
+    {
+      if ((mIconResId != 0) || (mIcon != null))
+      {
+        if (mIcon == null) {
+          mIcon = AppCompatResources.getDrawable(mContext, mIconResId);
+        }
+        localObject2 = mIcon;
+        if (localObject2 != null) {
+          ((ImageView)localObject1).setImageDrawable((Drawable)localObject2);
+        }
+      }
+      if (mIcon != null)
+      {
+        ((ImageView)localObject1).setVisibility(0);
+      }
+      else
+      {
+        if (mIconSpaceReserved) {
+          i = 4;
+        } else {
+          i = 8;
+        }
+        ((ImageView)localObject1).setVisibility(i);
+      }
+    }
+    localObject2 = paramPreferenceViewHolder.findViewById(R.id.icon_frame);
+    localObject1 = localObject2;
+    if (localObject2 == null) {
+      localObject1 = paramPreferenceViewHolder.findViewById(16908350);
+    }
+    if (localObject1 != null) {
+      if (mIcon != null)
+      {
+        ((View)localObject1).setVisibility(0);
+      }
+      else
+      {
+        i = j;
+        if (mIconSpaceReserved) {
+          i = 4;
+        }
+        ((View)localObject1).setVisibility(i);
+      }
+    }
+    if (mShouldDisableView) {
+      setEnabledStateOnViews(localView, isEnabled());
+    } else {
+      setEnabledStateOnViews(localView, true);
+    }
+    boolean bool1 = isSelectable();
+    localView.setFocusable(bool1);
+    localView.setClickable(bool1);
+    paramPreferenceViewHolder.setDividerAllowedAbove(mAllowDividerAbove);
+    paramPreferenceViewHolder.setDividerAllowedBelow(mAllowDividerBelow);
+    boolean bool2 = isCopyingEnabled();
+    if ((bool2) && (mOnCopyListener == null)) {
+      mOnCopyListener = new OnPreferenceCopyListener(this);
+    }
+    if (bool2) {
+      paramPreferenceViewHolder = mOnCopyListener;
+    } else {
+      paramPreferenceViewHolder = null;
+    }
+    localView.setOnCreateContextMenuListener(paramPreferenceViewHolder);
+    localView.setLongClickable(bool2);
+    if ((bool2) && (!bool1)) {
+      ViewCompat.setBackground(localView, null);
+    }
+  }
+  
+  protected void onClick() {}
+  
+  public void onDependencyChanged(Preference paramPreference, boolean paramBoolean)
+  {
+    if (mDependencyMet == paramBoolean)
+    {
+      mDependencyMet = (paramBoolean ^ true);
+      notifyDependencyChange(shouldDisableDependents());
+      notifyChanged();
+    }
+  }
+  
+  public void onDetached()
+  {
+    unregisterDependency();
+    mWasDetached = true;
+  }
+  
+  protected Object onGetDefaultValue(TypedArray paramTypedArray, int paramInt)
+  {
+    return null;
+  }
+  
+  @Deprecated
+  public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfoCompat paramAccessibilityNodeInfoCompat) {}
+  
+  public void onParentChanged(Preference paramPreference, boolean paramBoolean)
+  {
+    if (mParentDependencyMet == paramBoolean)
+    {
+      mParentDependencyMet = (paramBoolean ^ true);
+      notifyDependencyChange(shouldDisableDependents());
+      notifyChanged();
+    }
+  }
+  
+  protected void onPrepareForRemoval()
+  {
+    unregisterDependency();
+  }
+  
+  protected void onRestoreInstanceState(Parcelable paramParcelable)
+  {
+    mBaseMethodCalled = true;
+    if (paramParcelable != BaseSavedState.EMPTY_STATE)
+    {
+      if (paramParcelable == null) {
+        return;
+      }
+      throw new IllegalArgumentException("Wrong state class -- expecting Preference State");
+    }
+  }
+  
+  protected Parcelable onSaveInstanceState()
+  {
+    mBaseMethodCalled = true;
+    return BaseSavedState.EMPTY_STATE;
+  }
+  
+  protected void onSetInitialValue(Object paramObject) {}
+  
+  @Deprecated
+  protected void onSetInitialValue(boolean paramBoolean, Object paramObject)
+  {
+    onSetInitialValue(paramObject);
+  }
+  
+  public Bundle peekExtras()
+  {
+    return mExtras;
+  }
+  
+  public void performClick()
+  {
+    if (isEnabled())
+    {
+      if (!isSelectable()) {
+        return;
+      }
+      onClick();
+      Object localObject = mOnClickListener;
+      if ((localObject != null) && (((OnPreferenceClickListener)localObject).onPreferenceClick(this))) {
+        return;
+      }
+      localObject = getPreferenceManager();
+      if (localObject != null)
+      {
+        localObject = ((PreferenceManager)localObject).getOnPreferenceTreeClickListener();
+        if ((localObject != null) && (((PreferenceManager.OnPreferenceTreeClickListener)localObject).onPreferenceTreeClick(this))) {
+          return;
+        }
+      }
+      if (mIntent != null) {
+        getContext().startActivity(mIntent);
+      }
+    }
+  }
+  
+  protected void performClick(View paramView)
+  {
+    performClick();
+  }
+  
+  protected boolean persistBoolean(boolean paramBoolean)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (paramBoolean == getPersistedBoolean(paramBoolean ^ true)) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putBoolean(mKey, paramBoolean);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putBoolean(mKey, paramBoolean);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  protected boolean persistFloat(float paramFloat)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (paramFloat == getPersistedFloat(NaN.0F)) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putFloat(mKey, paramFloat);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putFloat(mKey, paramFloat);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  protected boolean persistInt(int paramInt)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (paramInt == getPersistedInt(paramInt ^ 0xFFFFFFFF)) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putInt(mKey, paramInt);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putInt(mKey, paramInt);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  protected boolean persistLong(long paramLong)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (paramLong == getPersistedLong(0xFFFFFFFFFFFFFFFF ^ paramLong)) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putLong(mKey, paramLong);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putLong(mKey, paramLong);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  protected boolean persistString(String paramString)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (TextUtils.equals(paramString, getPersistedString(null))) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putString(mKey, paramString);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putString(mKey, paramString);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  public boolean persistStringSet(Set<String> paramSet)
+  {
+    if (!shouldPersist()) {
+      return false;
+    }
+    if (paramSet.equals(getPersistedStringSet(null))) {
+      return true;
+    }
+    Object localObject = getPreferenceDataStore();
+    if (localObject != null)
+    {
+      ((PreferenceDataStore)localObject).putStringSet(mKey, paramSet);
+      return true;
+    }
+    localObject = mPreferenceManager.getEditor();
+    ((SharedPreferences.Editor)localObject).putStringSet(mKey, paramSet);
+    tryCommit((SharedPreferences.Editor)localObject);
+    return true;
+  }
+  
+  void requireKey()
+  {
+    if (!TextUtils.isEmpty(mKey))
+    {
+      mRequiresKey = true;
+      return;
+    }
+    throw new IllegalStateException("Preference does not have a key assigned.");
+  }
+  
+  public void restoreHierarchyState(Bundle paramBundle)
+  {
+    dispatchRestoreInstanceState(paramBundle);
+  }
+  
+  public void saveHierarchyState(Bundle paramBundle)
+  {
+    dispatchSaveInstanceState(paramBundle);
+  }
+  
+  public void setCopyingEnabled(boolean paramBoolean)
+  {
+    if (mCopyingEnabled != paramBoolean)
+    {
+      mCopyingEnabled = paramBoolean;
+      notifyChanged();
+    }
+  }
+  
+  public void setDefaultValue(Object paramObject)
+  {
+    mDefaultValue = paramObject;
+  }
+  
+  public void setDependency(String paramString)
+  {
+    unregisterDependency();
+    mDependencyKey = paramString;
+    registerDependency();
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    if (mEnabled != paramBoolean)
+    {
+      mEnabled = paramBoolean;
+      notifyDependencyChange(shouldDisableDependents());
+      notifyChanged();
+    }
+  }
+  
+  public void setFragment(String paramString)
+  {
+    mFragment = paramString;
+  }
+  
+  public void setIcon(int paramInt)
+  {
+    setIcon(AppCompatResources.getDrawable(mContext, paramInt));
+    mIconResId = paramInt;
+  }
+  
+  public void setIcon(Drawable paramDrawable)
+  {
+    if (mIcon != paramDrawable)
+    {
+      mIcon = paramDrawable;
+      mIconResId = 0;
+      notifyChanged();
+    }
+  }
+  
+  public void setIconSpaceReserved(boolean paramBoolean)
+  {
+    if (mIconSpaceReserved != paramBoolean)
+    {
+      mIconSpaceReserved = paramBoolean;
+      notifyChanged();
+    }
+  }
+  
+  public void setIntent(Intent paramIntent)
+  {
+    mIntent = paramIntent;
+  }
+  
+  public void setKey(String paramString)
+  {
+    mKey = paramString;
+    if ((mRequiresKey) && (!hasKey())) {
+      requireKey();
+    }
+  }
+  
+  public void setLayoutResource(int paramInt)
+  {
+    mLayoutResId = paramInt;
+  }
+  
+  final void setOnPreferenceChangeInternalListener(OnPreferenceChangeInternalListener paramOnPreferenceChangeInternalListener)
+  {
+    mListener = paramOnPreferenceChangeInternalListener;
+  }
+  
+  public void setOnPreferenceChangeListener(OnPreferenceChangeListener paramOnPreferenceChangeListener)
+  {
+    mOnChangeListener = paramOnPreferenceChangeListener;
+  }
+  
+  public void setOnPreferenceClickListener(OnPreferenceClickListener paramOnPreferenceClickListener)
+  {
+    mOnClickListener = paramOnPreferenceClickListener;
+  }
+  
+  public void setOrder(int paramInt)
+  {
+    if (paramInt != mOrder)
+    {
+      mOrder = paramInt;
+      notifyHierarchyChanged();
+    }
+  }
+  
+  public void setPersistent(boolean paramBoolean)
+  {
+    mPersistent = paramBoolean;
+  }
+  
+  public void setPreferenceDataStore(PreferenceDataStore paramPreferenceDataStore)
+  {
+    mPreferenceDataStore = paramPreferenceDataStore;
+  }
+  
+  public void setSelectable(boolean paramBoolean)
+  {
+    if (mSelectable != paramBoolean)
+    {
+      mSelectable = paramBoolean;
+      notifyChanged();
+    }
+  }
+  
+  public void setShouldDisableView(boolean paramBoolean)
+  {
+    if (mShouldDisableView != paramBoolean)
+    {
+      mShouldDisableView = paramBoolean;
+      notifyChanged();
+    }
+  }
+  
+  public void setSingleLineTitle(boolean paramBoolean)
+  {
+    mHasSingleLineTitleAttr = true;
+    mSingleLineTitle = paramBoolean;
+  }
+  
+  public void setSummary(int paramInt)
+  {
+    setSummary(mContext.getString(paramInt));
+  }
+  
+  public void setSummary(CharSequence paramCharSequence)
+  {
+    if (getSummaryProvider() == null)
+    {
+      if (!TextUtils.equals(mSummary, paramCharSequence))
+      {
+        mSummary = paramCharSequence;
+        notifyChanged();
+      }
+      return;
+    }
+    throw new IllegalStateException("Preference already has a SummaryProvider set.");
+  }
+  
+  public final void setSummaryProvider(SummaryProvider paramSummaryProvider)
+  {
+    mSummaryProvider = paramSummaryProvider;
+    notifyChanged();
+  }
+  
+  public void setTitle(int paramInt)
+  {
+    setTitle(mContext.getString(paramInt));
+  }
+  
+  public void setTitle(CharSequence paramCharSequence)
+  {
+    if (((paramCharSequence == null) && (mTitle != null)) || ((paramCharSequence != null) && (!paramCharSequence.equals(mTitle))))
+    {
+      mTitle = paramCharSequence;
+      notifyChanged();
+    }
+  }
+  
+  public void setViewId(int paramInt)
+  {
+    mViewId = paramInt;
+  }
+  
+  public final void setVisible(boolean paramBoolean)
+  {
+    if (mVisible != paramBoolean)
+    {
+      mVisible = paramBoolean;
+      OnPreferenceChangeInternalListener localOnPreferenceChangeInternalListener = mListener;
+      if (localOnPreferenceChangeInternalListener != null) {
+        localOnPreferenceChangeInternalListener.onPreferenceVisibilityChange(this);
+      }
+    }
+  }
+  
+  public void setWidgetLayoutResource(int paramInt)
+  {
+    mWidgetLayoutResId = paramInt;
+  }
+  
+  public boolean shouldDisableDependents()
+  {
+    return isEnabled() ^ true;
+  }
+  
+  protected boolean shouldPersist()
+  {
+    return (mPreferenceManager != null) && (isPersistent()) && (hasKey());
+  }
+  
+  public String toString()
+  {
+    return getFilterableStringBuilder().toString();
+  }
+  
+  final boolean wasDetached()
+  {
+    return mWasDetached;
+  }
+  
+  public static class BaseSavedState
+    extends AbsSavedState
+  {
+    public static final Parcelable.Creator<BaseSavedState> CREATOR = new Parcelable.Creator()
+    {
+      public Preference.BaseSavedState createFromParcel(Parcel paramAnonymousParcel)
+      {
+        return new Preference.BaseSavedState(paramAnonymousParcel);
+      }
+      
+      public Preference.BaseSavedState[] newArray(int paramAnonymousInt)
+      {
+        return new Preference.BaseSavedState[paramAnonymousInt];
+      }
+    };
+    
+    public BaseSavedState(Parcel paramParcel)
+    {
+      super();
+    }
+    
+    public BaseSavedState(Parcelable paramParcelable)
+    {
+      super();
+    }
+  }
+  
+  static abstract interface OnPreferenceChangeInternalListener
+  {
+    public abstract void onPreferenceChange(Preference paramPreference);
+    
+    public abstract void onPreferenceHierarchyChange(Preference paramPreference);
+    
+    public abstract void onPreferenceVisibilityChange(Preference paramPreference);
+  }
+  
+  public static abstract interface OnPreferenceChangeListener
+  {
+    public abstract boolean onPreferenceChange(Preference paramPreference, Object paramObject);
+  }
+  
+  public static abstract interface OnPreferenceClickListener
+  {
+    public abstract boolean onPreferenceClick(Preference paramPreference);
+  }
+  
+  private static class OnPreferenceCopyListener
+    implements View.OnCreateContextMenuListener, MenuItem.OnMenuItemClickListener
+  {
+    private final Preference mPreference;
+    
+    OnPreferenceCopyListener(Preference paramPreference)
+    {
+      mPreference = paramPreference;
+    }
+    
+    public void onCreateContextMenu(ContextMenu paramContextMenu, View paramView, ContextMenu.ContextMenuInfo paramContextMenuInfo)
+    {
+      paramView = mPreference.getSummary();
+      if (mPreference.isCopyingEnabled())
+      {
+        if (TextUtils.isEmpty(paramView)) {
+          return;
+        }
+        paramContextMenu.setHeaderTitle(paramView);
+        paramContextMenu.add(0, 0, 0, R.string.copy).setOnMenuItemClickListener(this);
+      }
+    }
+    
+    public boolean onMenuItemClick(MenuItem paramMenuItem)
+    {
+      paramMenuItem = (ClipboardManager)mPreference.getContext().getSystemService("clipboard");
+      CharSequence localCharSequence = mPreference.getSummary();
+      paramMenuItem.setPrimaryClip(ClipData.newPlainText("Preference", localCharSequence));
+      Toast.makeText(mPreference.getContext(), mPreference.getContext().getString(R.string.preference_copied, new Object[] { localCharSequence }), 0).show();
+      return true;
+    }
+  }
+  
+  public static abstract interface SummaryProvider<T extends Preference>
+  {
+    public abstract CharSequence provideSummary(T paramT);
+  }
+}

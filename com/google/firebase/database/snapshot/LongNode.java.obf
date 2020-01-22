@@ -1,0 +1,73 @@
+package com.google.firebase.database.snapshot;
+
+import com.google.firebase.database.core.utilities.Utilities;
+
+public class LongNode
+  extends LeafNode<LongNode>
+{
+  private final long value;
+  
+  public LongNode(Long paramLong, Node paramNode)
+  {
+    super(paramNode);
+    value = paramLong.longValue();
+  }
+  
+  protected int compareLeafValues(LongNode paramLongNode)
+  {
+    return Utilities.compareLongs(value, value);
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    boolean bool1 = paramObject instanceof LongNode;
+    boolean bool2 = false;
+    if (!bool1) {
+      return false;
+    }
+    paramObject = (LongNode)paramObject;
+    bool1 = bool2;
+    if (value == value)
+    {
+      bool1 = bool2;
+      if (priority.equals(priority)) {
+        bool1 = true;
+      }
+    }
+    return bool1;
+  }
+  
+  public String getHashRepresentation(Node.HashVersion paramHashVersion)
+  {
+    paramHashVersion = getPriorityHash(paramHashVersion);
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramHashVersion);
+    localStringBuilder.append("number:");
+    paramHashVersion = localStringBuilder.toString();
+    localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramHashVersion);
+    localStringBuilder.append(Utilities.doubleToHashString(value));
+    return localStringBuilder.toString();
+  }
+  
+  protected LeafNode.LeafType getLeafType()
+  {
+    return LeafNode.LeafType.Number;
+  }
+  
+  public Object getValue()
+  {
+    return Long.valueOf(value);
+  }
+  
+  public int hashCode()
+  {
+    long l = value;
+    return (int)(l ^ l >>> 32) + priority.hashCode();
+  }
+  
+  public LongNode updatePriority(Node paramNode)
+  {
+    return new LongNode(Long.valueOf(value), paramNode);
+  }
+}

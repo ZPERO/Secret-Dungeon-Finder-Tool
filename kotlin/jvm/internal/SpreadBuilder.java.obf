@@ -1,0 +1,82 @@
+package kotlin.jvm.internal;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+
+public class SpreadBuilder
+{
+  private final ArrayList<Object> list;
+  
+  public SpreadBuilder(int paramInt)
+  {
+    list = new ArrayList(paramInt);
+  }
+  
+  public void add(Object paramObject)
+  {
+    list.add(paramObject);
+  }
+  
+  public void addSpread(Object paramObject)
+  {
+    if (paramObject == null) {
+      return;
+    }
+    if ((paramObject instanceof Object[]))
+    {
+      paramObject = (Object[])paramObject;
+      if (paramObject.length > 0)
+      {
+        localObject = list;
+        ((ArrayList)localObject).ensureCapacity(((ArrayList)localObject).size() + paramObject.length);
+        Collections.addAll(list, paramObject);
+      }
+    }
+    else
+    {
+      if ((paramObject instanceof Collection))
+      {
+        list.addAll((Collection)paramObject);
+        return;
+      }
+      if ((paramObject instanceof Iterable))
+      {
+        paramObject = ((Iterable)paramObject).iterator();
+        while (paramObject.hasNext())
+        {
+          localObject = paramObject.next();
+          list.add(localObject);
+        }
+      }
+      if (!(paramObject instanceof Iterator)) {
+        break label155;
+      }
+      paramObject = (Iterator)paramObject;
+      while (paramObject.hasNext()) {
+        list.add(paramObject.next());
+      }
+    }
+    return;
+    label155:
+    Object localObject = new StringBuilder();
+    ((StringBuilder)localObject).append("Don't know how to spread ");
+    ((StringBuilder)localObject).append(paramObject.getClass());
+    paramObject = new UnsupportedOperationException(((StringBuilder)localObject).toString());
+    for (;;)
+    {
+      throw paramObject;
+    }
+  }
+  
+  public int size()
+  {
+    return list.size();
+  }
+  
+  public Object[] toArray(Object[] paramArrayOfObject)
+  {
+    return list.toArray(paramArrayOfObject);
+  }
+}

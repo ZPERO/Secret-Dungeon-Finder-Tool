@@ -1,0 +1,414 @@
+package com.google.firebase.database.core.persistence;
+
+import com.google.firebase.database.collection.ImmutableSortedMap;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.utilities.Clock;
+import com.google.firebase.database.core.utilities.ImmutableTree;
+import com.google.firebase.database.core.utilities.ImmutableTree.TreeVisitor;
+import com.google.firebase.database.core.utilities.Predicate;
+import com.google.firebase.database.core.utilities.Utilities;
+import com.google.firebase.database.core.view.QueryParams;
+import com.google.firebase.database.core.view.QuerySpec;
+import com.google.firebase.database.logging.LogWrapper;
+import com.google.firebase.database.snapshot.ChildKey;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class TrackedQueryManager
+{
+  private static final Predicate<Map<QueryParams, TrackedQuery>> HAS_ACTIVE_DEFAULT_PREDICATE = new Predicate()
+  {
+    public boolean evaluate(Map<QueryParams, TrackedQuery> paramAnonymousMap)
+    {
+      paramAnonymousMap = (TrackedQuery)paramAnonymousMap.get(QueryParams.DEFAULT_PARAMS);
+      return (paramAnonymousMap != null) && (active);
+    }
+  };
+  private static final Predicate<Map<QueryParams, TrackedQuery>> HAS_DEFAULT_COMPLETE_PREDICATE = new Predicate()
+  {
+    public boolean evaluate(Map<QueryParams, TrackedQuery> paramAnonymousMap)
+    {
+      paramAnonymousMap = (TrackedQuery)paramAnonymousMap.get(QueryParams.DEFAULT_PARAMS);
+      return (paramAnonymousMap != null) && (complete);
+    }
+  };
+  private static final Predicate<TrackedQuery> IS_QUERY_PRUNABLE_PREDICATE = new Predicate()
+  {
+    public boolean evaluate(TrackedQuery paramAnonymousTrackedQuery)
+    {
+      return active ^ true;
+    }
+  };
+  private static final Predicate<TrackedQuery> IS_QUERY_UNPRUNABLE_PREDICATE = new Predicate()
+  {
+    public boolean evaluate(TrackedQuery paramAnonymousTrackedQuery)
+    {
+      return TrackedQueryManager.IS_QUERY_PRUNABLE_PREDICATE.evaluate(paramAnonymousTrackedQuery) ^ true;
+    }
+  };
+  private final Clock clock;
+  private long currentQueryId = 0L;
+  private final LogWrapper logger;
+  private final PersistenceStorageEngine storageLayer;
+  private ImmutableTree<Map<QueryParams, TrackedQuery>> trackedQueryTree;
+  
+  public TrackedQueryManager(PersistenceStorageEngine paramPersistenceStorageEngine, LogWrapper paramLogWrapper, Clock paramClock)
+  {
+    storageLayer = paramPersistenceStorageEngine;
+    logger = paramLogWrapper;
+    clock = paramClock;
+    trackedQueryTree = new ImmutableTree(null);
+    resetPreviouslyActiveTrackedQueries();
+    paramPersistenceStorageEngine = storageLayer.loadTrackedQueries().iterator();
+    while (paramPersistenceStorageEngine.hasNext())
+    {
+      paramLogWrapper = (TrackedQuery)paramPersistenceStorageEngine.next();
+      currentQueryId = Math.max(id + 1L, currentQueryId);
+      cacheTrackedQuery(paramLogWrapper);
+    }
+  }
+  
+  private static void assertValidTrackedQuery(QuerySpec paramQuerySpec)
+  {
+    boolean bool;
+    if ((paramQuerySpec.loadsAllData()) && (!paramQuerySpec.isDefault())) {
+      bool = false;
+    } else {
+      bool = true;
+    }
+    Utilities.hardAssert(bool, "Can't have tracked non-default query that loads all data");
+  }
+  
+  private void cacheTrackedQuery(TrackedQuery paramTrackedQuery)
+  {
+    assertValidTrackedQuery(querySpec);
+    Object localObject2 = (Map)trackedQueryTree.get(querySpec.getPath());
+    Object localObject1 = localObject2;
+    if (localObject2 == null)
+    {
+      localObject1 = new HashMap();
+      trackedQueryTree = trackedQueryTree.set(querySpec.getPath(), localObject1);
+    }
+    localObject2 = (TrackedQuery)((Map)localObject1).get(querySpec.getParams());
+    boolean bool;
+    if ((localObject2 != null) && (id != id)) {
+      bool = false;
+    } else {
+      bool = true;
+    }
+    Utilities.hardAssert(bool);
+    ((Map)localObject1).put(querySpec.getParams(), paramTrackedQuery);
+  }
+  
+  private static long calculateCountToPrune(CachePolicy paramCachePolicy, long paramLong)
+  {
+    float f = paramCachePolicy.getPercentOfQueriesToPruneAtOnce();
+    return paramLong - Math.min(Math.floor((float)paramLong * (1.0F - f)), paramCachePolicy.getMaxNumberOfQueriesToKeep());
+  }
+  
+  private Set<Long> filteredQueryIdsAtPath(Path paramPath)
+  {
+    HashSet localHashSet = new HashSet();
+    paramPath = (Map)trackedQueryTree.get(paramPath);
+    if (paramPath != null)
+    {
+      paramPath = paramPath.values().iterator();
+      while (paramPath.hasNext())
+      {
+        TrackedQuery localTrackedQuery = (TrackedQuery)paramPath.next();
+        if (!querySpec.loadsAllData()) {
+          localHashSet.add(Long.valueOf(id));
+        }
+      }
+    }
+    return localHashSet;
+  }
+  
+  private List<TrackedQuery> getQueriesMatching(Predicate<TrackedQuery> paramPredicate)
+  {
+    ArrayList localArrayList = new ArrayList();
+    Iterator localIterator1 = trackedQueryTree.iterator();
+    while (localIterator1.hasNext())
+    {
+      Iterator localIterator2 = ((Map)((Map.Entry)localIterator1.next()).getValue()).values().iterator();
+      while (localIterator2.hasNext())
+      {
+        TrackedQuery localTrackedQuery = (TrackedQuery)localIterator2.next();
+        if (paramPredicate.evaluate(localTrackedQuery)) {
+          localArrayList.add(localTrackedQuery);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  private boolean includedInDefaultCompleteQuery(Path paramPath)
+  {
+    return trackedQueryTree.findRootMostMatchingPath(paramPath, HAS_DEFAULT_COMPLETE_PREDICATE) != null;
+  }
+  
+  private static QuerySpec normalizeQuery(QuerySpec paramQuerySpec)
+  {
+    QuerySpec localQuerySpec = paramQuerySpec;
+    if (paramQuerySpec.loadsAllData()) {
+      localQuerySpec = QuerySpec.defaultQueryAtPath(paramQuerySpec.getPath());
+    }
+    return localQuerySpec;
+  }
+  
+  private void resetPreviouslyActiveTrackedQueries()
+  {
+    try
+    {
+      storageLayer.beginTransaction();
+      storageLayer.resetPreviouslyActiveTrackedQueries(clock.millis());
+      storageLayer.setTransactionSuccessful();
+      return;
+    }
+    finally
+    {
+      storageLayer.endTransaction();
+    }
+  }
+  
+  private void saveTrackedQuery(TrackedQuery paramTrackedQuery)
+  {
+    cacheTrackedQuery(paramTrackedQuery);
+    storageLayer.saveTrackedQuery(paramTrackedQuery);
+  }
+  
+  private void setQueryActiveFlag(QuerySpec paramQuerySpec, boolean paramBoolean)
+  {
+    paramQuerySpec = normalizeQuery(paramQuerySpec);
+    TrackedQuery localTrackedQuery = findTrackedQuery(paramQuerySpec);
+    long l1 = clock.millis();
+    if (localTrackedQuery != null)
+    {
+      paramQuerySpec = localTrackedQuery.updateLastUse(l1).setActiveState(paramBoolean);
+    }
+    else
+    {
+      long l2 = currentQueryId;
+      currentQueryId = (1L + l2);
+      paramQuerySpec = new TrackedQuery(l2, paramQuerySpec, l1, false, paramBoolean);
+    }
+    saveTrackedQuery(paramQuerySpec);
+  }
+  
+  public long countOfPrunableQueries()
+  {
+    return getQueriesMatching(IS_QUERY_PRUNABLE_PREDICATE).size();
+  }
+  
+  public void ensureCompleteTrackedQuery(Path paramPath)
+  {
+    if (!includedInDefaultCompleteQuery(paramPath))
+    {
+      paramPath = QuerySpec.defaultQueryAtPath(paramPath);
+      TrackedQuery localTrackedQuery = findTrackedQuery(paramPath);
+      if (localTrackedQuery == null)
+      {
+        long l = currentQueryId;
+        currentQueryId = (1L + l);
+        paramPath = new TrackedQuery(l, paramPath, clock.millis(), true, false);
+      }
+      else
+      {
+        paramPath = localTrackedQuery.setComplete();
+      }
+      saveTrackedQuery(paramPath);
+    }
+  }
+  
+  public TrackedQuery findTrackedQuery(QuerySpec paramQuerySpec)
+  {
+    paramQuerySpec = normalizeQuery(paramQuerySpec);
+    Map localMap = (Map)trackedQueryTree.get(paramQuerySpec.getPath());
+    if (localMap != null) {
+      return (TrackedQuery)localMap.get(paramQuerySpec.getParams());
+    }
+    return null;
+  }
+  
+  public Set<ChildKey> getKnownCompleteChildren(Path paramPath)
+  {
+    HashSet localHashSet = new HashSet();
+    Object localObject1 = filteredQueryIdsAtPath(paramPath);
+    if (!((Set)localObject1).isEmpty()) {
+      localHashSet.addAll(storageLayer.loadTrackedQueryKeys((Set)localObject1));
+    }
+    paramPath = trackedQueryTree.subtree(paramPath).getChildren().iterator();
+    while (paramPath.hasNext())
+    {
+      Object localObject2 = (Map.Entry)paramPath.next();
+      localObject1 = (ChildKey)((Map.Entry)localObject2).getKey();
+      localObject2 = (ImmutableTree)((Map.Entry)localObject2).getValue();
+      if ((((ImmutableTree)localObject2).getValue() != null) && (HAS_DEFAULT_COMPLETE_PREDICATE.evaluate((Map)((ImmutableTree)localObject2).getValue()))) {
+        localHashSet.add(localObject1);
+      }
+    }
+    return localHashSet;
+  }
+  
+  public boolean hasActiveDefaultQuery(Path paramPath)
+  {
+    return trackedQueryTree.rootMostValueMatching(paramPath, HAS_ACTIVE_DEFAULT_PREDICATE) != null;
+  }
+  
+  public boolean isQueryComplete(QuerySpec paramQuerySpec)
+  {
+    if (includedInDefaultCompleteQuery(paramQuerySpec.getPath())) {
+      return true;
+    }
+    if (paramQuerySpec.loadsAllData()) {
+      return false;
+    }
+    Map localMap = (Map)trackedQueryTree.get(paramQuerySpec.getPath());
+    return (localMap != null) && (localMap.containsKey(paramQuerySpec.getParams())) && (getgetParamscomplete);
+  }
+  
+  public PruneForest pruneOldQueries(CachePolicy paramCachePolicy)
+  {
+    Object localObject1 = getQueriesMatching(IS_QUERY_PRUNABLE_PREDICATE);
+    long l = calculateCountToPrune(paramCachePolicy, ((List)localObject1).size());
+    paramCachePolicy = new PruneForest();
+    Object localObject2;
+    StringBuilder localStringBuilder;
+    if (logger.logsDebug())
+    {
+      localObject2 = logger;
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Pruning old queries.  Prunable: ");
+      localStringBuilder.append(((List)localObject1).size());
+      localStringBuilder.append(" Count to prune: ");
+      localStringBuilder.append(l);
+      ((LogWrapper)localObject2).debug(localStringBuilder.toString(), new Object[0]);
+    }
+    Collections.sort((List)localObject1, new Comparator()
+    {
+      public int compare(TrackedQuery paramAnonymousTrackedQuery1, TrackedQuery paramAnonymousTrackedQuery2)
+      {
+        return Utilities.compareLongs(lastUse, lastUse);
+      }
+    });
+    int i = 0;
+    while (i < l)
+    {
+      localObject2 = (TrackedQuery)((List)localObject1).get(i);
+      paramCachePolicy = paramCachePolicy.prune(querySpec.getPath());
+      removeTrackedQuery(querySpec);
+      i += 1;
+    }
+    i = (int)l;
+    while (i < ((List)localObject1).size())
+    {
+      paramCachePolicy = paramCachePolicy.keep(getquerySpec.getPath());
+      i += 1;
+    }
+    localObject1 = getQueriesMatching(IS_QUERY_UNPRUNABLE_PREDICATE);
+    if (logger.logsDebug())
+    {
+      localObject2 = logger;
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unprunable queries: ");
+      localStringBuilder.append(((List)localObject1).size());
+      ((LogWrapper)localObject2).debug(localStringBuilder.toString(), new Object[0]);
+    }
+    localObject1 = ((List)localObject1).iterator();
+    while (((Iterator)localObject1).hasNext()) {
+      paramCachePolicy = paramCachePolicy.keep(nextquerySpec.getPath());
+    }
+    return paramCachePolicy;
+  }
+  
+  public void removeTrackedQuery(QuerySpec paramQuerySpec)
+  {
+    paramQuerySpec = normalizeQuery(paramQuerySpec);
+    Object localObject = findTrackedQuery(paramQuerySpec);
+    storageLayer.deleteTrackedQuery(id);
+    localObject = (Map)trackedQueryTree.get(paramQuerySpec.getPath());
+    ((Map)localObject).remove(paramQuerySpec.getParams());
+    if (((Map)localObject).isEmpty()) {
+      trackedQueryTree = trackedQueryTree.remove(paramQuerySpec.getPath());
+    }
+  }
+  
+  public void setQueriesComplete(Path paramPath)
+  {
+    trackedQueryTree.subtree(paramPath).foreach(new ImmutableTree.TreeVisitor()
+    {
+      public Void onNodeValue(Path paramAnonymousPath, Map<QueryParams, TrackedQuery> paramAnonymousMap, Void paramAnonymousVoid)
+      {
+        paramAnonymousPath = paramAnonymousMap.entrySet().iterator();
+        while (paramAnonymousPath.hasNext())
+        {
+          paramAnonymousMap = (TrackedQuery)((Map.Entry)paramAnonymousPath.next()).getValue();
+          if (!complete) {
+            TrackedQueryManager.this.saveTrackedQuery(paramAnonymousMap.setComplete());
+          }
+        }
+        return null;
+      }
+    });
+  }
+  
+  public void setQueryActive(QuerySpec paramQuerySpec)
+  {
+    setQueryActiveFlag(paramQuerySpec, true);
+  }
+  
+  public void setQueryCompleteIfExists(QuerySpec paramQuerySpec)
+  {
+    paramQuerySpec = findTrackedQuery(normalizeQuery(paramQuerySpec));
+    if ((paramQuerySpec != null) && (!complete)) {
+      saveTrackedQuery(paramQuerySpec.setComplete());
+    }
+  }
+  
+  public void setQueryInactive(QuerySpec paramQuerySpec)
+  {
+    setQueryActiveFlag(paramQuerySpec, false);
+  }
+  
+  void verifyCache()
+  {
+    List localList = storageLayer.loadTrackedQueries();
+    final ArrayList localArrayList = new ArrayList();
+    trackedQueryTree.foreach(new ImmutableTree.TreeVisitor()
+    {
+      public Void onNodeValue(Path paramAnonymousPath, Map<QueryParams, TrackedQuery> paramAnonymousMap, Void paramAnonymousVoid)
+      {
+        paramAnonymousPath = paramAnonymousMap.values().iterator();
+        while (paramAnonymousPath.hasNext())
+        {
+          paramAnonymousMap = (TrackedQuery)paramAnonymousPath.next();
+          localArrayList.add(paramAnonymousMap);
+        }
+        return null;
+      }
+    });
+    Collections.sort(localArrayList, new Comparator()
+    {
+      public int compare(TrackedQuery paramAnonymousTrackedQuery1, TrackedQuery paramAnonymousTrackedQuery2)
+      {
+        return Utilities.compareLongs(id, id);
+      }
+    });
+    boolean bool = localList.equals(localArrayList);
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Tracked queries out of sync.  Tracked queries: ");
+    localStringBuilder.append(localArrayList);
+    localStringBuilder.append(" Stored queries: ");
+    localStringBuilder.append(localList);
+    Utilities.hardAssert(bool, localStringBuilder.toString());
+  }
+}

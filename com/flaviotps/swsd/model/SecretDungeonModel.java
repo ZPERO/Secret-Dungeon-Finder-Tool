@@ -1,0 +1,287 @@
+package com.flaviotps.swsd.model;
+
+import com.flaviotps.swsd.enum.ServerLocation;
+import com.google.firebase.database.Exclude;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.jvm.internal.StringCompanionObject;
+
+@Metadata(bv={1, 0, 3}, d1={"\0008\n\002\030\002\n\002\020\000\n\002\b\002\n\002\020\016\n\000\n\002\030\002\n\002\b\002\n\002\020\t\n\002\b\002\n\002\020\b\n\000\n\002\030\002\n\002\b&\n\002\020\013\n\002\b\006\b?\b\030\0002\0020\001B\007\b\026?\006\002\020\002BI\022\b\020\003\032\004\030\0010\004\022\006\020\005\032\0020\006\022\006\020\007\032\0020\004\022\006\020\b\032\0020\t\022\006\020\n\032\0020\t\022\006\020\013\032\0020\f\022\b\b\002\020\r\032\0020\016\022\006\020\017\032\0020\004?\006\002\020\020J\013\020+\032\004\030\0010\004H?\003J\t\020,\032\0020\006H?\003J\t\020-\032\0020\004H?\003J\t\020.\032\0020\tH?\003J\t\020/\032\0020\tH?\003J\t\0200\032\0020\fH?\003J\t\0201\032\0020\016H?\003J\t\0202\032\0020\004H?\003J[\0203\032\0020\0002\n\b\002\020\003\032\004\030\0010\0042\b\b\002\020\005\032\0020\0062\b\b\002\020\007\032\0020\0042\b\b\002\020\b\032\0020\t2\b\b\002\020\n\032\0020\t2\b\b\002\020\013\032\0020\f2\b\b\002\020\r\032\0020\0162\b\b\002\020\017\032\0020\004H?\001J\016\0204\032\002052\006\0206\032\0020\000J\023\0204\032\002052\b\0206\032\004\030\0010\001H?\003J\006\0207\032\00205J\006\0208\032\0020\004J\t\0209\032\0020\fH?\001J\t\020:\032\0020\004H?\001R\032\020\b\032\0020\tX?\016?\006\016\n\000\032\004\b\021\020\022\"\004\b\023\020\024R\032\020\n\032\0020\tX?\016?\006\016\n\000\032\004\b\025\020\022\"\004\b\026\020\024R\032\020\017\032\0020\004X?\016?\006\016\n\000\032\004\b\027\020\030\"\004\b\031\020\032R\032\020\007\032\0020\004X?\016?\006\016\n\000\032\004\b\033\020\030\"\004\b\034\020\032R\034\020\003\032\004\030\0010\004X?\016?\006\016\n\000\032\004\b\035\020\030\"\004\b\036\020\032R\032\020\005\032\0020\006X?\016?\006\016\n\000\032\004\b\037\020 \"\004\b!\020\"R\032\020\r\032\0020\016X?\016?\006\016\n\000\032\004\b#\020$\"\004\b%\020&R\036\020\013\032\0020\f8\006@\006X?\016?\006\016\n\000\032\004\b'\020(\"\004\b)\020*?\006;"}, d2={"Lcom/flaviotps/swsd/model/SecretDungeonModel;", "", "()V", "key", "", "monster", "Lcom/flaviotps/swsd/model/MonsterModel;", "inGameName", "creationTime", "", "endTime", "timeLeft", "", "serverLocation", "Lcom/flaviotps/swsd/enum/ServerLocation;", "fcmToken", "(Ljava/lang/String;Lcom/flaviotps/swsd/model/MonsterModel;Ljava/lang/String;JJILcom/flaviotps/swsd/enum/ServerLocation;Ljava/lang/String;)V", "getCreationTime", "()J", "setCreationTime", "(J)V", "getEndTime", "setEndTime", "getFcmToken", "()Ljava/lang/String;", "setFcmToken", "(Ljava/lang/String;)V", "getInGameName", "setInGameName", "getKey", "setKey", "getMonster", "()Lcom/flaviotps/swsd/model/MonsterModel;", "setMonster", "(Lcom/flaviotps/swsd/model/MonsterModel;)V", "getServerLocation", "()Lcom/flaviotps/swsd/enum/ServerLocation;", "setServerLocation", "(Lcom/flaviotps/swsd/enum/ServerLocation;)V", "getTimeLeft", "()I", "setTimeLeft", "(I)V", "component1", "component2", "component3", "component4", "component5", "component6", "component7", "component8", "copy", "equals", "", "other", "expired", "getDungeonTimeLeft", "hashCode", "toString", "app_release"}, k=1, mv={1, 1, 16})
+public final class SecretDungeonModel
+{
+  private long creationTime;
+  private long endTime;
+  private String fcmToken;
+  private String inGameName;
+  private MonsterModel monster;
+  private ServerLocation serverLocation;
+  @Exclude
+  private int timeLeft;
+  private String value;
+  
+  public SecretDungeonModel()
+  {
+    this("", new MonsterModel(), "", 0L, 0L, 0, null, "", 64, null);
+  }
+  
+  public SecretDungeonModel(String paramString1, MonsterModel paramMonsterModel, String paramString2, long paramLong1, long paramLong2, int paramInt, ServerLocation paramServerLocation, String paramString3)
+  {
+    value = paramString1;
+    monster = paramMonsterModel;
+    inGameName = paramString2;
+    creationTime = paramLong1;
+    endTime = paramLong2;
+    timeLeft = paramInt;
+    serverLocation = paramServerLocation;
+    fcmToken = paramString3;
+  }
+  
+  public final String component1()
+  {
+    return value;
+  }
+  
+  public final MonsterModel component2()
+  {
+    return monster;
+  }
+  
+  public final String component3()
+  {
+    return inGameName;
+  }
+  
+  public final long component4()
+  {
+    return creationTime;
+  }
+  
+  public final long component5()
+  {
+    return endTime;
+  }
+  
+  public final int component6()
+  {
+    return timeLeft;
+  }
+  
+  public final ServerLocation component7()
+  {
+    return serverLocation;
+  }
+  
+  public final String component8()
+  {
+    return fcmToken;
+  }
+  
+  public final SecretDungeonModel copy(String paramString1, MonsterModel paramMonsterModel, String paramString2, long paramLong1, long paramLong2, int paramInt, ServerLocation paramServerLocation, String paramString3)
+  {
+    Intrinsics.checkParameterIsNotNull(paramMonsterModel, "monster");
+    Intrinsics.checkParameterIsNotNull(paramString2, "inGameName");
+    Intrinsics.checkParameterIsNotNull(paramServerLocation, "serverLocation");
+    Intrinsics.checkParameterIsNotNull(paramString3, "fcmToken");
+    return new SecretDungeonModel(paramString1, paramMonsterModel, paramString2, paramLong1, paramLong2, paramInt, paramServerLocation, paramString3);
+  }
+  
+  public final boolean equals(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramSecretDungeonModel, "other");
+    return (Intrinsics.areEqual(inGameName, inGameName)) && (Intrinsics.areEqual(monster.getGenericName(), monster.getGenericName())) && (Intrinsics.areEqual(fcmToken, fcmToken)) && (monster.getElement() == monster.getElement());
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this != paramObject) {
+      if ((paramObject instanceof SecretDungeonModel))
+      {
+        paramObject = (SecretDungeonModel)paramObject;
+        if ((Intrinsics.areEqual(value, value)) && (Intrinsics.areEqual(monster, monster)) && (Intrinsics.areEqual(inGameName, inGameName)) && (creationTime == creationTime) && (endTime == endTime) && (timeLeft == timeLeft) && (Intrinsics.areEqual(serverLocation, serverLocation)) && (Intrinsics.areEqual(fcmToken, fcmToken))) {}
+      }
+      else
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  public final boolean expired()
+  {
+    long l = endTime;
+    Calendar localCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Intrinsics.checkExpressionValueIsNotNull(localCalendar, "Calendar.getInstance(TimeZone.getTimeZone(\"UTC\"))");
+    return l - localCalendar.getTimeInMillis() < 0L;
+  }
+  
+  public final long getCreationTime()
+  {
+    return creationTime;
+  }
+  
+  public final String getDungeonTimeLeft()
+  {
+    long l = endTime;
+    Object localObject = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Intrinsics.checkExpressionValueIsNotNull(localObject, "Calendar.getInstance(TimeZone.getTimeZone(\"UTC\"))");
+    l -= ((Calendar)localObject).getTimeInMillis();
+    localObject = StringCompanionObject.INSTANCE;
+    localObject = new Object[3];
+    localObject[0] = Long.valueOf(TimeUnit.MILLISECONDS.toHours(l));
+    localObject[1] = Long.valueOf(TimeUnit.MILLISECONDS.toMinutes(l) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(l)));
+    localObject[2] = Long.valueOf(TimeUnit.MILLISECONDS.toSeconds(l) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(l)));
+    localObject = String.format("%02d:%02d:%02d", Arrays.copyOf((Object[])localObject, localObject.length));
+    Intrinsics.checkExpressionValueIsNotNull(localObject, "java.lang.String.format(format, *args)");
+    return localObject;
+  }
+  
+  public final long getEndTime()
+  {
+    return endTime;
+  }
+  
+  public final String getFcmToken()
+  {
+    return fcmToken;
+  }
+  
+  public final String getInGameName()
+  {
+    return inGameName;
+  }
+  
+  public final String getKey()
+  {
+    return value;
+  }
+  
+  public final MonsterModel getMonster()
+  {
+    return monster;
+  }
+  
+  public final ServerLocation getServerLocation()
+  {
+    return serverLocation;
+  }
+  
+  public final int getTimeLeft()
+  {
+    return timeLeft;
+  }
+  
+  public int hashCode()
+  {
+    Object localObject = value;
+    int n = 0;
+    int i;
+    if (localObject != null) {
+      i = localObject.hashCode();
+    } else {
+      i = 0;
+    }
+    localObject = monster;
+    int j;
+    if (localObject != null) {
+      j = localObject.hashCode();
+    } else {
+      j = 0;
+    }
+    localObject = inGameName;
+    int k;
+    if (localObject != null) {
+      k = localObject.hashCode();
+    } else {
+      k = 0;
+    }
+    long l = creationTime;
+    int i1 = (int)(l ^ l >>> 32);
+    l = endTime;
+    int i2 = (int)(l ^ l >>> 32);
+    int i3 = timeLeft;
+    localObject = serverLocation;
+    int m;
+    if (localObject != null) {
+      m = localObject.hashCode();
+    } else {
+      m = 0;
+    }
+    localObject = fcmToken;
+    if (localObject != null) {
+      n = localObject.hashCode();
+    }
+    return ((((((i * 31 + j) * 31 + k) * 31 + i1) * 31 + i2) * 31 + i3) * 31 + m) * 31 + n;
+  }
+  
+  public final void setCreationTime(long paramLong)
+  {
+    creationTime = paramLong;
+  }
+  
+  public final void setEndTime(long paramLong)
+  {
+    endTime = paramLong;
+  }
+  
+  public final void setFcmToken(String paramString)
+  {
+    Intrinsics.checkParameterIsNotNull(paramString, "<set-?>");
+    fcmToken = paramString;
+  }
+  
+  public final void setInGameName(String paramString)
+  {
+    Intrinsics.checkParameterIsNotNull(paramString, "<set-?>");
+    inGameName = paramString;
+  }
+  
+  public final void setKey(String paramString)
+  {
+    value = paramString;
+  }
+  
+  public final void setMonster(MonsterModel paramMonsterModel)
+  {
+    Intrinsics.checkParameterIsNotNull(paramMonsterModel, "<set-?>");
+    monster = paramMonsterModel;
+  }
+  
+  public final void setServerLocation(ServerLocation paramServerLocation)
+  {
+    Intrinsics.checkParameterIsNotNull(paramServerLocation, "<set-?>");
+    serverLocation = paramServerLocation;
+  }
+  
+  public final void setTimeLeft(int paramInt)
+  {
+    timeLeft = paramInt;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("SecretDungeonModel(key=");
+    localStringBuilder.append(value);
+    localStringBuilder.append(", monster=");
+    localStringBuilder.append(monster);
+    localStringBuilder.append(", inGameName=");
+    localStringBuilder.append(inGameName);
+    localStringBuilder.append(", creationTime=");
+    localStringBuilder.append(creationTime);
+    localStringBuilder.append(", endTime=");
+    localStringBuilder.append(endTime);
+    localStringBuilder.append(", timeLeft=");
+    localStringBuilder.append(timeLeft);
+    localStringBuilder.append(", serverLocation=");
+    localStringBuilder.append(serverLocation);
+    localStringBuilder.append(", fcmToken=");
+    localStringBuilder.append(fcmToken);
+    localStringBuilder.append(")");
+    return localStringBuilder.toString();
+  }
+}

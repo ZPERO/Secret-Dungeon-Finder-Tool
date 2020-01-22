@@ -1,0 +1,441 @@
+package androidx.preference;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.os.Parcelable.Creator;
+import android.text.TextUtils;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.AbsSavedState;
+import androidx.collection.SimpleArrayMap;
+import androidx.core.content.delay.TypedArrayUtils;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public abstract class PreferenceGroup
+  extends Preference
+{
+  private static final String list = "PreferenceGroup";
+  private boolean mAttachedToHierarchy = false;
+  private final Runnable mClearRecycleCacheRunnable = new Runnable()
+  {
+    public void run()
+    {
+      try
+      {
+        mIdRecycleCache.clear();
+        return;
+      }
+      catch (Throwable localThrowable)
+      {
+        throw localThrowable;
+      }
+    }
+  };
+  private int mCurrentPreferenceOrder = 0;
+  private final Handler mHandler = new Handler();
+  final SimpleArrayMap<String, Long> mIdRecycleCache = new SimpleArrayMap();
+  private int mInitialExpandedChildrenCount = Integer.MAX_VALUE;
+  private OnExpandButtonClickListener mOnExpandButtonClickListener = null;
+  private boolean mOrderingAsAdded = true;
+  private List<Preference> mPreferences = new ArrayList();
+  
+  public PreferenceGroup(Context paramContext, AttributeSet paramAttributeSet)
+  {
+    this(paramContext, paramAttributeSet, 0);
+  }
+  
+  public PreferenceGroup(Context paramContext, AttributeSet paramAttributeSet, int paramInt)
+  {
+    this(paramContext, paramAttributeSet, paramInt, 0);
+  }
+  
+  public PreferenceGroup(Context paramContext, AttributeSet paramAttributeSet, int paramInt1, int paramInt2)
+  {
+    super(paramContext, paramAttributeSet, paramInt1, paramInt2);
+    paramContext = paramContext.obtainStyledAttributes(paramAttributeSet, R.styleable.PreferenceGroup, paramInt1, paramInt2);
+    mOrderingAsAdded = TypedArrayUtils.getBoolean(paramContext, R.styleable.PreferenceGroup_orderingFromXml, R.styleable.PreferenceGroup_orderingFromXml, true);
+    if (paramContext.hasValue(R.styleable.PreferenceGroup_initialExpandedChildrenCount)) {
+      setInitialExpandedChildrenCount(TypedArrayUtils.getInt(paramContext, R.styleable.PreferenceGroup_initialExpandedChildrenCount, R.styleable.PreferenceGroup_initialExpandedChildrenCount, Integer.MAX_VALUE));
+    }
+    paramContext.recycle();
+  }
+  
+  private boolean removePreferenceInt(Preference paramPreference)
+  {
+    try
+    {
+      paramPreference.onPrepareForRemoval();
+      if (paramPreference.getParent() == this) {
+        paramPreference.assignParent(null);
+      }
+      boolean bool = mPreferences.remove(paramPreference);
+      if (bool)
+      {
+        String str = paramPreference.getKey();
+        if (str != null)
+        {
+          mIdRecycleCache.put(str, Long.valueOf(paramPreference.getId()));
+          mHandler.removeCallbacks(mClearRecycleCacheRunnable);
+          mHandler.post(mClearRecycleCacheRunnable);
+        }
+        if (mAttachedToHierarchy) {
+          paramPreference.onDetached();
+        }
+      }
+      return bool;
+    }
+    catch (Throwable paramPreference)
+    {
+      throw paramPreference;
+    }
+  }
+  
+  public void addItemFromInflater(Preference paramPreference)
+  {
+    addPreference(paramPreference);
+  }
+  
+  public boolean addPreference(Preference paramPreference)
+  {
+    if (mPreferences.contains(paramPreference)) {
+      return true;
+    }
+    Object localObject;
+    String str;
+    if (paramPreference.getKey() != null)
+    {
+      for (localObject = this; ((Preference)localObject).getParent() != null; localObject = ((Preference)localObject).getParent()) {}
+      str = paramPreference.getKey();
+      if (((PreferenceGroup)localObject).findPreference(str) != null)
+      {
+        localObject = new StringBuilder();
+        ((StringBuilder)localObject).append("Found duplicated key: \"");
+        ((StringBuilder)localObject).append(str);
+        ((StringBuilder)localObject).append("\". This can cause unintended behaviour, please use unique keys for every preference.");
+        Log.e("PreferenceGroup", ((StringBuilder)localObject).toString());
+      }
+    }
+    if (paramPreference.getOrder() == Integer.MAX_VALUE)
+    {
+      if (mOrderingAsAdded)
+      {
+        i = mCurrentPreferenceOrder;
+        mCurrentPreferenceOrder = (i + 1);
+        paramPreference.setOrder(i);
+      }
+      if ((paramPreference instanceof PreferenceGroup)) {
+        ((PreferenceGroup)paramPreference).setOrderingAsAdded(mOrderingAsAdded);
+      }
+    }
+    int j = Collections.binarySearch(mPreferences, paramPreference);
+    int i = j;
+    if (j < 0) {
+      i = j * -1 - 1;
+    }
+    if (!onPrepareAddPreference(paramPreference)) {
+      return false;
+    }
+    try
+    {
+      mPreferences.add(i, paramPreference);
+      localObject = getPreferenceManager();
+      str = paramPreference.getKey();
+      long l;
+      if ((str != null) && (mIdRecycleCache.containsKey(str)))
+      {
+        l = ((Long)mIdRecycleCache.get(str)).longValue();
+        mIdRecycleCache.remove(str);
+      }
+      else
+      {
+        l = ((PreferenceManager)localObject).getNextId();
+      }
+      paramPreference.onAttachedToHierarchy((PreferenceManager)localObject, l);
+      paramPreference.assignParent(this);
+      if (mAttachedToHierarchy) {
+        paramPreference.onAttached();
+      }
+      notifyHierarchyChanged();
+      return true;
+    }
+    catch (Throwable paramPreference)
+    {
+      throw paramPreference;
+    }
+  }
+  
+  protected void dispatchRestoreInstanceState(Bundle paramBundle)
+  {
+    super.dispatchRestoreInstanceState(paramBundle);
+    int j = getPreferenceCount();
+    int i = 0;
+    while (i < j)
+    {
+      getPreference(i).dispatchRestoreInstanceState(paramBundle);
+      i += 1;
+    }
+  }
+  
+  protected void dispatchSaveInstanceState(Bundle paramBundle)
+  {
+    super.dispatchSaveInstanceState(paramBundle);
+    int j = getPreferenceCount();
+    int i = 0;
+    while (i < j)
+    {
+      getPreference(i).dispatchSaveInstanceState(paramBundle);
+      i += 1;
+    }
+  }
+  
+  public Preference findPreference(CharSequence paramCharSequence)
+  {
+    if (paramCharSequence != null)
+    {
+      if (TextUtils.equals(getKey(), paramCharSequence)) {
+        return this;
+      }
+      int j = getPreferenceCount();
+      int i = 0;
+      while (i < j)
+      {
+        Preference localPreference = getPreference(i);
+        if (TextUtils.equals(localPreference.getKey(), paramCharSequence)) {
+          return localPreference;
+        }
+        if ((localPreference instanceof PreferenceGroup))
+        {
+          localPreference = ((PreferenceGroup)localPreference).findPreference(paramCharSequence);
+          if (localPreference != null) {
+            return localPreference;
+          }
+        }
+        i += 1;
+      }
+      return null;
+    }
+    paramCharSequence = new IllegalArgumentException("Key cannot be null");
+    throw paramCharSequence;
+  }
+  
+  public int getInitialExpandedChildrenCount()
+  {
+    return mInitialExpandedChildrenCount;
+  }
+  
+  public OnExpandButtonClickListener getOnExpandButtonClickListener()
+  {
+    return mOnExpandButtonClickListener;
+  }
+  
+  public Preference getPreference(int paramInt)
+  {
+    return (Preference)mPreferences.get(paramInt);
+  }
+  
+  public int getPreferenceCount()
+  {
+    return mPreferences.size();
+  }
+  
+  public boolean isAttached()
+  {
+    return mAttachedToHierarchy;
+  }
+  
+  protected boolean isOnSameScreenAsChildren()
+  {
+    return true;
+  }
+  
+  public boolean isOrderingAsAdded()
+  {
+    return mOrderingAsAdded;
+  }
+  
+  public void notifyDependencyChange(boolean paramBoolean)
+  {
+    super.notifyDependencyChange(paramBoolean);
+    int j = getPreferenceCount();
+    int i = 0;
+    while (i < j)
+    {
+      getPreference(i).onParentChanged(this, paramBoolean);
+      i += 1;
+    }
+  }
+  
+  public void onAttached()
+  {
+    super.onAttached();
+    mAttachedToHierarchy = true;
+    int j = getPreferenceCount();
+    int i = 0;
+    while (i < j)
+    {
+      getPreference(i).onAttached();
+      i += 1;
+    }
+  }
+  
+  public void onDetached()
+  {
+    super.onDetached();
+    int i = 0;
+    mAttachedToHierarchy = false;
+    int j = getPreferenceCount();
+    while (i < j)
+    {
+      getPreference(i).onDetached();
+      i += 1;
+    }
+  }
+  
+  protected boolean onPrepareAddPreference(Preference paramPreference)
+  {
+    paramPreference.onParentChanged(this, shouldDisableDependents());
+    return true;
+  }
+  
+  protected void onRestoreInstanceState(Parcelable paramParcelable)
+  {
+    if ((paramParcelable != null) && (paramParcelable.getClass().equals(SavedState.class)))
+    {
+      paramParcelable = (SavedState)paramParcelable;
+      mInitialExpandedChildrenCount = mInitialExpandedChildrenCount;
+      super.onRestoreInstanceState(paramParcelable.getSuperState());
+      return;
+    }
+    super.onRestoreInstanceState(paramParcelable);
+  }
+  
+  protected Parcelable onSaveInstanceState()
+  {
+    return new SavedState(super.onSaveInstanceState(), mInitialExpandedChildrenCount);
+  }
+  
+  public void removeAll()
+  {
+    try
+    {
+      List localList = mPreferences;
+      int i = localList.size() - 1;
+      while (i >= 0)
+      {
+        removePreferenceInt((Preference)localList.get(0));
+        i -= 1;
+      }
+      notifyHierarchyChanged();
+      return;
+    }
+    catch (Throwable localThrowable)
+    {
+      throw localThrowable;
+    }
+  }
+  
+  public boolean removePreference(Preference paramPreference)
+  {
+    boolean bool = removePreferenceInt(paramPreference);
+    notifyHierarchyChanged();
+    return bool;
+  }
+  
+  public boolean removePreferenceRecursively(CharSequence paramCharSequence)
+  {
+    paramCharSequence = findPreference(paramCharSequence);
+    if (paramCharSequence == null) {
+      return false;
+    }
+    return paramCharSequence.getParent().removePreference(paramCharSequence);
+  }
+  
+  public void setInitialExpandedChildrenCount(int paramInt)
+  {
+    if ((paramInt != Integer.MAX_VALUE) && (!hasKey()))
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append(getClass().getSimpleName());
+      localStringBuilder.append(" should have a key defined if it contains an expandable preference");
+      Log.e("PreferenceGroup", localStringBuilder.toString());
+    }
+    mInitialExpandedChildrenCount = paramInt;
+  }
+  
+  public void setOnExpandButtonClickListener(OnExpandButtonClickListener paramOnExpandButtonClickListener)
+  {
+    mOnExpandButtonClickListener = paramOnExpandButtonClickListener;
+  }
+  
+  public void setOrderingAsAdded(boolean paramBoolean)
+  {
+    mOrderingAsAdded = paramBoolean;
+  }
+  
+  void sortPreferences()
+  {
+    try
+    {
+      Collections.sort(mPreferences);
+      return;
+    }
+    catch (Throwable localThrowable)
+    {
+      throw localThrowable;
+    }
+  }
+  
+  public static abstract interface OnExpandButtonClickListener
+  {
+    public abstract void onExpandButtonClick();
+  }
+  
+  public static abstract interface PreferencePositionCallback
+  {
+    public abstract int getPreferenceAdapterPosition(Preference paramPreference);
+    
+    public abstract int getPreferenceAdapterPosition(String paramString);
+  }
+  
+  static class SavedState
+    extends Preference.BaseSavedState
+  {
+    public static final Parcelable.Creator<SavedState> CREATOR = new Parcelable.Creator()
+    {
+      public PreferenceGroup.SavedState createFromParcel(Parcel paramAnonymousParcel)
+      {
+        return new PreferenceGroup.SavedState(paramAnonymousParcel);
+      }
+      
+      public PreferenceGroup.SavedState[] newArray(int paramAnonymousInt)
+      {
+        return new PreferenceGroup.SavedState[paramAnonymousInt];
+      }
+    };
+    int mInitialExpandedChildrenCount;
+    
+    SavedState(Parcel paramParcel)
+    {
+      super();
+      mInitialExpandedChildrenCount = paramParcel.readInt();
+    }
+    
+    SavedState(Parcelable paramParcelable, int paramInt)
+    {
+      super();
+      mInitialExpandedChildrenCount = paramInt;
+    }
+    
+    public void writeToParcel(Parcel paramParcel, int paramInt)
+    {
+      super.writeToParcel(paramParcel, paramInt);
+      paramParcel.writeInt(mInitialExpandedChildrenCount);
+    }
+  }
+}

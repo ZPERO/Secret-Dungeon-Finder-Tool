@@ -1,0 +1,43 @@
+package com.google.android.gms.measurement.internal;
+
+import android.os.Bundle;
+
+final class zzdp
+  implements Runnable
+{
+  zzdp(zzdo paramZzdo, boolean paramBoolean, zzdn paramZzdn1, zzdn paramZzdn2) {}
+  
+  public final void run()
+  {
+    if ((zzaru) && (zzarx.zzaro != null))
+    {
+      localObject = zzarx;
+      zzdo.zza((zzdo)localObject, zzaro);
+    }
+    Object localObject = zzarv;
+    int i;
+    if ((localObject != null) && (zzarm == zzarw.zzarm) && (zzfk.zzu(zzarv.zzarl, zzarw.zzarl)) && (zzfk.zzu(zzarv.zzuw, zzarw.zzuw))) {
+      i = 0;
+    } else {
+      i = 1;
+    }
+    if (i != 0)
+    {
+      localObject = new Bundle();
+      zzdo.zza(zzarw, (Bundle)localObject, true);
+      zzdn localZzdn = zzarv;
+      if (localZzdn != null)
+      {
+        if (zzuw != null) {
+          ((Bundle)localObject).putString("_pn", zzarv.zzuw);
+        }
+        ((Bundle)localObject).putString("_pc", zzarv.zzarl);
+        ((Bundle)localObject).putLong("_pi", zzarv.zzarm);
+      }
+      zzarx.zzge().zza("auto", "_vs", (Bundle)localObject);
+    }
+    localObject = zzarx;
+    zzaro = zzarw;
+    ((zze)localObject).zzgg().zzb(zzarw);
+  }
+}

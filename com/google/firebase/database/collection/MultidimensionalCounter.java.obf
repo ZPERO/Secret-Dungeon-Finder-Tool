@@ -1,0 +1,22 @@
+package com.google.firebase.database.collection;
+
+import java.util.Iterator;
+
+final class zzf
+  implements Iterable<zzh>
+{
+  private final int length;
+  private long value;
+  
+  public zzf(int paramInt)
+  {
+    paramInt += 1;
+    length = ((int)Math.floor(Math.log(paramInt) / Math.log(2.0D)));
+    value = (Math.pow(2.0D, length) - 1L & paramInt);
+  }
+  
+  public final Iterator<zzh> iterator()
+  {
+    return new zzg(this);
+  }
+}

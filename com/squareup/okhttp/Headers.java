@@ -1,0 +1,363 @@
+package com.squareup.okhttp;
+
+import com.squareup.okhttp.internal.http.HttpDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeSet;
+
+public final class Headers
+{
+  private final String[] namesAndValues;
+  
+  private Headers(Builder paramBuilder)
+  {
+    namesAndValues = ((String[])namesAndValues.toArray(new String[namesAndValues.size()]));
+  }
+  
+  private Headers(String[] paramArrayOfString)
+  {
+    namesAndValues = paramArrayOfString;
+  }
+  
+  private static String get(String[] paramArrayOfString, String paramString)
+  {
+    int i = paramArrayOfString.length - 2;
+    while (i >= 0)
+    {
+      if (paramString.equalsIgnoreCase(paramArrayOfString[i])) {
+        return paramArrayOfString[(i + 1)];
+      }
+      i -= 2;
+    }
+    return null;
+  }
+  
+  public static Headers of(Map paramMap)
+  {
+    if (paramMap != null)
+    {
+      Object localObject1 = new String[paramMap.size() * 2];
+      Iterator localIterator = paramMap.entrySet().iterator();
+      int i = 0;
+      while (localIterator.hasNext())
+      {
+        Object localObject2 = (Map.Entry)localIterator.next();
+        if ((((Map.Entry)localObject2).getKey() != null) && (((Map.Entry)localObject2).getValue() != null))
+        {
+          paramMap = ((String)((Map.Entry)localObject2).getKey()).trim();
+          localObject2 = ((String)((Map.Entry)localObject2).getValue()).trim();
+          if ((paramMap.length() != 0) && (paramMap.indexOf(0) == -1) && (((String)localObject2).indexOf(0) == -1))
+          {
+            localObject1[i] = paramMap;
+            localObject1[(i + 1)] = localObject2;
+            i += 2;
+          }
+          else
+          {
+            localObject1 = new StringBuilder();
+            ((StringBuilder)localObject1).append("Unexpected header: ");
+            ((StringBuilder)localObject1).append(paramMap);
+            ((StringBuilder)localObject1).append(": ");
+            ((StringBuilder)localObject1).append((String)localObject2);
+            throw new IllegalArgumentException(((StringBuilder)localObject1).toString());
+          }
+        }
+        else
+        {
+          throw new IllegalArgumentException("Headers cannot be null");
+        }
+      }
+      return new Headers((String[])localObject1);
+    }
+    paramMap = new IllegalArgumentException("Expected map with header names and values");
+    throw paramMap;
+  }
+  
+  public static Headers of(String... paramVarArgs)
+  {
+    if ((paramVarArgs != null) && (paramVarArgs.length % 2 == 0))
+    {
+      Object localObject = (String[])paramVarArgs.clone();
+      int i = 0;
+      while (i < localObject.length) {
+        if (localObject[i] != null)
+        {
+          localObject[i] = localObject[i].trim();
+          i += 1;
+        }
+        else
+        {
+          throw new IllegalArgumentException("Headers cannot be null");
+        }
+      }
+      i = 0;
+      while (i < localObject.length)
+      {
+        paramVarArgs = localObject[i];
+        String str = localObject[(i + 1)];
+        if ((paramVarArgs.length() != 0) && (paramVarArgs.indexOf(0) == -1) && (str.indexOf(0) == -1))
+        {
+          i += 2;
+        }
+        else
+        {
+          localObject = new StringBuilder();
+          ((StringBuilder)localObject).append("Unexpected header: ");
+          ((StringBuilder)localObject).append(paramVarArgs);
+          ((StringBuilder)localObject).append(": ");
+          ((StringBuilder)localObject).append(str);
+          throw new IllegalArgumentException(((StringBuilder)localObject).toString());
+        }
+      }
+      return new Headers((String[])localObject);
+    }
+    paramVarArgs = new IllegalArgumentException("Expected alternating header names and values");
+    throw paramVarArgs;
+  }
+  
+  public String get(String paramString)
+  {
+    return get(namesAndValues, paramString);
+  }
+  
+  public Date getDate(String paramString)
+  {
+    paramString = get(paramString);
+    if (paramString != null) {
+      return HttpDate.parse(paramString);
+    }
+    return null;
+  }
+  
+  public String name(int paramInt)
+  {
+    paramInt *= 2;
+    if (paramInt >= 0)
+    {
+      String[] arrayOfString = namesAndValues;
+      if (paramInt < arrayOfString.length) {
+        return arrayOfString[paramInt];
+      }
+    }
+    return null;
+  }
+  
+  public Set names()
+  {
+    TreeSet localTreeSet = new TreeSet(String.CASE_INSENSITIVE_ORDER);
+    int j = size();
+    int i = 0;
+    while (i < j)
+    {
+      localTreeSet.add(name(i));
+      i += 1;
+    }
+    return Collections.unmodifiableSet(localTreeSet);
+  }
+  
+  public Builder newBuilder()
+  {
+    Builder localBuilder = new Builder();
+    Collections.addAll(namesAndValues, namesAndValues);
+    return localBuilder;
+  }
+  
+  public int size()
+  {
+    return namesAndValues.length / 2;
+  }
+  
+  public Map toMultimap()
+  {
+    throw new Runtime("d2j fail translate: java.lang.RuntimeException: fail exe a8 = a7\n\tat com.googlecode.dex2jar.ir.ts.an.BaseAnalyze.exec(BaseAnalyze.java:92)\n\tat com.googlecode.dex2jar.ir.ts.an.BaseAnalyze.exec(BaseAnalyze.java:1)\n\tat com.googlecode.dex2jar.ir.ts.Cfg.dfs(Cfg.java:255)\n\tat com.googlecode.dex2jar.ir.ts.an.BaseAnalyze.analyze0(BaseAnalyze.java:75)\n\tat com.googlecode.dex2jar.ir.ts.an.BaseAnalyze.analyze(BaseAnalyze.java:69)\n\tat com.googlecode.dex2jar.ir.ts.UnSSATransformer.transform(UnSSATransformer.java:274)\n\tat com.googlecode.d2j.dex.Dex2jar$2.optimize(Dex2jar.java:163)\n\tat com.googlecode.d2j.dex.Dex2Asm.convertCode(Dex2Asm.java:414)\n\tat com.googlecode.d2j.dex.ExDex2Asm.convertCode(ExDex2Asm.java:42)\n\tat com.googlecode.d2j.dex.Dex2jar$2.convertCode(Dex2jar.java:128)\n\tat com.googlecode.d2j.dex.Dex2Asm.convertMethod(Dex2Asm.java:509)\n\tat com.googlecode.d2j.dex.Dex2Asm.convertClass(Dex2Asm.java:406)\n\tat com.googlecode.d2j.dex.Dex2Asm.convertDex(Dex2Asm.java:422)\n\tat com.googlecode.d2j.dex.Dex2jar.doTranslate(Dex2jar.java:172)\n\tat com.googlecode.d2j.dex.Dex2jar.to(Dex2jar.java:272)\n\tat com.googlecode.dex2jar.tools.Dex2jarCmd.doCommandLine(Dex2jarCmd.java:108)\n\tat com.googlecode.dex2jar.tools.BaseCmd.doMain(BaseCmd.java:288)\n\tat com.googlecode.dex2jar.tools.Dex2jarCmd.main(Dex2jarCmd.java:32)\nCaused by: java.lang.NullPointerException\n");
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    int j = size();
+    int i = 0;
+    while (i < j)
+    {
+      localStringBuilder.append(name(i));
+      localStringBuilder.append(": ");
+      localStringBuilder.append(value(i));
+      localStringBuilder.append("\n");
+      i += 1;
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public String value(int paramInt)
+  {
+    paramInt = paramInt * 2 + 1;
+    if (paramInt >= 0)
+    {
+      String[] arrayOfString = namesAndValues;
+      if (paramInt < arrayOfString.length) {
+        return arrayOfString[paramInt];
+      }
+    }
+    return null;
+  }
+  
+  public List values(String paramString)
+  {
+    int j = size();
+    Object localObject1 = null;
+    int i = 0;
+    while (i < j)
+    {
+      Object localObject2 = localObject1;
+      if (paramString.equalsIgnoreCase(name(i)))
+      {
+        localObject2 = localObject1;
+        if (localObject1 == null) {
+          localObject2 = new ArrayList(2);
+        }
+        ((List)localObject2).add(value(i));
+      }
+      i += 1;
+      localObject1 = localObject2;
+    }
+    if (localObject1 != null) {
+      return Collections.unmodifiableList(localObject1);
+    }
+    return Collections.emptyList();
+  }
+  
+  public static final class Builder
+  {
+    private final List<String> namesAndValues = new ArrayList(20);
+    
+    public Builder() {}
+    
+    private void checkNameAndValue(String paramString1, String paramString2)
+    {
+      if (paramString1 != null)
+      {
+        if (!paramString1.isEmpty())
+        {
+          int j = paramString1.length();
+          int i = 0;
+          int k;
+          while (i < j)
+          {
+            k = paramString1.charAt(i);
+            if ((k > 31) && (k < 127)) {
+              i += 1;
+            } else {
+              throw new IllegalArgumentException(String.format("Unexpected char %#04x at %d in header name: %s", new Object[] { Integer.valueOf(k), Integer.valueOf(i), paramString1 }));
+            }
+          }
+          if (paramString2 != null)
+          {
+            j = paramString2.length();
+            i = 0;
+            for (;;)
+            {
+              if (i >= j) {
+                return;
+              }
+              k = paramString2.charAt(i);
+              if ((k <= 31) || (k >= 127)) {
+                break;
+              }
+              i += 1;
+            }
+            throw new IllegalArgumentException(String.format("Unexpected char %#04x at %d in header value: %s", new Object[] { Integer.valueOf(k), Integer.valueOf(i), paramString2 }));
+          }
+          throw new IllegalArgumentException("value == null");
+        }
+        throw new IllegalArgumentException("name is empty");
+      }
+      paramString1 = new IllegalArgumentException("name == null");
+      throw paramString1;
+    }
+    
+    public Builder add(String paramString)
+    {
+      int i = paramString.indexOf(":");
+      if (i != -1) {
+        return add(paramString.substring(0, i).trim(), paramString.substring(i + 1));
+      }
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Unexpected header: ");
+      localStringBuilder.append(paramString);
+      throw new IllegalArgumentException(localStringBuilder.toString());
+    }
+    
+    public Builder add(String paramString1, String paramString2)
+    {
+      checkNameAndValue(paramString1, paramString2);
+      return addLenient(paramString1, paramString2);
+    }
+    
+    Builder addLenient(String paramString)
+    {
+      int i = paramString.indexOf(":", 1);
+      if (i != -1) {
+        return addLenient(paramString.substring(0, i), paramString.substring(i + 1));
+      }
+      if (paramString.startsWith(":")) {
+        return addLenient("", paramString.substring(1));
+      }
+      return addLenient("", paramString);
+    }
+    
+    Builder addLenient(String paramString1, String paramString2)
+    {
+      namesAndValues.add(paramString1);
+      namesAndValues.add(paramString2.trim());
+      return this;
+    }
+    
+    public Headers build()
+    {
+      return new Headers(this, null);
+    }
+    
+    public String get(String paramString)
+    {
+      int i = namesAndValues.size() - 2;
+      while (i >= 0)
+      {
+        if (paramString.equalsIgnoreCase((String)namesAndValues.get(i))) {
+          return (String)namesAndValues.get(i + 1);
+        }
+        i -= 2;
+      }
+      return null;
+    }
+    
+    public Builder removeAll(String paramString)
+    {
+      int j;
+      for (int i = 0; i < namesAndValues.size(); i = j + 2)
+      {
+        j = i;
+        if (paramString.equalsIgnoreCase((String)namesAndValues.get(i)))
+        {
+          namesAndValues.remove(i);
+          namesAndValues.remove(i);
+          j = i - 2;
+        }
+      }
+      return this;
+    }
+    
+    public Builder set(String paramString1, String paramString2)
+    {
+      checkNameAndValue(paramString1, paramString2);
+      removeAll(paramString1);
+      addLenient(paramString1, paramString2);
+      return this;
+    }
+  }
+}

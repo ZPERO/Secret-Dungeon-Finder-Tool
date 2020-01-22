@@ -1,0 +1,129 @@
+package com.flaviotps.swsd.view;
+
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.View;
+import androidx.fragment.package_8.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelProviders;
+import androidx.preference.Preference;
+import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceManager;
+import androidx.preference.SwitchPreference;
+import androidx.preference.TwoStatePreference;
+import com.flaviotps.swsd.viewmodel.SettingsViewModel;
+import java.util.HashMap;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+
+@Metadata(bv={1, 0, 3}, d1={"\000&\n\002\030\002\n\002\030\002\n\002\b\002\n\002\030\002\n\000\n\002\020\002\n\000\n\002\030\002\n\000\n\002\020\016\n\002\b\003\030\0002\0020\001B\005?\006\002\020\002J\034\020\005\032\0020\0062\b\020\007\032\004\030\0010\b2\b\020\t\032\004\030\0010\nH\026J\b\020\013\032\0020\006H\002J\b\020\f\032\0020\006H\002R\016\020\003\032\0020\004X?.?\006\002\n\000?\006\r"}, d2={"Lcom/flaviotps/swsd/view/SettingsFragment;", "Landroidx/preference/PreferenceFragmentCompat;", "()V", "viewModel", "Lcom/flaviotps/swsd/viewmodel/SettingsViewModel;", "onCreatePreferences", "", "savedInstanceState", "Landroid/os/Bundle;", "rootKey", "", "setTokenStatus", "setVersion", "app_release"}, k=1, mv={1, 1, 16})
+public final class SettingsFragment
+  extends PreferenceFragmentCompat
+{
+  private HashMap _$_findViewCache;
+  private SettingsViewModel viewModel;
+  
+  public SettingsFragment() {}
+  
+  private final void setTokenStatus()
+  {
+    final SwitchPreference localSwitchPreference1 = (SwitchPreference)findPreference((CharSequence)"dungeon");
+    final SwitchPreference localSwitchPreference2 = (SwitchPreference)findPreference((CharSequence)"request");
+    if (localSwitchPreference1 != null) {
+      localSwitchPreference1.setOnPreferenceChangeListener((Preference.OnPreferenceChangeListener)new Preference.OnPreferenceChangeListener()
+      {
+        public final boolean onPreferenceChange(Preference paramAnonymousPreference, Object paramAnonymousObject)
+        {
+          paramAnonymousPreference = PreferenceManager.getDefaultSharedPreferences(getContext());
+          Object localObject = null;
+          String str1 = paramAnonymousPreference.getString("PREF_TOKEN", null);
+          String str2 = PreferenceManager.getDefaultSharedPreferences(getContext()).getString("PREF_UID_TOKEN", null);
+          paramAnonymousPreference = paramAnonymousObject;
+          if (!(paramAnonymousObject instanceof Boolean)) {
+            paramAnonymousPreference = null;
+          }
+          paramAnonymousObject = (Boolean)paramAnonymousPreference;
+          SettingsViewModel localSettingsViewModel = SettingsFragment.access$getViewModel$p(SettingsFragment.this);
+          SwitchPreference localSwitchPreference = localSwitchPreference2;
+          paramAnonymousPreference = localObject;
+          if (localSwitchPreference != null) {
+            paramAnonymousPreference = Boolean.valueOf(localSwitchPreference.isChecked());
+          }
+          localSettingsViewModel.setTokenStatus(str2, str1, paramAnonymousObject, paramAnonymousPreference);
+          return true;
+        }
+      });
+    }
+    if (localSwitchPreference2 != null) {
+      localSwitchPreference2.setOnPreferenceChangeListener((Preference.OnPreferenceChangeListener)new Preference.OnPreferenceChangeListener()
+      {
+        public final boolean onPreferenceChange(Preference paramAnonymousPreference, Object paramAnonymousObject)
+        {
+          paramAnonymousPreference = PreferenceManager.getDefaultSharedPreferences(getContext());
+          Object localObject = null;
+          String str1 = paramAnonymousPreference.getString("PREF_TOKEN", null);
+          String str2 = PreferenceManager.getDefaultSharedPreferences(getContext()).getString("PREF_UID_TOKEN", null);
+          paramAnonymousPreference = paramAnonymousObject;
+          if (!(paramAnonymousObject instanceof Boolean)) {
+            paramAnonymousPreference = null;
+          }
+          paramAnonymousObject = (Boolean)paramAnonymousPreference;
+          SettingsViewModel localSettingsViewModel = SettingsFragment.access$getViewModel$p(SettingsFragment.this);
+          SwitchPreference localSwitchPreference = localSwitchPreference1;
+          paramAnonymousPreference = localObject;
+          if (localSwitchPreference != null) {
+            paramAnonymousPreference = Boolean.valueOf(localSwitchPreference.isChecked());
+          }
+          localSettingsViewModel.setTokenStatus(str2, str1, paramAnonymousPreference, paramAnonymousObject);
+          return true;
+        }
+      });
+    }
+  }
+  
+  private final void setVersion()
+  {
+    Preference localPreference = findPreference((CharSequence)"version");
+    if (localPreference != null) {
+      localPreference.setSummary((CharSequence)"1.1.5");
+    }
+  }
+  
+  public void _$_clearFindViewByIdCache()
+  {
+    HashMap localHashMap = _$_findViewCache;
+    if (localHashMap != null) {
+      localHashMap.clear();
+    }
+  }
+  
+  public View _$_findCachedViewById(int paramInt)
+  {
+    if (_$_findViewCache == null) {
+      _$_findViewCache = new HashMap();
+    }
+    View localView2 = (View)_$_findViewCache.get(Integer.valueOf(paramInt));
+    View localView1 = localView2;
+    if (localView2 == null)
+    {
+      localView1 = getView();
+      if (localView1 == null) {
+        return null;
+      }
+      localView1 = localView1.findViewById(paramInt);
+      _$_findViewCache.put(Integer.valueOf(paramInt), localView1);
+    }
+    return localView1;
+  }
+  
+  public void onCreatePreferences(Bundle paramBundle, String paramString)
+  {
+    setPreferencesFromResource(2132017153, paramString);
+    paramBundle = ViewModelProviders.confirm((Fragment)this).getName(SettingsViewModel.class);
+    Intrinsics.checkExpressionValueIsNotNull(paramBundle, "ViewModelProviders.of(th?ngsViewModel::class.java]");
+    viewModel = ((SettingsViewModel)paramBundle);
+    setTokenStatus();
+    setVersion();
+  }
+}

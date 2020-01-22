@@ -1,0 +1,242 @@
+package androidx.fragment.package_8;
+
+import android.util.Log;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelProvider.Factory;
+import androidx.lifecycle.ViewModelStore;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+class FragmentManagerViewModel
+  extends ViewModel
+{
+  private static final ViewModelProvider.Factory FACTORY = new ViewModelProvider.Factory()
+  {
+    public ViewModel create(Class paramAnonymousClass)
+    {
+      return new FragmentManagerViewModel(true);
+    }
+  };
+  private final HashMap<String, androidx.fragment.app.FragmentManagerViewModel> mChildNonConfigs = new HashMap();
+  private boolean mHasBeenCleared = false;
+  private boolean mHasSavedSnapshot = false;
+  private final HashSet<androidx.fragment.app.Fragment> mRetainedFragments = new HashSet();
+  private final boolean mStateAutomaticallySaved;
+  private final HashMap<String, ViewModelStore> mViewModelStores = new HashMap();
+  
+  FragmentManagerViewModel(boolean paramBoolean)
+  {
+    mStateAutomaticallySaved = paramBoolean;
+  }
+  
+  static FragmentManagerViewModel getInstance(ViewModelStore paramViewModelStore)
+  {
+    return (FragmentManagerViewModel)new ViewModelProvider(paramViewModelStore, FACTORY).getName(androidx.fragment.app.FragmentManagerViewModel.class);
+  }
+  
+  boolean addRetainedFragment(Fragment paramFragment)
+  {
+    return mRetainedFragments.add(paramFragment);
+  }
+  
+  void clearNonConfigState(Fragment paramFragment)
+  {
+    if (FragmentManagerImpl.DEBUG)
+    {
+      localObject = new StringBuilder();
+      ((StringBuilder)localObject).append("Clearing non-config state for ");
+      ((StringBuilder)localObject).append(paramFragment);
+      Log.d("FragmentManager", ((StringBuilder)localObject).toString());
+    }
+    Object localObject = (FragmentManagerViewModel)mChildNonConfigs.get(mWho);
+    if (localObject != null)
+    {
+      ((FragmentManagerViewModel)localObject).onCleared();
+      mChildNonConfigs.remove(mWho);
+    }
+    localObject = (ViewModelStore)mViewModelStores.get(mWho);
+    if (localObject != null)
+    {
+      ((ViewModelStore)localObject).clear();
+      mViewModelStores.remove(mWho);
+    }
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject != null)
+    {
+      if (getClass() != paramObject.getClass()) {
+        return false;
+      }
+      paramObject = (FragmentManagerViewModel)paramObject;
+      return (mRetainedFragments.equals(mRetainedFragments)) && (mChildNonConfigs.equals(mChildNonConfigs)) && (mViewModelStores.equals(mViewModelStores));
+    }
+    return false;
+  }
+  
+  FragmentManagerViewModel getChildNonConfig(Fragment paramFragment)
+  {
+    FragmentManagerViewModel localFragmentManagerViewModel2 = (FragmentManagerViewModel)mChildNonConfigs.get(mWho);
+    FragmentManagerViewModel localFragmentManagerViewModel1 = localFragmentManagerViewModel2;
+    if (localFragmentManagerViewModel2 == null)
+    {
+      localFragmentManagerViewModel1 = new FragmentManagerViewModel(mStateAutomaticallySaved);
+      mChildNonConfigs.put(mWho, localFragmentManagerViewModel1);
+    }
+    return localFragmentManagerViewModel1;
+  }
+  
+  Collection getRetainedFragments()
+  {
+    return mRetainedFragments;
+  }
+  
+  FragmentManagerNonConfig getSnapshot()
+  {
+    if ((mRetainedFragments.isEmpty()) && (mChildNonConfigs.isEmpty()) && (mViewModelStores.isEmpty())) {
+      return null;
+    }
+    HashMap localHashMap = new HashMap();
+    Iterator localIterator = mChildNonConfigs.entrySet().iterator();
+    while (localIterator.hasNext())
+    {
+      Map.Entry localEntry = (Map.Entry)localIterator.next();
+      FragmentManagerNonConfig localFragmentManagerNonConfig = ((FragmentManagerViewModel)localEntry.getValue()).getSnapshot();
+      if (localFragmentManagerNonConfig != null) {
+        localHashMap.put(localEntry.getKey(), localFragmentManagerNonConfig);
+      }
+    }
+    mHasSavedSnapshot = true;
+    if ((mRetainedFragments.isEmpty()) && (localHashMap.isEmpty()) && (mViewModelStores.isEmpty())) {
+      return null;
+    }
+    return new FragmentManagerNonConfig(new ArrayList(mRetainedFragments), localHashMap, new HashMap(mViewModelStores));
+  }
+  
+  ViewModelStore getViewModelStore(Fragment paramFragment)
+  {
+    ViewModelStore localViewModelStore2 = (ViewModelStore)mViewModelStores.get(mWho);
+    ViewModelStore localViewModelStore1 = localViewModelStore2;
+    if (localViewModelStore2 == null)
+    {
+      localViewModelStore1 = new ViewModelStore();
+      mViewModelStores.put(mWho, localViewModelStore1);
+    }
+    return localViewModelStore1;
+  }
+  
+  public int hashCode()
+  {
+    return (mRetainedFragments.hashCode() * 31 + mChildNonConfigs.hashCode()) * 31 + mViewModelStores.hashCode();
+  }
+  
+  boolean isCleared()
+  {
+    return mHasBeenCleared;
+  }
+  
+  protected void onCleared()
+  {
+    if (FragmentManagerImpl.DEBUG)
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("onCleared called for ");
+      localStringBuilder.append(this);
+      Log.d("FragmentManager", localStringBuilder.toString());
+    }
+    mHasBeenCleared = true;
+  }
+  
+  boolean removeRetainedFragment(Fragment paramFragment)
+  {
+    return mRetainedFragments.remove(paramFragment);
+  }
+  
+  void restoreFromSnapshot(FragmentManagerNonConfig paramFragmentManagerNonConfig)
+  {
+    mRetainedFragments.clear();
+    mChildNonConfigs.clear();
+    mViewModelStores.clear();
+    if (paramFragmentManagerNonConfig != null)
+    {
+      Object localObject = paramFragmentManagerNonConfig.getFragments();
+      if (localObject != null) {
+        mRetainedFragments.addAll((Collection)localObject);
+      }
+      localObject = paramFragmentManagerNonConfig.getChildNonConfigs();
+      if (localObject != null)
+      {
+        localObject = ((Map)localObject).entrySet().iterator();
+        while (((Iterator)localObject).hasNext())
+        {
+          Map.Entry localEntry = (Map.Entry)((Iterator)localObject).next();
+          FragmentManagerViewModel localFragmentManagerViewModel = new FragmentManagerViewModel(mStateAutomaticallySaved);
+          localFragmentManagerViewModel.restoreFromSnapshot((FragmentManagerNonConfig)localEntry.getValue());
+          mChildNonConfigs.put(localEntry.getKey(), localFragmentManagerViewModel);
+        }
+      }
+      paramFragmentManagerNonConfig = paramFragmentManagerNonConfig.getViewModelStores();
+      if (paramFragmentManagerNonConfig != null) {
+        mViewModelStores.putAll(paramFragmentManagerNonConfig);
+      }
+    }
+    mHasSavedSnapshot = false;
+  }
+  
+  boolean shouldDestroy(Fragment paramFragment)
+  {
+    if (!mRetainedFragments.contains(paramFragment)) {
+      return true;
+    }
+    if (mStateAutomaticallySaved) {
+      return mHasBeenCleared;
+    }
+    return mHasSavedSnapshot ^ true;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder("FragmentManagerViewModel{");
+    localStringBuilder.append(Integer.toHexString(System.identityHashCode(this)));
+    localStringBuilder.append("} Fragments (");
+    Iterator localIterator = mRetainedFragments.iterator();
+    while (localIterator.hasNext())
+    {
+      localStringBuilder.append(localIterator.next());
+      if (localIterator.hasNext()) {
+        localStringBuilder.append(", ");
+      }
+    }
+    localStringBuilder.append(") Child Non Config (");
+    localIterator = mChildNonConfigs.keySet().iterator();
+    while (localIterator.hasNext())
+    {
+      localStringBuilder.append((String)localIterator.next());
+      if (localIterator.hasNext()) {
+        localStringBuilder.append(", ");
+      }
+    }
+    localStringBuilder.append(") ViewModelStores (");
+    localIterator = mViewModelStores.keySet().iterator();
+    while (localIterator.hasNext())
+    {
+      localStringBuilder.append((String)localIterator.next());
+      if (localIterator.hasNext()) {
+        localStringBuilder.append(", ");
+      }
+    }
+    localStringBuilder.append(')');
+    return localStringBuilder.toString();
+  }
+}

@@ -1,0 +1,161 @@
+package com.google.firebase.components;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+class ComponentSorter
+{
+  ComponentSorter() {}
+  
+  private static Set<ComponentNode> getRoots(Set<ComponentNode> paramSet)
+  {
+    HashSet localHashSet = new HashSet();
+    paramSet = paramSet.iterator();
+    while (paramSet.hasNext())
+    {
+      ComponentNode localComponentNode = (ComponentNode)paramSet.next();
+      if (localComponentNode.isRoot()) {
+        localHashSet.add(localComponentNode);
+      }
+    }
+    return localHashSet;
+  }
+  
+  static List<Component<?>> sorted(List<Component<?>> paramList)
+  {
+    Object localObject1 = toGraph(paramList);
+    Object localObject2 = getRoots((Set)localObject1);
+    ArrayList localArrayList = new ArrayList();
+    while (!((Set)localObject2).isEmpty())
+    {
+      ComponentNode localComponentNode1 = (ComponentNode)((Set)localObject2).iterator().next();
+      ((Set)localObject2).remove(localComponentNode1);
+      localArrayList.add(localComponentNode1.getComponent());
+      Iterator localIterator = localComponentNode1.getDependencies().iterator();
+      while (localIterator.hasNext())
+      {
+        ComponentNode localComponentNode2 = (ComponentNode)localIterator.next();
+        localComponentNode2.removeDependent(localComponentNode1);
+        if (localComponentNode2.isRoot()) {
+          ((Set)localObject2).add(localComponentNode2);
+        }
+      }
+    }
+    if (localArrayList.size() == paramList.size())
+    {
+      Collections.reverse(localArrayList);
+      return localArrayList;
+    }
+    paramList = new ArrayList();
+    localObject1 = ((Set)localObject1).iterator();
+    while (((Iterator)localObject1).hasNext())
+    {
+      localObject2 = (ComponentNode)((Iterator)localObject1).next();
+      if ((!((ComponentNode)localObject2).isRoot()) && (!((ComponentNode)localObject2).isLeaf())) {
+        paramList.add(((ComponentNode)localObject2).getComponent());
+      }
+    }
+    paramList = new DependencyCycleException(paramList);
+    for (;;)
+    {
+      throw paramList;
+    }
+  }
+  
+  private static Set<ComponentNode> toGraph(List<Component<?>> paramList)
+  {
+    HashMap localHashMap = new HashMap(paramList.size());
+    Object localObject1;
+    ComponentNode localComponentNode;
+    Object localObject2;
+    do
+    {
+      paramList = paramList.iterator();
+      while (!((Iterator)localObject1).hasNext())
+      {
+        if (!paramList.hasNext()) {
+          break;
+        }
+        localObject1 = (Component)paramList.next();
+        localComponentNode = new ComponentNode((Component)localObject1);
+        localObject1 = ((Component)localObject1).getProvidedInterfaces().iterator();
+      }
+      localObject2 = (Class)((Iterator)localObject1).next();
+    } while (localHashMap.put(localObject2, localComponentNode) == null);
+    throw new IllegalArgumentException(String.format("Multiple components provide %s.", new Object[] { localObject2 }));
+    paramList = localHashMap.values().iterator();
+    while (paramList.hasNext())
+    {
+      localComponentNode = (ComponentNode)paramList.next();
+      localObject1 = localComponentNode.getComponent().getDependencies().iterator();
+      while (((Iterator)localObject1).hasNext())
+      {
+        localObject2 = (Dependency)((Iterator)localObject1).next();
+        if (((Dependency)localObject2).isDirectInjection())
+        {
+          localObject2 = (ComponentNode)localHashMap.get(((Dependency)localObject2).getInterface());
+          if (localObject2 != null)
+          {
+            localComponentNode.addDependency((ComponentNode)localObject2);
+            ((ComponentNode)localObject2).addDependent(localComponentNode);
+          }
+        }
+      }
+    }
+    return new HashSet(localHashMap.values());
+  }
+  
+  private static class ComponentNode
+  {
+    private final Component<?> component;
+    private final Set<ComponentNode> dependencies = new HashSet();
+    private final Set<ComponentNode> dependents = new HashSet();
+    
+    ComponentNode(Component<?> paramComponent)
+    {
+      component = paramComponent;
+    }
+    
+    void addDependency(ComponentNode paramComponentNode)
+    {
+      dependencies.add(paramComponentNode);
+    }
+    
+    void addDependent(ComponentNode paramComponentNode)
+    {
+      dependents.add(paramComponentNode);
+    }
+    
+    Component<?> getComponent()
+    {
+      return component;
+    }
+    
+    Set<ComponentNode> getDependencies()
+    {
+      return dependencies;
+    }
+    
+    boolean isLeaf()
+    {
+      return dependencies.isEmpty();
+    }
+    
+    boolean isRoot()
+    {
+      return dependents.isEmpty();
+    }
+    
+    void removeDependent(ComponentNode paramComponentNode)
+    {
+      dependents.remove(paramComponentNode);
+    }
+  }
+}

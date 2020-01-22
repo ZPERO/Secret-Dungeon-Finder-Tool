@@ -1,0 +1,581 @@
+package com.squareup.okhttp;
+
+import com.squareup.okhttp.internal.NamedRunnable;
+import com.squareup.okhttp.internal.http.HttpEngine;
+import java.io.IOException;
+import java.util.List;
+
+public class Call
+{
+  volatile boolean canceled;
+  private final OkHttpClient client;
+  HttpEngine engine;
+  private boolean executed;
+  Request originalRequest;
+  
+  protected Call(OkHttpClient paramOkHttpClient, Request paramRequest)
+  {
+    client = paramOkHttpClient.copyWithDefaults();
+    originalRequest = paramRequest;
+  }
+  
+  private Response getResponseWithInterceptorChain(boolean paramBoolean)
+    throws IOException
+  {
+    return new ApplicationInterceptorChain(0, originalRequest, paramBoolean).proceed(originalRequest);
+  }
+  
+  private String toLoggableString()
+  {
+    String str;
+    if (canceled) {
+      str = "canceled call";
+    } else {
+      str = "call";
+    }
+    HttpUrl localHttpUrl = originalRequest.httpUrl().resolve("/...");
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(str);
+    localStringBuilder.append(" to ");
+    localStringBuilder.append(localHttpUrl);
+    return localStringBuilder.toString();
+  }
+  
+  public void cancel()
+  {
+    canceled = true;
+    HttpEngine localHttpEngine = engine;
+    if (localHttpEngine != null) {
+      localHttpEngine.cancel();
+    }
+  }
+  
+  public void enqueue(Callback paramCallback)
+  {
+    enqueue(paramCallback, false);
+  }
+  
+  void enqueue(Callback paramCallback, boolean paramBoolean)
+  {
+    try
+    {
+      if (!executed)
+      {
+        executed = true;
+        client.getDispatcher().enqueue(new AsyncCall(paramCallback, paramBoolean, null));
+        return;
+      }
+      throw new IllegalStateException("Already Executed");
+    }
+    finally {}
+  }
+  
+  public Response execute()
+    throws IOException
+  {
+    try
+    {
+      if (!executed)
+      {
+        executed = true;
+        try
+        {
+          client.getDispatcher().executed(this);
+          Response localResponse = getResponseWithInterceptorChain(false);
+          if (localResponse != null) {
+            return localResponse;
+          }
+          throw new IOException("Canceled");
+        }
+        finally
+        {
+          client.getDispatcher().finished(this);
+        }
+      }
+      throw new IllegalStateException("Already Executed");
+    }
+    finally {}
+  }
+  
+  /* Error */
+  Response getResponse(Request paramRequest, boolean paramBoolean)
+    throws IOException
+  {
+    // Byte code:
+    //   0: aload_1
+    //   1: invokevirtual 152	com/squareup/okhttp/Request:body	()Lcom/squareup/okhttp/RequestBody;
+    //   4: astore 8
+    //   6: aload_1
+    //   7: astore 7
+    //   9: aload 8
+    //   11: ifnull +92 -> 103
+    //   14: aload_1
+    //   15: invokevirtual 156	com/squareup/okhttp/Request:newBuilder	()Lcom/squareup/okhttp/Request$Builder;
+    //   18: astore_1
+    //   19: aload 8
+    //   21: invokevirtual 162	com/squareup/okhttp/RequestBody:contentType	()Lcom/squareup/okhttp/MediaType;
+    //   24: astore 7
+    //   26: aload 7
+    //   28: ifnull +15 -> 43
+    //   31: aload_1
+    //   32: ldc -92
+    //   34: aload 7
+    //   36: invokevirtual 167	com/squareup/okhttp/MediaType:toString	()Ljava/lang/String;
+    //   39: invokevirtual 173	com/squareup/okhttp/Request$Builder:header	(Ljava/lang/String;Ljava/lang/String;)Lcom/squareup/okhttp/Request$Builder;
+    //   42: pop
+    //   43: aload 8
+    //   45: invokevirtual 177	com/squareup/okhttp/RequestBody:contentLength	()J
+    //   48: lstore 5
+    //   50: lload 5
+    //   52: ldc2_w 178
+    //   55: lcmp
+    //   56: ifeq +25 -> 81
+    //   59: aload_1
+    //   60: ldc -75
+    //   62: lload 5
+    //   64: invokestatic 186	java/lang/Long:toString	(J)Ljava/lang/String;
+    //   67: invokevirtual 173	com/squareup/okhttp/Request$Builder:header	(Ljava/lang/String;Ljava/lang/String;)Lcom/squareup/okhttp/Request$Builder;
+    //   70: pop
+    //   71: aload_1
+    //   72: ldc -68
+    //   74: invokevirtual 192	com/squareup/okhttp/Request$Builder:removeHeader	(Ljava/lang/String;)Lcom/squareup/okhttp/Request$Builder;
+    //   77: pop
+    //   78: goto +19 -> 97
+    //   81: aload_1
+    //   82: ldc -68
+    //   84: ldc -62
+    //   86: invokevirtual 173	com/squareup/okhttp/Request$Builder:header	(Ljava/lang/String;Ljava/lang/String;)Lcom/squareup/okhttp/Request$Builder;
+    //   89: pop
+    //   90: aload_1
+    //   91: ldc -75
+    //   93: invokevirtual 192	com/squareup/okhttp/Request$Builder:removeHeader	(Ljava/lang/String;)Lcom/squareup/okhttp/Request$Builder;
+    //   96: pop
+    //   97: aload_1
+    //   98: invokevirtual 198	com/squareup/okhttp/Request$Builder:build	()Lcom/squareup/okhttp/Request;
+    //   101: astore 7
+    //   103: aload_0
+    //   104: new 103	com/squareup/okhttp/internal/http/HttpEngine
+    //   107: dup
+    //   108: aload_0
+    //   109: getfield 34	com/squareup/okhttp/Call:client	Lcom/squareup/okhttp/OkHttpClient;
+    //   112: aload 7
+    //   114: iconst_0
+    //   115: iconst_0
+    //   116: iload_2
+    //   117: aconst_null
+    //   118: aconst_null
+    //   119: aconst_null
+    //   120: invokespecial 201	com/squareup/okhttp/internal/http/HttpEngine:<init>	(Lcom/squareup/okhttp/OkHttpClient;Lcom/squareup/okhttp/Request;ZZZLcom/squareup/okhttp/internal/http/StreamAllocation;Lcom/squareup/okhttp/internal/http/RetryableSink;Lcom/squareup/okhttp/Response;)V
+    //   123: putfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   126: iconst_0
+    //   127: istore_3
+    //   128: aload_0
+    //   129: getfield 65	com/squareup/okhttp/Call:canceled	Z
+    //   132: ifne +256 -> 388
+    //   135: iconst_1
+    //   136: istore 4
+    //   138: aload_0
+    //   139: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   142: invokevirtual 204	com/squareup/okhttp/internal/http/HttpEngine:sendRequest	()V
+    //   145: aload_0
+    //   146: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   149: invokevirtual 207	com/squareup/okhttp/internal/http/HttpEngine:readResponse	()V
+    //   152: aload_0
+    //   153: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   156: invokevirtual 209	com/squareup/okhttp/internal/http/HttpEngine:getResponse	()Lcom/squareup/okhttp/Response;
+    //   159: astore 7
+    //   161: aload_0
+    //   162: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   165: invokevirtual 212	com/squareup/okhttp/internal/http/HttpEngine:followUpRequest	()Lcom/squareup/okhttp/Request;
+    //   168: astore 8
+    //   170: aload 8
+    //   172: ifnonnull +17 -> 189
+    //   175: iload_2
+    //   176: ifne +10 -> 186
+    //   179: aload_0
+    //   180: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   183: invokevirtual 215	com/squareup/okhttp/internal/http/HttpEngine:releaseStreamAllocation	()V
+    //   186: aload 7
+    //   188: areturn
+    //   189: aload_0
+    //   190: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   193: invokevirtual 219	com/squareup/okhttp/internal/http/HttpEngine:close	()Lcom/squareup/okhttp/internal/http/StreamAllocation;
+    //   196: astore_1
+    //   197: iload_3
+    //   198: iconst_1
+    //   199: iadd
+    //   200: istore_3
+    //   201: iload_3
+    //   202: bipush 20
+    //   204: if_icmpgt +54 -> 258
+    //   207: aload_0
+    //   208: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   211: aload 8
+    //   213: invokevirtual 75	com/squareup/okhttp/Request:httpUrl	()Lcom/squareup/okhttp/HttpUrl;
+    //   216: invokevirtual 223	com/squareup/okhttp/internal/http/HttpEngine:sameConnection	(Lcom/squareup/okhttp/HttpUrl;)Z
+    //   219: ifne +12 -> 231
+    //   222: aload_1
+    //   223: invokevirtual 228	com/squareup/okhttp/internal/http/StreamAllocation:release	()V
+    //   226: aconst_null
+    //   227: astore_1
+    //   228: goto +3 -> 231
+    //   231: aload_0
+    //   232: new 103	com/squareup/okhttp/internal/http/HttpEngine
+    //   235: dup
+    //   236: aload_0
+    //   237: getfield 34	com/squareup/okhttp/Call:client	Lcom/squareup/okhttp/OkHttpClient;
+    //   240: aload 8
+    //   242: iconst_0
+    //   243: iconst_0
+    //   244: iload_2
+    //   245: aload_1
+    //   246: aconst_null
+    //   247: aload 7
+    //   249: invokespecial 201	com/squareup/okhttp/internal/http/HttpEngine:<init>	(Lcom/squareup/okhttp/OkHttpClient;Lcom/squareup/okhttp/Request;ZZZLcom/squareup/okhttp/internal/http/StreamAllocation;Lcom/squareup/okhttp/internal/http/RetryableSink;Lcom/squareup/okhttp/Response;)V
+    //   252: putfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   255: goto -127 -> 128
+    //   258: aload_1
+    //   259: invokevirtual 228	com/squareup/okhttp/internal/http/StreamAllocation:release	()V
+    //   262: new 85	java/lang/StringBuilder
+    //   265: dup
+    //   266: invokespecial 86	java/lang/StringBuilder:<init>	()V
+    //   269: astore_1
+    //   270: aload_1
+    //   271: ldc -26
+    //   273: invokevirtual 90	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   276: pop
+    //   277: aload_1
+    //   278: iload_3
+    //   279: invokevirtual 233	java/lang/StringBuilder:append	(I)Ljava/lang/StringBuilder;
+    //   282: pop
+    //   283: new 235	java/net/ProtocolException
+    //   286: dup
+    //   287: aload_1
+    //   288: invokevirtual 98	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   291: invokespecial 236	java/net/ProtocolException:<init>	(Ljava/lang/String;)V
+    //   294: athrow
+    //   295: astore_1
+    //   296: iload 4
+    //   298: istore_3
+    //   299: goto +73 -> 372
+    //   302: astore_1
+    //   303: aload_0
+    //   304: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   307: aload_1
+    //   308: aconst_null
+    //   309: invokevirtual 240	com/squareup/okhttp/internal/http/HttpEngine:recover	(Ljava/io/IOException;Lokio/Sink;)Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   312: astore 7
+    //   314: aload 7
+    //   316: ifnull +12 -> 328
+    //   319: aload_0
+    //   320: aload 7
+    //   322: putfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   325: goto -197 -> 128
+    //   328: aload_1
+    //   329: athrow
+    //   330: astore_1
+    //   331: aload_0
+    //   332: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   335: aload_1
+    //   336: invokevirtual 243	com/squareup/okhttp/internal/http/HttpEngine:recover	(Lcom/squareup/okhttp/internal/http/RouteException;)Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   339: astore 7
+    //   341: aload 7
+    //   343: ifnull +18 -> 361
+    //   346: aload_0
+    //   347: aload 7
+    //   349: putfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   352: goto -224 -> 128
+    //   355: astore_1
+    //   356: iconst_0
+    //   357: istore_3
+    //   358: goto +14 -> 372
+    //   361: aload_1
+    //   362: invokevirtual 247	com/squareup/okhttp/internal/http/RouteException:getLastConnectException	()Ljava/io/IOException;
+    //   365: athrow
+    //   366: astore_1
+    //   367: aload_1
+    //   368: invokevirtual 250	com/squareup/okhttp/internal/http/RequestException:getCause	()Ljava/io/IOException;
+    //   371: athrow
+    //   372: iload_3
+    //   373: ifeq +13 -> 386
+    //   376: aload_0
+    //   377: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   380: invokevirtual 219	com/squareup/okhttp/internal/http/HttpEngine:close	()Lcom/squareup/okhttp/internal/http/StreamAllocation;
+    //   383: invokevirtual 228	com/squareup/okhttp/internal/http/StreamAllocation:release	()V
+    //   386: aload_1
+    //   387: athrow
+    //   388: aload_0
+    //   389: getfield 101	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+    //   392: invokevirtual 215	com/squareup/okhttp/internal/http/HttpEngine:releaseStreamAllocation	()V
+    //   395: new 41	java/io/IOException
+    //   398: dup
+    //   399: ldc -115
+    //   401: invokespecial 142	java/io/IOException:<init>	(Ljava/lang/String;)V
+    //   404: astore_1
+    //   405: goto +5 -> 410
+    //   408: aload_1
+    //   409: athrow
+    //   410: goto -2 -> 408
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	413	0	this	Call
+    //   0	413	1	paramRequest	Request
+    //   0	413	2	paramBoolean	boolean
+    //   127	246	3	i	int
+    //   136	161	4	j	int
+    //   48	15	5	l	long
+    //   7	341	7	localObject1	Object
+    //   4	237	8	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   138	152	295	finally
+    //   303	314	295	finally
+    //   328	330	295	finally
+    //   331	341	295	finally
+    //   361	366	295	finally
+    //   367	372	295	finally
+    //   138	152	302	java/io/IOException
+    //   138	152	330	com/squareup/okhttp/internal/http/RouteException
+    //   319	325	355	finally
+    //   346	352	355	finally
+    //   138	152	366	com/squareup/okhttp/internal/http/RequestException
+  }
+  
+  public boolean isCanceled()
+  {
+    return canceled;
+  }
+  
+  public boolean isExecuted()
+  {
+    try
+    {
+      boolean bool = executed;
+      return bool;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  Object tag()
+  {
+    return originalRequest.tag();
+  }
+  
+  class ApplicationInterceptorChain
+    implements Interceptor.Chain
+  {
+    private final boolean forWebSocket;
+    private final int index;
+    private final Request request;
+    
+    ApplicationInterceptorChain(int paramInt, Request paramRequest, boolean paramBoolean)
+    {
+      index = paramInt;
+      request = paramRequest;
+      forWebSocket = paramBoolean;
+    }
+    
+    public Connection connection()
+    {
+      return null;
+    }
+    
+    public Response proceed(Request paramRequest)
+      throws IOException
+    {
+      if (index < client.interceptors().size())
+      {
+        Object localObject = new ApplicationInterceptorChain(Call.this, index + 1, paramRequest, forWebSocket);
+        paramRequest = (Interceptor)client.interceptors().get(index);
+        localObject = paramRequest.intercept((Interceptor.Chain)localObject);
+        if (localObject != null) {
+          return localObject;
+        }
+        localObject = new StringBuilder();
+        ((StringBuilder)localObject).append("application interceptor ");
+        ((StringBuilder)localObject).append(paramRequest);
+        ((StringBuilder)localObject).append(" returned null");
+        throw new NullPointerException(((StringBuilder)localObject).toString());
+      }
+      return getResponse(paramRequest, forWebSocket);
+    }
+    
+    public Request request()
+    {
+      return request;
+    }
+  }
+  
+  final class AsyncCall
+    extends NamedRunnable
+  {
+    private final boolean forWebSocket;
+    private final Callback responseCallback;
+    
+    private AsyncCall(Callback paramCallback, boolean paramBoolean)
+    {
+      super(new Object[] { originalRequest.urlString() });
+      responseCallback = paramCallback;
+      forWebSocket = paramBoolean;
+    }
+    
+    void cancel()
+    {
+      Call.this.cancel();
+    }
+    
+    /* Error */
+    protected void execute()
+    {
+      // Byte code:
+      //   0: iconst_1
+      //   1: istore_1
+      //   2: aload_0
+      //   3: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   6: aload_0
+      //   7: getfield 38	com/squareup/okhttp/Call$AsyncCall:forWebSocket	Z
+      //   10: invokestatic 53	com/squareup/okhttp/Call:access$100	(Lcom/squareup/okhttp/Call;Z)Lcom/squareup/okhttp/Response;
+      //   13: astore_3
+      //   14: aload_0
+      //   15: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   18: getfield 56	com/squareup/okhttp/Call:canceled	Z
+      //   21: istore_2
+      //   22: iload_2
+      //   23: ifeq +31 -> 54
+      //   26: aload_0
+      //   27: getfield 36	com/squareup/okhttp/Call$AsyncCall:responseCallback	Lcom/squareup/okhttp/Callback;
+      //   30: aload_0
+      //   31: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   34: getfield 25	com/squareup/okhttp/Call:originalRequest	Lcom/squareup/okhttp/Request;
+      //   37: new 49	java/io/IOException
+      //   40: dup
+      //   41: ldc 58
+      //   43: invokespecial 61	java/io/IOException:<init>	(Ljava/lang/String;)V
+      //   46: invokeinterface 67 3 0
+      //   51: goto +13 -> 64
+      //   54: aload_0
+      //   55: getfield 36	com/squareup/okhttp/Call$AsyncCall:responseCallback	Lcom/squareup/okhttp/Callback;
+      //   58: aload_3
+      //   59: invokeinterface 71 2 0
+      //   64: aload_0
+      //   65: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   68: invokestatic 75	com/squareup/okhttp/Call:access$300	(Lcom/squareup/okhttp/Call;)Lcom/squareup/okhttp/OkHttpClient;
+      //   71: invokevirtual 81	com/squareup/okhttp/OkHttpClient:getDispatcher	()Lcom/squareup/okhttp/Dispatcher;
+      //   74: aload_0
+      //   75: invokevirtual 87	com/squareup/okhttp/Dispatcher:finished	(Lcom/squareup/okhttp/Call$AsyncCall;)V
+      //   78: return
+      //   79: astore_3
+      //   80: goto +10 -> 90
+      //   83: astore_3
+      //   84: goto +115 -> 199
+      //   87: astore_3
+      //   88: iconst_0
+      //   89: istore_1
+      //   90: iload_1
+      //   91: ifeq +59 -> 150
+      //   94: getstatic 93	com/squareup/okhttp/internal/Internal:logger	Ljava/util/logging/Logger;
+      //   97: astore 4
+      //   99: getstatic 99	java/util/logging/Level:INFO	Ljava/util/logging/Level;
+      //   102: astore 5
+      //   104: new 101	java/lang/StringBuilder
+      //   107: dup
+      //   108: invokespecial 103	java/lang/StringBuilder:<init>	()V
+      //   111: astore 6
+      //   113: aload 6
+      //   115: ldc 105
+      //   117: invokevirtual 109	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      //   120: pop
+      //   121: aload 6
+      //   123: aload_0
+      //   124: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   127: invokestatic 113	com/squareup/okhttp/Call:access$200	(Lcom/squareup/okhttp/Call;)Ljava/lang/String;
+      //   130: invokevirtual 109	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+      //   133: pop
+      //   134: aload 4
+      //   136: aload 5
+      //   138: aload 6
+      //   140: invokevirtual 116	java/lang/StringBuilder:toString	()Ljava/lang/String;
+      //   143: aload_3
+      //   144: invokevirtual 122	java/util/logging/Logger:log	(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/Throwable;)V
+      //   147: goto -83 -> 64
+      //   150: aload_0
+      //   151: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   154: getfield 126	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+      //   157: ifnonnull +15 -> 172
+      //   160: aload_0
+      //   161: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   164: getfield 25	com/squareup/okhttp/Call:originalRequest	Lcom/squareup/okhttp/Request;
+      //   167: astore 4
+      //   169: goto +15 -> 184
+      //   172: aload_0
+      //   173: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   176: getfield 126	com/squareup/okhttp/Call:engine	Lcom/squareup/okhttp/internal/http/HttpEngine;
+      //   179: invokevirtual 132	com/squareup/okhttp/internal/http/HttpEngine:getRequest	()Lcom/squareup/okhttp/Request;
+      //   182: astore 4
+      //   184: aload_0
+      //   185: getfield 36	com/squareup/okhttp/Call$AsyncCall:responseCallback	Lcom/squareup/okhttp/Callback;
+      //   188: aload 4
+      //   190: aload_3
+      //   191: invokeinterface 67 3 0
+      //   196: goto -132 -> 64
+      //   199: aload_0
+      //   200: getfield 17	com/squareup/okhttp/Call$AsyncCall:this$0	Lcom/squareup/okhttp/Call;
+      //   203: invokestatic 75	com/squareup/okhttp/Call:access$300	(Lcom/squareup/okhttp/Call;)Lcom/squareup/okhttp/OkHttpClient;
+      //   206: invokevirtual 81	com/squareup/okhttp/OkHttpClient:getDispatcher	()Lcom/squareup/okhttp/Dispatcher;
+      //   209: aload_0
+      //   210: invokevirtual 87	com/squareup/okhttp/Dispatcher:finished	(Lcom/squareup/okhttp/Call$AsyncCall;)V
+      //   213: goto +5 -> 218
+      //   216: aload_3
+      //   217: athrow
+      //   218: goto -2 -> 216
+      // Local variable table:
+      //   start	length	slot	name	signature
+      //   0	221	0	this	AsyncCall
+      //   1	90	1	i	int
+      //   21	2	2	bool	boolean
+      //   13	46	3	localResponse	Response
+      //   79	1	3	localIOException1	IOException
+      //   83	1	3	localObject1	Object
+      //   87	130	3	localIOException2	IOException
+      //   97	92	4	localObject2	Object
+      //   102	35	5	localLevel	java.util.logging.Level
+      //   111	28	6	localStringBuilder	StringBuilder
+      // Exception table:
+      //   from	to	target	type
+      //   26	51	79	java/io/IOException
+      //   54	64	79	java/io/IOException
+      //   2	22	83	finally
+      //   26	51	83	finally
+      //   54	64	83	finally
+      //   94	147	83	finally
+      //   150	169	83	finally
+      //   172	184	83	finally
+      //   184	196	83	finally
+      //   2	22	87	java/io/IOException
+    }
+    
+    Call get()
+    {
+      return Call.this;
+    }
+    
+    String host()
+    {
+      return originalRequest.httpUrl().host();
+    }
+    
+    Request request()
+    {
+      return originalRequest;
+    }
+    
+    Object tag()
+    {
+      return originalRequest.tag();
+    }
+  }
+}

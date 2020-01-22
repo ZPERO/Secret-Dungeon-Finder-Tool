@@ -1,0 +1,253 @@
+package com.google.firebase.database;
+
+import android.text.TextUtils;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.database.core.DatabaseConfig;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.Repo;
+import com.google.firebase.database.core.RepoInfo;
+import com.google.firebase.database.core.RepoManager;
+import com.google.firebase.database.core.utilities.ParsedUrl;
+import com.google.firebase.database.core.utilities.Utilities;
+import com.google.firebase.database.core.utilities.Validation;
+import java.util.HashMap;
+import java.util.Map;
+
+public class FirebaseDatabase
+{
+  private static final String SDK_VERSION = "3.0.0";
+  private static final Map<String, Map<RepoInfo, FirebaseDatabase>> databaseInstances = new HashMap();
+  private final FirebaseApp app;
+  private final DatabaseConfig config;
+  private Repo repo;
+  private final RepoInfo repoInfo;
+  
+  private FirebaseDatabase(FirebaseApp paramFirebaseApp, RepoInfo paramRepoInfo, DatabaseConfig paramDatabaseConfig)
+  {
+    app = paramFirebaseApp;
+    repoInfo = paramRepoInfo;
+    config = paramDatabaseConfig;
+  }
+  
+  private void assertUnfrozen(String paramString)
+  {
+    if (repo == null) {
+      return;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Calls to ");
+    localStringBuilder.append(paramString);
+    localStringBuilder.append("() must be made before any other usage of FirebaseDatabase instance.");
+    throw new DatabaseException(localStringBuilder.toString());
+  }
+  
+  static FirebaseDatabase createForTests(FirebaseApp paramFirebaseApp, RepoInfo paramRepoInfo, DatabaseConfig paramDatabaseConfig)
+  {
+    paramFirebaseApp = new FirebaseDatabase(paramFirebaseApp, paramRepoInfo, paramDatabaseConfig);
+    paramFirebaseApp.ensureRepo();
+    return paramFirebaseApp;
+  }
+  
+  private void ensureRepo()
+  {
+    try
+    {
+      if (repo == null) {
+        repo = RepoManager.createRepo(config, repoInfo, this);
+      }
+      return;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public static FirebaseDatabase getInstance()
+  {
+    FirebaseApp localFirebaseApp = FirebaseApp.getInstance();
+    if (localFirebaseApp != null) {
+      return getInstance(localFirebaseApp, localFirebaseApp.getOptions().getDatabaseUrl());
+    }
+    throw new DatabaseException("You must call FirebaseApp.initialize() first.");
+  }
+  
+  public static FirebaseDatabase getInstance(FirebaseApp paramFirebaseApp)
+  {
+    return getInstance(paramFirebaseApp, paramFirebaseApp.getOptions().getDatabaseUrl());
+  }
+  
+  public static FirebaseDatabase getInstance(FirebaseApp paramFirebaseApp, String paramString)
+  {
+    try
+    {
+      if (!TextUtils.isEmpty(paramString))
+      {
+        Object localObject2 = (Map)databaseInstances.get(paramFirebaseApp.getName());
+        Object localObject1 = localObject2;
+        if (localObject2 == null)
+        {
+          localObject1 = new HashMap();
+          databaseInstances.put(paramFirebaseApp.getName(), localObject1);
+        }
+        ParsedUrl localParsedUrl = Utilities.parseUrl(paramString);
+        if (path.isEmpty())
+        {
+          localObject2 = (FirebaseDatabase)((Map)localObject1).get(repoInfo);
+          paramString = (String)localObject2;
+          if (localObject2 == null)
+          {
+            paramString = new DatabaseConfig();
+            if (!paramFirebaseApp.isDefaultApp()) {
+              paramString.setSessionPersistenceKey(paramFirebaseApp.getName());
+            }
+            paramString.setFirebaseApp(paramFirebaseApp);
+            paramString = new FirebaseDatabase(paramFirebaseApp, repoInfo, paramString);
+            ((Map)localObject1).put(repoInfo, paramString);
+          }
+          return paramString;
+        }
+        paramFirebaseApp = new StringBuilder();
+        paramFirebaseApp.append("Specified Database URL '");
+        paramFirebaseApp.append(paramString);
+        paramFirebaseApp.append("' is invalid. It should point to the root of a Firebase Database but it includes a path: ");
+        paramFirebaseApp.append(path.toString());
+        throw new DatabaseException(paramFirebaseApp.toString());
+      }
+      throw new DatabaseException("Failed to get FirebaseDatabase instance: Specify DatabaseURL within FirebaseApp or from your getInstance() call.");
+    }
+    finally {}
+  }
+  
+  public static FirebaseDatabase getInstance(String paramString)
+  {
+    FirebaseApp localFirebaseApp = FirebaseApp.getInstance();
+    if (localFirebaseApp != null) {
+      return getInstance(localFirebaseApp, paramString);
+    }
+    throw new DatabaseException("You must call FirebaseApp.initialize() first.");
+  }
+  
+  public static String getSdkVersion()
+  {
+    return "3.0.0";
+  }
+  
+  public FirebaseApp getApp()
+  {
+    return app;
+  }
+  
+  DatabaseConfig getConfig()
+  {
+    return config;
+  }
+  
+  public DatabaseReference getReference()
+  {
+    ensureRepo();
+    return new DatabaseReference(repo, Path.getEmptyPath());
+  }
+  
+  public DatabaseReference getReference(String paramString)
+  {
+    ensureRepo();
+    if (paramString != null)
+    {
+      Validation.validateRootPathString(paramString);
+      paramString = new Path(paramString);
+      return new DatabaseReference(repo, paramString);
+    }
+    throw new NullPointerException("Can't pass null for argument 'pathString' in FirebaseDatabase.getReference()");
+  }
+  
+  public DatabaseReference getReferenceFromUrl(String paramString)
+  {
+    ensureRepo();
+    if (paramString != null)
+    {
+      Object localObject = Utilities.parseUrl(paramString);
+      if (repoInfo.host.equals(repo.getRepoInfo().host)) {
+        return new DatabaseReference(repo, path);
+      }
+      localObject = new StringBuilder();
+      ((StringBuilder)localObject).append("Invalid URL (");
+      ((StringBuilder)localObject).append(paramString);
+      ((StringBuilder)localObject).append(") passed to getReference().  URL was expected to match configured Database URL: ");
+      ((StringBuilder)localObject).append(getReference().toString());
+      throw new DatabaseException(((StringBuilder)localObject).toString());
+    }
+    throw new NullPointerException("Can't pass null for argument 'url' in FirebaseDatabase.getReferenceFromUrl()");
+  }
+  
+  public void goOffline()
+  {
+    ensureRepo();
+    RepoManager.interrupt(repo);
+  }
+  
+  public void goOnline()
+  {
+    ensureRepo();
+    RepoManager.resume(repo);
+  }
+  
+  public void purgeOutstandingWrites()
+  {
+    ensureRepo();
+    repo.scheduleNow(new Runnable()
+    {
+      public void run()
+      {
+        repo.purgeOutstandingWrites();
+      }
+    });
+  }
+  
+  public void setLogLevel(Logger.Level paramLevel)
+  {
+    try
+    {
+      assertUnfrozen("setLogLevel");
+      config.setLogLevel(paramLevel);
+      return;
+    }
+    finally
+    {
+      paramLevel = finally;
+      throw paramLevel;
+    }
+  }
+  
+  public void setPersistenceCacheSizeBytes(long paramLong)
+  {
+    try
+    {
+      assertUnfrozen("setPersistenceCacheSizeBytes");
+      config.setPersistenceCacheSizeBytes(paramLong);
+      return;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public void setPersistenceEnabled(boolean paramBoolean)
+  {
+    try
+    {
+      assertUnfrozen("setPersistenceEnabled");
+      config.setPersistenceEnabled(paramBoolean);
+      return;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+}

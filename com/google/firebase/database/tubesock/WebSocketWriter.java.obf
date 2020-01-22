@@ -1,0 +1,186 @@
+package com.google.firebase.database.tubesock;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+
+class WebSocketWriter
+{
+  private WritableByteChannel channel;
+  private boolean closeSent = false;
+  private final Thread innerThread = WebSocket.getThreadFactory().newThread(new Runnable()
+  {
+    public void run()
+    {
+      WebSocketWriter.this.runWriter();
+    }
+  });
+  private BlockingQueue<ByteBuffer> pendingBuffers;
+  private final Random random = new Random();
+  private volatile boolean stop = false;
+  private WebSocket websocket;
+  
+  WebSocketWriter(WebSocket paramWebSocket, String paramString, int paramInt)
+  {
+    ThreadInitializer localThreadInitializer = WebSocket.getIntializer();
+    Thread localThread = getInnerThread();
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramString);
+    localStringBuilder.append("Writer-");
+    localStringBuilder.append(paramInt);
+    localThreadInitializer.setName(localThread, localStringBuilder.toString());
+    websocket = paramWebSocket;
+    pendingBuffers = new LinkedBlockingQueue();
+  }
+  
+  private ByteBuffer frameInBuffer(byte paramByte, boolean paramBoolean, byte[] paramArrayOfByte)
+    throws IOException
+  {
+    if (paramBoolean) {
+      b1 = 6;
+    } else {
+      b1 = 2;
+    }
+    byte b2 = paramArrayOfByte.length;
+    byte b3 = 126;
+    if (b2 >= 126) {
+      if (b2 <= 65535) {
+        b1 += 2;
+      } else {
+        b1 += 8;
+      }
+    }
+    ByteBuffer localByteBuffer = ByteBuffer.allocate(paramArrayOfByte.length + b1);
+    localByteBuffer.put((byte)(paramByte | 0xFFFFFF80));
+    byte b1 = 0;
+    if (b2 < 126)
+    {
+      paramByte = b2;
+      if (paramBoolean) {
+        paramByte = b2 | 0x80;
+      }
+      localByteBuffer.put((byte)paramByte);
+    }
+    else if (b2 <= 65535)
+    {
+      paramByte = b3;
+      if (paramBoolean) {
+        paramByte = 254;
+      }
+      localByteBuffer.put((byte)paramByte);
+      localByteBuffer.putShort((short)b2);
+    }
+    else
+    {
+      paramByte = Byte.MAX_VALUE;
+      if (paramBoolean) {
+        paramByte = 255;
+      }
+      localByteBuffer.put((byte)paramByte);
+      localByteBuffer.putInt(0);
+      localByteBuffer.putInt(b2);
+    }
+    if (paramBoolean)
+    {
+      byte[] arrayOfByte = generateMask();
+      localByteBuffer.put(arrayOfByte);
+      paramByte = b1;
+      while (paramByte < paramArrayOfByte.length)
+      {
+        localByteBuffer.put((byte)(paramArrayOfByte[paramByte] ^ arrayOfByte[(paramByte % 4)]));
+        paramByte += 1;
+      }
+    }
+    localByteBuffer.flip();
+    return localByteBuffer;
+  }
+  
+  private byte[] generateMask()
+  {
+    byte[] arrayOfByte = new byte[4];
+    random.nextBytes(arrayOfByte);
+    return arrayOfByte;
+  }
+  
+  private void handleError(WebSocketException paramWebSocketException)
+  {
+    websocket.handleReceiverError(paramWebSocketException);
+  }
+  
+  private void runWriter()
+  {
+    for (;;)
+    {
+      try
+      {
+        if ((!stop) && (!Thread.interrupted()))
+        {
+          writeMessage();
+          continue;
+          if (i < pendingBuffers.size())
+          {
+            writeMessage();
+            i += 1;
+            continue;
+          }
+        }
+        int i = 0;
+      }
+      catch (IOException localIOException)
+      {
+        handleError(new WebSocketException("IO Exception", localIOException));
+        return;
+      }
+      catch (InterruptedException localInterruptedException)
+      {
+        return;
+      }
+    }
+  }
+  
+  private void writeMessage()
+    throws InterruptedException, IOException
+  {
+    ByteBuffer localByteBuffer = (ByteBuffer)pendingBuffers.take();
+    channel.write(localByteBuffer);
+  }
+  
+  Thread getInnerThread()
+  {
+    return innerThread;
+  }
+  
+  void send(byte paramByte, boolean paramBoolean, byte[] paramArrayOfByte)
+    throws IOException
+  {
+    try
+    {
+      paramArrayOfByte = frameInBuffer(paramByte, paramBoolean, paramArrayOfByte);
+      if ((stop) && ((closeSent) || (paramByte != 8))) {
+        throw new WebSocketException("Shouldn't be sending");
+      }
+      if (paramByte == 8) {
+        closeSent = true;
+      }
+      pendingBuffers.add(paramArrayOfByte);
+      return;
+    }
+    finally {}
+  }
+  
+  void setOutput(OutputStream paramOutputStream)
+  {
+    channel = Channels.newChannel(paramOutputStream);
+  }
+  
+  void stopIt()
+  {
+    stop = true;
+  }
+}

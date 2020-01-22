@@ -1,0 +1,562 @@
+package com.google.firebase.iid;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
+import androidx.core.content.ContextCompat;
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Properties;
+
+final class zzy
+{
+  zzy() {}
+  
+  /* Error */
+  private final zzz zza(Context paramContext, String paramString, zzz paramZzz, boolean paramBoolean)
+  {
+    // Byte code:
+    //   0: ldc 17
+    //   2: iconst_3
+    //   3: invokestatic 23	android/util/Log:isLoggable	(Ljava/lang/String;I)Z
+    //   6: ifeq +11 -> 17
+    //   9: ldc 17
+    //   11: ldc 25
+    //   13: invokestatic 29	android/util/Log:d	(Ljava/lang/String;Ljava/lang/String;)I
+    //   16: pop
+    //   17: new 31	java/util/Properties
+    //   20: dup
+    //   21: invokespecial 32	java/util/Properties:<init>	()V
+    //   24: astore 7
+    //   26: aload 7
+    //   28: ldc 34
+    //   30: aload_3
+    //   31: invokestatic 39	com/google/firebase/iid/zzz:zza	(Lcom/google/firebase/iid/zzz;)Ljava/lang/String;
+    //   34: invokevirtual 43	java/util/Properties:setProperty	(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;
+    //   37: pop
+    //   38: aload 7
+    //   40: ldc 45
+    //   42: aload_3
+    //   43: invokestatic 48	com/google/firebase/iid/zzz:zzb	(Lcom/google/firebase/iid/zzz;)Ljava/lang/String;
+    //   46: invokevirtual 43	java/util/Properties:setProperty	(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;
+    //   49: pop
+    //   50: aload 7
+    //   52: ldc 50
+    //   54: aload_3
+    //   55: invokestatic 54	com/google/firebase/iid/zzz:zzc	(Lcom/google/firebase/iid/zzz;)J
+    //   58: invokestatic 60	java/lang/String:valueOf	(J)Ljava/lang/String;
+    //   61: invokevirtual 43	java/util/Properties:setProperty	(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;
+    //   64: pop
+    //   65: aload_1
+    //   66: aload_2
+    //   67: invokestatic 64	com/google/firebase/iid/zzy:zzf	(Landroid/content/Context;Ljava/lang/String;)Ljava/io/File;
+    //   70: astore_1
+    //   71: aload_1
+    //   72: invokevirtual 70	java/io/File:createNewFile	()Z
+    //   75: pop
+    //   76: new 72	java/io/RandomAccessFile
+    //   79: dup
+    //   80: aload_1
+    //   81: ldc 74
+    //   83: invokespecial 77	java/io/RandomAccessFile:<init>	(Ljava/io/File;Ljava/lang/String;)V
+    //   86: astore_2
+    //   87: aload_2
+    //   88: invokevirtual 81	java/io/RandomAccessFile:getChannel	()Ljava/nio/channels/FileChannel;
+    //   91: astore 8
+    //   93: aload 8
+    //   95: invokevirtual 87	java/nio/channels/FileChannel:lock	()Ljava/nio/channels/FileLock;
+    //   98: pop
+    //   99: iload 4
+    //   101: ifeq +112 -> 213
+    //   104: aload 8
+    //   106: invokevirtual 91	java/nio/channels/FileChannel:size	()J
+    //   109: lstore 5
+    //   111: lload 5
+    //   113: lconst_0
+    //   114: lcmp
+    //   115: ifle +98 -> 213
+    //   118: aload 8
+    //   120: lconst_0
+    //   121: invokevirtual 95	java/nio/channels/FileChannel:position	(J)Ljava/nio/channels/FileChannel;
+    //   124: pop
+    //   125: aload 8
+    //   127: invokestatic 98	com/google/firebase/iid/zzy:zza	(Ljava/nio/channels/FileChannel;)Lcom/google/firebase/iid/zzz;
+    //   130: astore_1
+    //   131: aload 8
+    //   133: ifnull +9 -> 142
+    //   136: aconst_null
+    //   137: aload 8
+    //   139: invokestatic 101	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/nio/channels/FileChannel;)V
+    //   142: aconst_null
+    //   143: aload_2
+    //   144: invokestatic 104	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/io/RandomAccessFile;)V
+    //   147: aload_1
+    //   148: areturn
+    //   149: astore_1
+    //   150: goto +4 -> 154
+    //   153: astore_1
+    //   154: ldc 17
+    //   156: iconst_3
+    //   157: invokestatic 23	android/util/Log:isLoggable	(Ljava/lang/String;I)Z
+    //   160: ifeq +53 -> 213
+    //   163: aload_1
+    //   164: invokestatic 107	java/lang/String:valueOf	(Ljava/lang/Object;)Ljava/lang/String;
+    //   167: astore_1
+    //   168: new 109	java/lang/StringBuilder
+    //   171: dup
+    //   172: aload_1
+    //   173: invokestatic 107	java/lang/String:valueOf	(Ljava/lang/Object;)Ljava/lang/String;
+    //   176: invokevirtual 113	java/lang/String:length	()I
+    //   179: bipush 64
+    //   181: iadd
+    //   182: invokespecial 116	java/lang/StringBuilder:<init>	(I)V
+    //   185: astore 9
+    //   187: aload 9
+    //   189: ldc 118
+    //   191: invokevirtual 122	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   194: pop
+    //   195: aload 9
+    //   197: aload_1
+    //   198: invokevirtual 122	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   201: pop
+    //   202: ldc 17
+    //   204: aload 9
+    //   206: invokevirtual 126	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   209: invokestatic 29	android/util/Log:d	(Ljava/lang/String;Ljava/lang/String;)I
+    //   212: pop
+    //   213: aload 8
+    //   215: lconst_0
+    //   216: invokevirtual 95	java/nio/channels/FileChannel:position	(J)Ljava/nio/channels/FileChannel;
+    //   219: pop
+    //   220: aload 7
+    //   222: aload 8
+    //   224: invokestatic 132	java/nio/channels/Channels:newOutputStream	(Ljava/nio/channels/WritableByteChannel;)Ljava/io/OutputStream;
+    //   227: aconst_null
+    //   228: invokevirtual 136	java/util/Properties:store	(Ljava/io/OutputStream;Ljava/lang/String;)V
+    //   231: aload 8
+    //   233: ifnull +9 -> 242
+    //   236: aconst_null
+    //   237: aload 8
+    //   239: invokestatic 101	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/nio/channels/FileChannel;)V
+    //   242: aconst_null
+    //   243: aload_2
+    //   244: invokestatic 104	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/io/RandomAccessFile;)V
+    //   247: aload_3
+    //   248: areturn
+    //   249: astore_1
+    //   250: aload_1
+    //   251: athrow
+    //   252: astore_3
+    //   253: aload 8
+    //   255: ifnull +9 -> 264
+    //   258: aload_1
+    //   259: aload 8
+    //   261: invokestatic 101	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/nio/channels/FileChannel;)V
+    //   264: aload_3
+    //   265: athrow
+    //   266: astore_1
+    //   267: aload_1
+    //   268: athrow
+    //   269: astore_3
+    //   270: aload_1
+    //   271: aload_2
+    //   272: invokestatic 104	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/io/RandomAccessFile;)V
+    //   275: aload_3
+    //   276: athrow
+    //   277: astore_1
+    //   278: aload_1
+    //   279: invokestatic 107	java/lang/String:valueOf	(Ljava/lang/Object;)Ljava/lang/String;
+    //   282: astore_1
+    //   283: new 109	java/lang/StringBuilder
+    //   286: dup
+    //   287: aload_1
+    //   288: invokestatic 107	java/lang/String:valueOf	(Ljava/lang/Object;)Ljava/lang/String;
+    //   291: invokevirtual 113	java/lang/String:length	()I
+    //   294: bipush 21
+    //   296: iadd
+    //   297: invokespecial 116	java/lang/StringBuilder:<init>	(I)V
+    //   300: astore_2
+    //   301: aload_2
+    //   302: ldc -118
+    //   304: invokevirtual 122	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   307: pop
+    //   308: aload_2
+    //   309: aload_1
+    //   310: invokevirtual 122	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   313: pop
+    //   314: ldc 17
+    //   316: aload_2
+    //   317: invokevirtual 126	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   320: invokestatic 141	android/util/Log:w	(Ljava/lang/String;Ljava/lang/String;)I
+    //   323: pop
+    //   324: aconst_null
+    //   325: areturn
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	326	0	this	zzy
+    //   0	326	1	paramContext	Context
+    //   0	326	2	paramString	String
+    //   0	326	3	paramZzz	zzz
+    //   0	326	4	paramBoolean	boolean
+    //   109	3	5	l	long
+    //   24	197	7	localProperties	Properties
+    //   91	169	8	localFileChannel	FileChannel
+    //   185	20	9	localStringBuilder	StringBuilder
+    // Exception table:
+    //   from	to	target	type
+    //   118	131	149	com/google/firebase/iid/zzaa
+    //   118	131	153	java/io/IOException
+    //   93	99	249	finally
+    //   104	111	249	finally
+    //   118	131	249	finally
+    //   154	213	249	finally
+    //   213	231	249	finally
+    //   250	252	252	finally
+    //   87	93	266	finally
+    //   136	142	266	finally
+    //   236	242	266	finally
+    //   258	264	266	finally
+    //   264	266	266	finally
+    //   267	269	269	finally
+    //   71	87	277	java/io/IOException
+    //   142	147	277	java/io/IOException
+    //   242	247	277	java/io/IOException
+    //   270	277	277	java/io/IOException
+  }
+  
+  private static zzz zza(SharedPreferences paramSharedPreferences, String paramString)
+    throws zzaa
+  {
+    String str1 = zzaw.zzd(paramString, "|P|");
+    zzz localZzz = null;
+    str1 = paramSharedPreferences.getString(str1, null);
+    String str2 = paramSharedPreferences.getString(zzaw.zzd(paramString, "|K|"), null);
+    if (str1 != null)
+    {
+      if (str2 == null) {
+        return null;
+      }
+      localZzz = new zzz(zzc(str1, str2), zzb(paramSharedPreferences, paramString));
+    }
+    return localZzz;
+  }
+  
+  /* Error */
+  private final zzz zza(File paramFile)
+    throws zzaa, IOException
+  {
+    // Byte code:
+    //   0: new 170	java/io/FileInputStream
+    //   3: dup
+    //   4: aload_1
+    //   5: invokespecial 173	java/io/FileInputStream:<init>	(Ljava/io/File;)V
+    //   8: astore_1
+    //   9: aload_1
+    //   10: invokevirtual 174	java/io/FileInputStream:getChannel	()Ljava/nio/channels/FileChannel;
+    //   13: astore_2
+    //   14: aload_2
+    //   15: lconst_0
+    //   16: ldc2_w 175
+    //   19: iconst_1
+    //   20: invokevirtual 179	java/nio/channels/FileChannel:lock	(JJZ)Ljava/nio/channels/FileLock;
+    //   23: pop
+    //   24: aload_2
+    //   25: invokestatic 98	com/google/firebase/iid/zzy:zza	(Ljava/nio/channels/FileChannel;)Lcom/google/firebase/iid/zzz;
+    //   28: astore_3
+    //   29: aload_2
+    //   30: ifnull +8 -> 38
+    //   33: aconst_null
+    //   34: aload_2
+    //   35: invokestatic 101	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/nio/channels/FileChannel;)V
+    //   38: aconst_null
+    //   39: aload_1
+    //   40: invokestatic 182	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/io/FileInputStream;)V
+    //   43: aload_3
+    //   44: areturn
+    //   45: astore_3
+    //   46: aload_3
+    //   47: athrow
+    //   48: astore 4
+    //   50: aload_2
+    //   51: ifnull +8 -> 59
+    //   54: aload_3
+    //   55: aload_2
+    //   56: invokestatic 101	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/nio/channels/FileChannel;)V
+    //   59: aload 4
+    //   61: athrow
+    //   62: astore_2
+    //   63: aload_2
+    //   64: athrow
+    //   65: astore_3
+    //   66: aload_2
+    //   67: aload_1
+    //   68: invokestatic 182	com/google/firebase/iid/zzy:zza	(Ljava/lang/Throwable;Ljava/io/FileInputStream;)V
+    //   71: aload_3
+    //   72: athrow
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	73	0	this	zzy
+    //   0	73	1	paramFile	File
+    //   13	43	2	localFileChannel	FileChannel
+    //   62	5	2	localThrowable1	Throwable
+    //   28	16	3	localZzz	zzz
+    //   45	10	3	localThrowable2	Throwable
+    //   65	7	3	localObject1	Object
+    //   48	12	4	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   14	29	45	finally
+    //   46	48	48	finally
+    //   9	14	62	finally
+    //   33	38	62	finally
+    //   54	59	62	finally
+    //   59	62	62	finally
+    //   63	65	65	finally
+  }
+  
+  private static zzz zza(FileChannel paramFileChannel)
+    throws zzaa, IOException
+  {
+    Properties localProperties = new Properties();
+    localProperties.load(Channels.newInputStream(paramFileChannel));
+    paramFileChannel = localProperties.getProperty("pub");
+    String str = localProperties.getProperty("pri");
+    if ((paramFileChannel != null) && (str != null))
+    {
+      paramFileChannel = zzc(paramFileChannel, str);
+      try
+      {
+        long l = Long.parseLong(localProperties.getProperty("cre"));
+        return new zzz(paramFileChannel, l);
+      }
+      catch (NumberFormatException paramFileChannel)
+      {
+        throw new zzaa(paramFileChannel);
+      }
+    }
+    throw new zzaa("Invalid properties file");
+  }
+  
+  static void zza(Context paramContext)
+  {
+    paramContext = zzb(paramContext).listFiles();
+    int j = paramContext.length;
+    int i = 0;
+    while (i < j)
+    {
+      Object localObject = paramContext[i];
+      if (localObject.getName().startsWith("com.google.InstanceId")) {
+        localObject.delete();
+      }
+      i += 1;
+    }
+  }
+  
+  private final void zza(Context paramContext, String paramString, zzz paramZzz)
+  {
+    paramContext = paramContext.getSharedPreferences("com.google.android.gms.appid", 0);
+    try
+    {
+      boolean bool = paramZzz.equals(zza(paramContext, paramString));
+      if (bool) {
+        return;
+      }
+    }
+    catch (zzaa localZzaa)
+    {
+      for (;;) {}
+    }
+    if (Log.isLoggable("FirebaseInstanceId", 3)) {
+      Log.d("FirebaseInstanceId", "Writing key to shared preferences");
+    }
+    paramContext = paramContext.edit();
+    paramContext.putString(zzaw.zzd(paramString, "|P|"), zzz.zza(paramZzz));
+    paramContext.putString(zzaw.zzd(paramString, "|K|"), zzz.zzb(paramZzz));
+    paramContext.putString(zzaw.zzd(paramString, "cre"), String.valueOf(zzz.zzc(paramZzz)));
+    paramContext.commit();
+  }
+  
+  private static long zzb(SharedPreferences paramSharedPreferences, String paramString)
+  {
+    paramSharedPreferences = paramSharedPreferences.getString(zzaw.zzd(paramString, "cre"), null);
+    if (paramSharedPreferences != null) {}
+    try
+    {
+      long l = Long.parseLong(paramSharedPreferences);
+      return l;
+    }
+    catch (NumberFormatException paramSharedPreferences)
+    {
+      for (;;) {}
+    }
+    return 0L;
+  }
+  
+  private static File zzb(Context paramContext)
+  {
+    File localFile = ContextCompat.getNoBackupFilesDir(paramContext);
+    if ((localFile != null) && (localFile.isDirectory())) {
+      return localFile;
+    }
+    Log.w("FirebaseInstanceId", "noBackupFilesDir doesn't exist, using regular files directory instead");
+    return paramContext.getFilesDir();
+  }
+  
+  private static KeyPair zzc(String paramString1, String paramString2)
+    throws zzaa
+  {
+    try
+    {
+      paramString1 = Base64.decode(paramString1, 8);
+      paramString2 = Base64.decode(paramString2, 8);
+      try
+      {
+        localObject = KeyFactory.getInstance("RSA");
+        paramString1 = new KeyPair(((KeyFactory)localObject).generatePublic(new X509EncodedKeySpec(paramString1)), ((KeyFactory)localObject).generatePrivate(new PKCS8EncodedKeySpec(paramString2)));
+        return paramString1;
+      }
+      catch (NoSuchAlgorithmException paramString1) {}catch (InvalidKeySpecException paramString1) {}
+      paramString2 = String.valueOf(paramString1);
+      Object localObject = new StringBuilder(String.valueOf(paramString2).length() + 19);
+      ((StringBuilder)localObject).append("Invalid key stored ");
+      ((StringBuilder)localObject).append(paramString2);
+      Log.w("FirebaseInstanceId", ((StringBuilder)localObject).toString());
+      throw new zzaa(paramString1);
+    }
+    catch (IllegalArgumentException paramString1)
+    {
+      throw new zzaa(paramString1);
+    }
+  }
+  
+  private final zzz zzd(Context paramContext, String paramString)
+    throws zzaa
+  {
+    try
+    {
+      zzz localZzz1 = zze(paramContext, paramString);
+      if (localZzz1 != null)
+      {
+        zza(paramContext, paramString, localZzz1);
+        return localZzz1;
+      }
+      localZzz1 = null;
+    }
+    catch (zzaa localZzaa1) {}
+    try
+    {
+      zzz localZzz2 = zza(paramContext.getSharedPreferences("com.google.android.gms.appid", 0), paramString);
+      if (localZzz2 != null)
+      {
+        zza(paramContext, paramString, localZzz2, false);
+        return localZzz2;
+      }
+    }
+    catch (zzaa localZzaa2)
+    {
+      if (localZzaa2 == null) {
+        return null;
+      }
+      throw localZzaa2;
+    }
+  }
+  
+  private final zzz zze(Context paramContext, String paramString)
+    throws zzaa
+  {
+    paramString = zzf(paramContext, paramString);
+    if (!paramString.exists()) {
+      return null;
+    }
+    try
+    {
+      paramContext = zza(paramString);
+      return paramContext;
+    }
+    catch (IOException paramContext) {}catch (zzaa paramContext) {}
+    StringBuilder localStringBuilder;
+    if (Log.isLoggable("FirebaseInstanceId", 3))
+    {
+      paramContext = String.valueOf(paramContext);
+      localStringBuilder = new StringBuilder(String.valueOf(paramContext).length() + 40);
+      localStringBuilder.append("Failed to read key from file, retrying: ");
+      localStringBuilder.append(paramContext);
+      Log.d("FirebaseInstanceId", localStringBuilder.toString());
+    }
+    try
+    {
+      paramContext = zza(paramString);
+      return paramContext;
+    }
+    catch (IOException paramContext)
+    {
+      paramString = String.valueOf(paramContext);
+      localStringBuilder = new StringBuilder(String.valueOf(paramString).length() + 45);
+      localStringBuilder.append("IID file exists, but failed to read from it: ");
+      localStringBuilder.append(paramString);
+      Log.w("FirebaseInstanceId", localStringBuilder.toString());
+      throw new zzaa(paramContext);
+    }
+  }
+  
+  private static File zzf(Context paramContext, String paramString)
+  {
+    if (TextUtils.isEmpty(paramString)) {
+      paramString = "com.google.InstanceId.properties";
+    }
+    try
+    {
+      paramString = Base64.encodeToString(paramString.getBytes("UTF-8"), 11);
+      StringBuilder localStringBuilder = new StringBuilder(String.valueOf(paramString).length() + 33);
+      localStringBuilder.append("com.google.InstanceId_");
+      localStringBuilder.append(paramString);
+      localStringBuilder.append(".properties");
+      paramString = localStringBuilder.toString();
+      return new File(zzb(paramContext), paramString);
+    }
+    catch (UnsupportedEncodingException paramContext)
+    {
+      throw new AssertionError(paramContext);
+    }
+  }
+  
+  final zzz zzb(Context paramContext, String paramString)
+    throws zzaa
+  {
+    zzz localZzz = zzd(paramContext, paramString);
+    if (localZzz != null) {
+      return localZzz;
+    }
+    return zzc(paramContext, paramString);
+  }
+  
+  final zzz zzc(Context paramContext, String paramString)
+  {
+    zzz localZzz1 = new zzz(zza.zzb(), System.currentTimeMillis());
+    zzz localZzz2 = zza(paramContext, paramString, localZzz1, true);
+    if ((localZzz2 != null) && (!localZzz2.equals(localZzz1)))
+    {
+      if (Log.isLoggable("FirebaseInstanceId", 3)) {
+        Log.d("FirebaseInstanceId", "Loaded key after generating new one, using loaded one");
+      }
+      return localZzz2;
+    }
+    if (Log.isLoggable("FirebaseInstanceId", 3)) {
+      Log.d("FirebaseInstanceId", "Generated new key");
+    }
+    zza(paramContext, paramString, localZzz1);
+    return localZzz1;
+  }
+}

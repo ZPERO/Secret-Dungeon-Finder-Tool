@@ -1,0 +1,1245 @@
+package com.squareup.okhttp.internal;
+
+import com.squareup.okhttp.internal.io.FileSystem;
+import java.io.Closeable;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.NoSuchElementException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Sink;
+import okio.Source;
+import okio.Timeout;
+
+public final class DiskLruCache
+  implements Closeable
+{
+  static final long ANY_SEQUENCE_NUMBER = -1L;
+  private static final String CLEAN = "CLEAN";
+  private static final String DIRTY = "DIRTY";
+  static final String JOURNAL_FILE = "journal";
+  static final String JOURNAL_FILE_BACKUP = "journal.bkp";
+  static final String JOURNAL_FILE_TEMP = "journal.tmp";
+  static final Pattern LEGAL_KEY_PATTERN = Pattern.compile("[a-z0-9_-]{1,120}");
+  static final String MAGIC = "libcore.io.DiskLruCache";
+  private static final Sink NULL_SINK = new Sink()
+  {
+    public void close()
+      throws IOException
+    {}
+    
+    public void flush()
+      throws IOException
+    {}
+    
+    public Timeout timeout()
+    {
+      return Timeout.NONE;
+    }
+    
+    public void write(Buffer paramAnonymousBuffer, long paramAnonymousLong)
+      throws IOException
+    {
+      paramAnonymousBuffer.skip(paramAnonymousLong);
+    }
+  };
+  private static final String READ = "READ";
+  private static final String REMOVE = "REMOVE";
+  static final String VERSION_1 = "1";
+  private final int appVersion;
+  private final Runnable cleanupRunnable = new Runnable()
+  {
+    public void run()
+    {
+      for (;;)
+      {
+        synchronized (DiskLruCache.this)
+        {
+          if (!initialized)
+          {
+            i = 1;
+            if ((i | closed) != 0) {
+              return;
+            }
+            try
+            {
+              DiskLruCache.this.trimToSize();
+              if (DiskLruCache.this.journalRebuildRequired())
+              {
+                DiskLruCache.this.rebuildJournal();
+                DiskLruCache.access$502(DiskLruCache.this, 0);
+              }
+              return;
+            }
+            catch (IOException localIOException)
+            {
+              throw new RuntimeException(localIOException);
+            }
+          }
+        }
+        int i = 0;
+      }
+    }
+  };
+  private boolean closed;
+  private final File directory;
+  private final Executor executor;
+  private final FileSystem fileSystem;
+  private boolean hasJournalErrors;
+  private boolean initialized;
+  private final File journalFile;
+  private final File journalFileBackup;
+  private final File journalFileTmp;
+  private BufferedSink journalWriter;
+  private final LinkedHashMap<String, Entry> lruEntries = new LinkedHashMap(0, 0.75F, true);
+  private long maxSize;
+  private long nextSequenceNumber = 0L;
+  private int redundantOpCount;
+  private long size = 0L;
+  private final int valueCount;
+  
+  DiskLruCache(FileSystem paramFileSystem, File paramFile, int paramInt1, int paramInt2, long paramLong, Executor paramExecutor)
+  {
+    fileSystem = paramFileSystem;
+    directory = paramFile;
+    appVersion = paramInt1;
+    journalFile = new File(paramFile, "journal");
+    journalFileTmp = new File(paramFile, "journal.tmp");
+    journalFileBackup = new File(paramFile, "journal.bkp");
+    valueCount = paramInt2;
+    maxSize = paramLong;
+    executor = paramExecutor;
+  }
+  
+  private void checkNotClosed()
+  {
+    try
+    {
+      boolean bool = isClosed();
+      if (!bool) {
+        return;
+      }
+      throw new IllegalStateException("cache is closed");
+    }
+    finally {}
+  }
+  
+  private void completeEdit(Editor paramEditor, boolean paramBoolean)
+    throws IOException
+  {
+    try
+    {
+      localEntry = entry;
+      if (currentEditor != paramEditor) {
+        break label474;
+      }
+      int k = 0;
+      j = k;
+      if (paramBoolean)
+      {
+        j = k;
+        if (!readable)
+        {
+          int i = 0;
+          for (;;)
+          {
+            j = k;
+            if (i >= valueCount) {
+              break label133;
+            }
+            if (written[i] == 0) {
+              break;
+            }
+            if (!fileSystem.exists(dirtyFiles[i]))
+            {
+              paramEditor.abort();
+              return;
+            }
+            i += 1;
+          }
+          paramEditor.abort();
+          paramEditor = new StringBuilder();
+          paramEditor.append("Newly created entry didn't create value for index ");
+          paramEditor.append(i);
+          throw new IllegalStateException(paramEditor.toString());
+        }
+      }
+    }
+    finally
+    {
+      for (;;)
+      {
+        Entry localEntry;
+        int j;
+        label133:
+        File localFile;
+        long l1;
+        long l2;
+        for (;;)
+        {
+          label474:
+          throw paramEditor;
+        }
+        j += 1;
+      }
+    }
+    if (j < valueCount)
+    {
+      paramEditor = dirtyFiles[j];
+      if (paramBoolean)
+      {
+        if (fileSystem.exists(paramEditor))
+        {
+          localFile = cleanFiles[j];
+          fileSystem.rename(paramEditor, localFile);
+          l1 = lengths[j];
+          l2 = fileSystem.size(localFile);
+          lengths[j] = l2;
+          size = (size - l1 + l2);
+        }
+      }
+      else {
+        fileSystem.delete(paramEditor);
+      }
+    }
+    else
+    {
+      redundantOpCount += 1;
+      Entry.access$902(localEntry, null);
+      if ((readable | paramBoolean))
+      {
+        Entry.access$802(localEntry, true);
+        journalWriter.writeUtf8("CLEAN").writeByte(32);
+        journalWriter.writeUtf8(key);
+        localEntry.writeLengths(journalWriter);
+        journalWriter.writeByte(10);
+        if (paramBoolean)
+        {
+          l1 = nextSequenceNumber;
+          nextSequenceNumber = (1L + l1);
+          Entry.access$1602(localEntry, l1);
+        }
+      }
+      else
+      {
+        lruEntries.remove(key);
+        journalWriter.writeUtf8("REMOVE").writeByte(32);
+        journalWriter.writeUtf8(key);
+        journalWriter.writeByte(10);
+      }
+      journalWriter.flush();
+      if ((size > maxSize) || (journalRebuildRequired())) {
+        executor.execute(cleanupRunnable);
+      }
+      return;
+      throw new IllegalStateException();
+    }
+  }
+  
+  public static DiskLruCache create(FileSystem paramFileSystem, File paramFile, int paramInt1, int paramInt2, long paramLong)
+  {
+    if (paramLong > 0L)
+    {
+      if (paramInt2 > 0) {
+        return new DiskLruCache(paramFileSystem, paramFile, paramInt1, paramInt2, paramLong, new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue(), Util.threadFactory("OkHttp DiskLruCache", true)));
+      }
+      throw new IllegalArgumentException("valueCount <= 0");
+    }
+    throw new IllegalArgumentException("maxSize <= 0");
+  }
+  
+  private Editor edit(String paramString, long paramLong)
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      checkNotClosed();
+      validateKey(paramString);
+      Entry localEntry = (Entry)lruEntries.get(paramString);
+      if (paramLong != -1L) {
+        if (localEntry != null)
+        {
+          long l = sequenceNumber;
+          if (l == paramLong) {}
+        }
+        else
+        {
+          return null;
+        }
+      }
+      if (localEntry != null)
+      {
+        localObject = currentEditor;
+        if (localObject != null) {
+          return null;
+        }
+      }
+      journalWriter.writeUtf8("DIRTY").writeByte(32).writeUtf8(paramString).writeByte(10);
+      journalWriter.flush();
+      boolean bool = hasJournalErrors;
+      if (bool) {
+        return null;
+      }
+      Object localObject = localEntry;
+      if (localEntry == null)
+      {
+        localObject = new Entry(paramString, null);
+        lruEntries.put(paramString, localObject);
+      }
+      paramString = new Editor((Entry)localObject, null);
+      Entry.access$902((Entry)localObject, paramString);
+      return paramString;
+    }
+    finally {}
+  }
+  
+  private boolean journalRebuildRequired()
+  {
+    int i = redundantOpCount;
+    return (i >= 2000) && (i >= lruEntries.size());
+  }
+  
+  private BufferedSink newJournalWriter()
+    throws FileNotFoundException
+  {
+    Okio.buffer(new FaultHidingSink(fileSystem.appendingSink(journalFile))
+    {
+      protected void onException(IOException paramAnonymousIOException)
+      {
+        DiskLruCache.access$602(DiskLruCache.this, true);
+      }
+    });
+  }
+  
+  private void processJournal()
+    throws IOException
+  {
+    fileSystem.delete(journalFileTmp);
+    Iterator localIterator = lruEntries.values().iterator();
+    while (localIterator.hasNext())
+    {
+      Entry localEntry = (Entry)localIterator.next();
+      Editor localEditor = currentEditor;
+      int j = 0;
+      int i = 0;
+      if (localEditor == null)
+      {
+        while (i < valueCount)
+        {
+          size += lengths[i];
+          i += 1;
+        }
+      }
+      else
+      {
+        Entry.access$902(localEntry, null);
+        i = j;
+        while (i < valueCount)
+        {
+          fileSystem.delete(cleanFiles[i]);
+          fileSystem.delete(dirtyFiles[i]);
+          i += 1;
+        }
+        localIterator.remove();
+      }
+    }
+  }
+  
+  private void readJournal()
+    throws IOException
+  {
+    localBufferedSource = Okio.buffer(fileSystem.source(journalFile));
+    for (;;)
+    {
+      try
+      {
+        str1 = localBufferedSource.readUtf8LineStrict();
+        str2 = localBufferedSource.readUtf8LineStrict();
+        localObject2 = localBufferedSource.readUtf8LineStrict();
+        str3 = localBufferedSource.readUtf8LineStrict();
+        str4 = localBufferedSource.readUtf8LineStrict();
+        if (("libcore.io.DiskLruCache".equals(str1)) && ("1".equals(str2)) && (Integer.toString(appVersion).equals(localObject2)) && (Integer.toString(valueCount).equals(str3)))
+        {
+          boolean bool = "".equals(str4);
+          if (bool) {
+            i = 0;
+          }
+        }
+      }
+      finally
+      {
+        String str1;
+        String str2;
+        Object localObject2;
+        String str3;
+        String str4;
+        int i;
+        Util.closeQuietly(localBufferedSource);
+        continue;
+        throw localObject1;
+        continue;
+      }
+      try
+      {
+        readJournalLine(localBufferedSource.readUtf8LineStrict());
+        i += 1;
+      }
+      catch (EOFException localEOFException) {}
+    }
+    redundantOpCount = (i - lruEntries.size());
+    if (!localBufferedSource.exhausted()) {
+      rebuildJournal();
+    } else {
+      journalWriter = newJournalWriter();
+    }
+    Util.closeQuietly(localBufferedSource);
+    return;
+    localObject2 = new StringBuilder();
+    ((StringBuilder)localObject2).append("unexpected journal header: [");
+    ((StringBuilder)localObject2).append(str1);
+    ((StringBuilder)localObject2).append(", ");
+    ((StringBuilder)localObject2).append(str2);
+    ((StringBuilder)localObject2).append(", ");
+    ((StringBuilder)localObject2).append(str3);
+    ((StringBuilder)localObject2).append(", ");
+    ((StringBuilder)localObject2).append(str4);
+    ((StringBuilder)localObject2).append("]");
+    throw new IOException(((StringBuilder)localObject2).toString());
+  }
+  
+  private void readJournalLine(String paramString)
+    throws IOException
+  {
+    int i = paramString.indexOf(' ');
+    if (i != -1)
+    {
+      int j = i + 1;
+      int k = paramString.indexOf(' ', j);
+      if (k == -1)
+      {
+        localObject2 = paramString.substring(j);
+        localObject1 = localObject2;
+        if (i == 6)
+        {
+          localObject1 = localObject2;
+          if (paramString.startsWith("REMOVE")) {
+            lruEntries.remove(localObject2);
+          }
+        }
+      }
+      else
+      {
+        localObject1 = paramString.substring(j, k);
+      }
+      Entry localEntry = (Entry)lruEntries.get(localObject1);
+      Object localObject2 = localEntry;
+      if (localEntry == null)
+      {
+        localObject2 = new Entry((String)localObject1, null);
+        lruEntries.put(localObject1, localObject2);
+      }
+      if ((k != -1) && (i == 5) && (paramString.startsWith("CLEAN")))
+      {
+        paramString = paramString.substring(k + 1).split(" ");
+        Entry.access$802((Entry)localObject2, true);
+        Entry.access$902((Entry)localObject2, null);
+        ((Entry)localObject2).setLengths(paramString);
+        return;
+      }
+      if ((k == -1) && (i == 5) && (paramString.startsWith("DIRTY")))
+      {
+        Entry.access$902((Entry)localObject2, new Editor((Entry)localObject2, null));
+        return;
+      }
+      if ((k == -1) && (i == 4) && (paramString.startsWith("READ"))) {
+        return;
+      }
+      localObject1 = new StringBuilder();
+      ((StringBuilder)localObject1).append("unexpected journal line: ");
+      ((StringBuilder)localObject1).append(paramString);
+      throw new IOException(((StringBuilder)localObject1).toString());
+    }
+    Object localObject1 = new StringBuilder();
+    ((StringBuilder)localObject1).append("unexpected journal line: ");
+    ((StringBuilder)localObject1).append(paramString);
+    throw new IOException(((StringBuilder)localObject1).toString());
+  }
+  
+  private void rebuildJournal()
+    throws IOException
+  {
+    try
+    {
+      if (journalWriter != null) {
+        journalWriter.close();
+      }
+      BufferedSink localBufferedSink = Okio.buffer(fileSystem.sink(journalFileTmp));
+      try
+      {
+        localBufferedSink.writeUtf8("libcore.io.DiskLruCache").writeByte(10);
+        localBufferedSink.writeUtf8("1").writeByte(10);
+        localBufferedSink.writeDecimalLong(appVersion).writeByte(10);
+        localBufferedSink.writeDecimalLong(valueCount).writeByte(10);
+        localBufferedSink.writeByte(10);
+        Iterator localIterator = lruEntries.values().iterator();
+        while (localIterator.hasNext())
+        {
+          Entry localEntry = (Entry)localIterator.next();
+          if (currentEditor != null)
+          {
+            localBufferedSink.writeUtf8("DIRTY").writeByte(32);
+            localBufferedSink.writeUtf8(key);
+            localBufferedSink.writeByte(10);
+          }
+          else
+          {
+            localBufferedSink.writeUtf8("CLEAN").writeByte(32);
+            localBufferedSink.writeUtf8(key);
+            localEntry.writeLengths(localBufferedSink);
+            localBufferedSink.writeByte(10);
+          }
+        }
+        localBufferedSink.close();
+        if (fileSystem.exists(journalFile)) {
+          fileSystem.rename(journalFile, journalFileBackup);
+        }
+        fileSystem.rename(journalFileTmp, journalFile);
+        fileSystem.delete(journalFileBackup);
+        journalWriter = newJournalWriter();
+        hasJournalErrors = false;
+        return;
+      }
+      finally
+      {
+        localBufferedSink.close();
+      }
+      throw localObject1;
+    }
+    finally {}
+    for (;;) {}
+  }
+  
+  private boolean removeEntry(Entry paramEntry)
+    throws IOException
+  {
+    if (currentEditor != null) {
+      Editor.access$1902(currentEditor, true);
+    }
+    int i = 0;
+    while (i < valueCount)
+    {
+      fileSystem.delete(cleanFiles[i]);
+      size -= lengths[i];
+      lengths[i] = 0L;
+      i += 1;
+    }
+    redundantOpCount += 1;
+    journalWriter.writeUtf8("REMOVE").writeByte(32).writeUtf8(key).writeByte(10);
+    lruEntries.remove(key);
+    if (journalRebuildRequired()) {
+      executor.execute(cleanupRunnable);
+    }
+    return true;
+  }
+  
+  private void trimToSize()
+    throws IOException
+  {
+    while (size > maxSize) {
+      removeEntry((Entry)lruEntries.values().iterator().next());
+    }
+  }
+  
+  private void validateKey(String paramString)
+  {
+    if (LEGAL_KEY_PATTERN.matcher(paramString).matches()) {
+      return;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("keys must match regex [a-z0-9_-]{1,120}: \"");
+    localStringBuilder.append(paramString);
+    localStringBuilder.append("\"");
+    throw new IllegalArgumentException(localStringBuilder.toString());
+  }
+  
+  public void close()
+    throws IOException
+  {
+    try
+    {
+      if ((!initialized) || (closed)) {
+        break label105;
+      }
+      arrayOfEntry = (Entry[])lruEntries.values().toArray(new Entry[lruEntries.size()]);
+      j = arrayOfEntry.length;
+      i = 0;
+    }
+    finally
+    {
+      for (;;)
+      {
+        Entry[] arrayOfEntry;
+        int j;
+        int i;
+        Entry localEntry;
+        for (;;)
+        {
+          label105:
+          throw localObject;
+        }
+        i += 1;
+      }
+    }
+    if (i < j)
+    {
+      localEntry = arrayOfEntry[i];
+      if (currentEditor != null) {
+        currentEditor.abort();
+      }
+    }
+    else
+    {
+      trimToSize();
+      journalWriter.close();
+      journalWriter = null;
+      closed = true;
+      return;
+      closed = true;
+      return;
+    }
+  }
+  
+  public void delete()
+    throws IOException
+  {
+    close();
+    fileSystem.deleteContents(directory);
+  }
+  
+  public Editor edit(String paramString)
+    throws IOException
+  {
+    return edit(paramString, -1L);
+  }
+  
+  public void evictAll()
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      Entry[] arrayOfEntry = (Entry[])lruEntries.values().toArray(new Entry[lruEntries.size()]);
+      int j = arrayOfEntry.length;
+      int i = 0;
+      while (i < j)
+      {
+        removeEntry(arrayOfEntry[i]);
+        i += 1;
+      }
+      return;
+    }
+    finally {}
+    for (;;)
+    {
+      throw localObject;
+    }
+  }
+  
+  public void flush()
+    throws IOException
+  {
+    try
+    {
+      boolean bool = initialized;
+      if (!bool) {
+        return;
+      }
+      checkNotClosed();
+      trimToSize();
+      journalWriter.flush();
+      return;
+    }
+    finally {}
+  }
+  
+  public Snapshot get(String paramString)
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      checkNotClosed();
+      validateKey(paramString);
+      Object localObject = (Entry)lruEntries.get(paramString);
+      if ((localObject != null) && (readable))
+      {
+        localObject = ((Entry)localObject).snapshot();
+        if (localObject == null) {
+          return null;
+        }
+        redundantOpCount += 1;
+        journalWriter.writeUtf8("READ").writeByte(32).writeUtf8(paramString).writeByte(10);
+        if (journalRebuildRequired()) {
+          executor.execute(cleanupRunnable);
+        }
+        return localObject;
+      }
+      return null;
+    }
+    finally {}
+  }
+  
+  public File getDirectory()
+  {
+    return directory;
+  }
+  
+  public long getMaxSize()
+  {
+    try
+    {
+      long l = maxSize;
+      return l;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public void initialize()
+    throws IOException
+  {
+    try
+    {
+      boolean bool = initialized;
+      if (bool) {
+        return;
+      }
+      if (fileSystem.exists(journalFileBackup)) {
+        if (fileSystem.exists(journalFile)) {
+          fileSystem.delete(journalFileBackup);
+        } else {
+          fileSystem.rename(journalFileBackup, journalFile);
+        }
+      }
+      bool = fileSystem.exists(journalFile);
+      if (bool) {
+        try
+        {
+          readJournal();
+          processJournal();
+          initialized = true;
+          return;
+        }
+        catch (IOException localIOException)
+        {
+          Platform localPlatform = Platform.get();
+          StringBuilder localStringBuilder = new StringBuilder();
+          localStringBuilder.append("DiskLruCache ");
+          localStringBuilder.append(directory);
+          localStringBuilder.append(" is corrupt: ");
+          localStringBuilder.append(localIOException.getMessage());
+          localStringBuilder.append(", removing");
+          localPlatform.logW(localStringBuilder.toString());
+          delete();
+          closed = false;
+        }
+      }
+      rebuildJournal();
+      initialized = true;
+      return;
+    }
+    finally {}
+  }
+  
+  public boolean isClosed()
+  {
+    try
+    {
+      boolean bool = closed;
+      return bool;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public boolean remove(String paramString)
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      checkNotClosed();
+      validateKey(paramString);
+      paramString = (Entry)lruEntries.get(paramString);
+      if (paramString == null) {
+        return false;
+      }
+      boolean bool = removeEntry(paramString);
+      return bool;
+    }
+    finally {}
+  }
+  
+  public void setMaxSize(long paramLong)
+  {
+    try
+    {
+      maxSize = paramLong;
+      if (initialized) {
+        executor.execute(cleanupRunnable);
+      }
+      return;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public long size()
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      long l = size;
+      return l;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public Iterator<Snapshot> snapshots()
+    throws IOException
+  {
+    try
+    {
+      initialize();
+      Iterator local3 = new Iterator()
+      {
+        final Iterator<DiskLruCache.Entry> delegate = new ArrayList(lruEntries.values()).iterator();
+        DiskLruCache.Snapshot nextSnapshot;
+        DiskLruCache.Snapshot removeSnapshot;
+        
+        public boolean hasNext()
+        {
+          if (nextSnapshot != null) {
+            return true;
+          }
+          synchronized (DiskLruCache.this)
+          {
+            if (closed) {
+              return false;
+            }
+            while (delegate.hasNext())
+            {
+              DiskLruCache.Snapshot localSnapshot = ((DiskLruCache.Entry)delegate.next()).snapshot();
+              if (localSnapshot != null)
+              {
+                nextSnapshot = localSnapshot;
+                return true;
+              }
+            }
+            return false;
+          }
+          for (;;)
+          {
+            throw localObject;
+          }
+        }
+        
+        public DiskLruCache.Snapshot next()
+        {
+          if (hasNext())
+          {
+            removeSnapshot = nextSnapshot;
+            nextSnapshot = null;
+            return removeSnapshot;
+          }
+          throw new NoSuchElementException();
+        }
+        
+        /* Error */
+        public void remove()
+        {
+          // Byte code:
+          //   0: aload_0
+          //   1: getfield 71	com/squareup/okhttp/internal/DiskLruCache$3:removeSnapshot	Lcom/squareup/okhttp/internal/DiskLruCache$Snapshot;
+          //   4: astore_1
+          //   5: aload_1
+          //   6: ifnull +32 -> 38
+          //   9: aload_0
+          //   10: getfield 24	com/squareup/okhttp/internal/DiskLruCache$3:this$0	Lcom/squareup/okhttp/internal/DiskLruCache;
+          //   13: aload_1
+          //   14: invokestatic 85	com/squareup/okhttp/internal/DiskLruCache$Snapshot:access$2100	(Lcom/squareup/okhttp/internal/DiskLruCache$Snapshot;)Ljava/lang/String;
+          //   17: invokevirtual 88	com/squareup/okhttp/internal/DiskLruCache:remove	(Ljava/lang/String;)Z
+          //   20: pop
+          //   21: goto +11 -> 32
+          //   24: astore_1
+          //   25: aload_0
+          //   26: aconst_null
+          //   27: putfield 71	com/squareup/okhttp/internal/DiskLruCache$3:removeSnapshot	Lcom/squareup/okhttp/internal/DiskLruCache$Snapshot;
+          //   30: aload_1
+          //   31: athrow
+          //   32: aload_0
+          //   33: aconst_null
+          //   34: putfield 71	com/squareup/okhttp/internal/DiskLruCache$3:removeSnapshot	Lcom/squareup/okhttp/internal/DiskLruCache$Snapshot;
+          //   37: return
+          //   38: new 90	java/lang/IllegalStateException
+          //   41: dup
+          //   42: ldc 92
+          //   44: invokespecial 95	java/lang/IllegalStateException:<init>	(Ljava/lang/String;)V
+          //   47: athrow
+          //   48: astore_1
+          //   49: goto -17 -> 32
+          // Local variable table:
+          //   start	length	slot	name	signature
+          //   0	52	0	this	3
+          //   4	10	1	localSnapshot	DiskLruCache.Snapshot
+          //   24	7	1	localObject	Object
+          //   48	1	1	localIOException	IOException
+          // Exception table:
+          //   from	to	target	type
+          //   9	21	24	finally
+          //   9	21	48	java/io/IOException
+        }
+      };
+      return local3;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public final class Editor
+  {
+    private boolean committed;
+    private final DiskLruCache.Entry entry;
+    private boolean hasErrors;
+    private final boolean[] written;
+    
+    private Editor(DiskLruCache.Entry paramEntry)
+    {
+      entry = paramEntry;
+      if (DiskLruCache.Entry.access$800(paramEntry)) {
+        this$1 = null;
+      } else {
+        this$1 = new boolean[valueCount];
+      }
+      written = DiskLruCache.this;
+    }
+    
+    public void abort()
+      throws IOException
+    {
+      synchronized (DiskLruCache.this)
+      {
+        DiskLruCache.this.completeEdit(this, false);
+        return;
+      }
+    }
+    
+    public void abortUnlessCommitted()
+    {
+      synchronized (DiskLruCache.this)
+      {
+        boolean bool = committed;
+        if (bool) {}
+      }
+      try
+      {
+        DiskLruCache.this.completeEdit(this, false);
+        return;
+        localObject = finally;
+        throw localObject;
+      }
+      catch (IOException localIOException)
+      {
+        for (;;) {}
+      }
+    }
+    
+    public void commit()
+      throws IOException
+    {
+      synchronized (DiskLruCache.this)
+      {
+        if (hasErrors)
+        {
+          DiskLruCache.this.completeEdit(this, false);
+          DiskLruCache.this.removeEntry(entry);
+        }
+        else
+        {
+          DiskLruCache.this.completeEdit(this, true);
+        }
+        committed = true;
+        return;
+      }
+    }
+    
+    public Sink newSink(int paramInt)
+      throws IOException
+    {
+      synchronized (DiskLruCache.this)
+      {
+        if (DiskLruCache.Entry.access$900(entry) == this)
+        {
+          if (!DiskLruCache.Entry.access$800(entry)) {
+            written[paramInt] = true;
+          }
+          localObject1 = DiskLruCache.Entry.access$1400(entry)[paramInt];
+        }
+        try
+        {
+          localObject1 = fileSystem.sink((File)localObject1);
+          localObject1 = new FaultHidingSink((Sink)localObject1)
+          {
+            protected void onException(IOException arg1)
+            {
+              synchronized (DiskLruCache.this)
+              {
+                DiskLruCache.Editor.access$1902(DiskLruCache.Editor.this, true);
+                return;
+              }
+            }
+          };
+          return localObject1;
+        }
+        catch (FileNotFoundException localFileNotFoundException)
+        {
+          for (;;) {}
+        }
+        Object localObject1 = DiskLruCache.NULL_SINK;
+        return localObject1;
+        throw new IllegalStateException();
+      }
+    }
+    
+    public Source newSource(int paramInt)
+      throws IOException
+    {
+      synchronized (DiskLruCache.this)
+      {
+        if (DiskLruCache.Entry.access$900(entry) == this) {
+          if (!DiskLruCache.Entry.access$800(entry)) {
+            return null;
+          }
+        }
+        try
+        {
+          Source localSource = fileSystem.source(DiskLruCache.Entry.access$1300(entry)[paramInt]);
+          return localSource;
+        }
+        catch (FileNotFoundException localFileNotFoundException)
+        {
+          for (;;) {}
+        }
+        return null;
+        throw new IllegalStateException();
+      }
+    }
+  }
+  
+  private final class Entry
+  {
+    private final File[] cleanFiles;
+    private DiskLruCache.Editor currentEditor;
+    private final File[] dirtyFiles;
+    private final String key;
+    private final long[] lengths;
+    private boolean readable;
+    private long sequenceNumber;
+    
+    private Entry(String paramString)
+    {
+      key = paramString;
+      lengths = new long[valueCount];
+      cleanFiles = new File[valueCount];
+      dirtyFiles = new File[valueCount];
+      paramString = new StringBuilder(paramString);
+      paramString.append('.');
+      int j = paramString.length();
+      int i = 0;
+      while (i < valueCount)
+      {
+        paramString.append(i);
+        cleanFiles[i] = new File(directory, paramString.toString());
+        paramString.append(".tmp");
+        dirtyFiles[i] = new File(directory, paramString.toString());
+        paramString.setLength(j);
+        i += 1;
+      }
+    }
+    
+    private IOException invalidLengths(String[] paramArrayOfString)
+      throws IOException
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("unexpected journal line: ");
+      localStringBuilder.append(Arrays.toString(paramArrayOfString));
+      throw new IOException(localStringBuilder.toString());
+    }
+    
+    private void setLengths(String[] paramArrayOfString)
+      throws IOException
+    {
+      int i;
+      if (paramArrayOfString.length == valueCount) {
+        i = 0;
+      }
+      try
+      {
+        while (i < paramArrayOfString.length)
+        {
+          lengths[i] = Long.parseLong(paramArrayOfString[i]);
+          i += 1;
+        }
+        return;
+      }
+      catch (NumberFormatException localNumberFormatException)
+      {
+        for (;;) {}
+      }
+      throw invalidLengths(paramArrayOfString);
+      paramArrayOfString = invalidLengths(paramArrayOfString);
+      for (;;)
+      {
+        throw paramArrayOfString;
+      }
+    }
+    
+    DiskLruCache.Snapshot snapshot()
+    {
+      if (Thread.holdsLock(DiskLruCache.this))
+      {
+        localObject1 = new Source[valueCount];
+        Object localObject2 = (long[])lengths.clone();
+        j = 0;
+        i = 0;
+        for (;;)
+        {
+          try
+          {
+            if (i < valueCount)
+            {
+              localObject1[i] = fileSystem.source(cleanFiles[i]);
+              i += 1;
+              continue;
+            }
+            localObject2 = new DiskLruCache.Snapshot(DiskLruCache.this, key, sequenceNumber, (Source[])localObject1, (long[])localObject2, null);
+            return localObject2;
+          }
+          catch (FileNotFoundException localFileNotFoundException)
+          {
+            i = j;
+            continue;
+          }
+          if ((i >= valueCount) || (localObject1[i] == null)) {
+            continue;
+          }
+          Util.closeQuietly(localObject1[i]);
+          i += 1;
+        }
+        return null;
+      }
+      Object localObject1 = new AssertionError();
+      for (;;)
+      {
+        throw ((Throwable)localObject1);
+      }
+    }
+    
+    void writeLengths(BufferedSink paramBufferedSink)
+      throws IOException
+    {
+      long[] arrayOfLong = lengths;
+      int j = arrayOfLong.length;
+      int i = 0;
+      while (i < j)
+      {
+        long l = arrayOfLong[i];
+        paramBufferedSink.writeByte(32).writeDecimalLong(l);
+        i += 1;
+      }
+    }
+  }
+  
+  public final class Snapshot
+    implements Closeable
+  {
+    private final String key;
+    private final long[] lengths;
+    private final long sequenceNumber;
+    private final Source[] sources;
+    
+    private Snapshot(String paramString, long paramLong, Source[] paramArrayOfSource, long[] paramArrayOfLong)
+    {
+      key = paramString;
+      sequenceNumber = paramLong;
+      sources = paramArrayOfSource;
+      lengths = paramArrayOfLong;
+    }
+    
+    public void close()
+    {
+      Source[] arrayOfSource = sources;
+      int j = arrayOfSource.length;
+      int i = 0;
+      while (i < j)
+      {
+        Util.closeQuietly(arrayOfSource[i]);
+        i += 1;
+      }
+    }
+    
+    public DiskLruCache.Editor edit()
+      throws IOException
+    {
+      return DiskLruCache.this.edit(key, sequenceNumber);
+    }
+    
+    public long getLength(int paramInt)
+    {
+      return lengths[paramInt];
+    }
+    
+    public Source getSource(int paramInt)
+    {
+      return sources[paramInt];
+    }
+    
+    public String key()
+    {
+      return key;
+    }
+  }
+}

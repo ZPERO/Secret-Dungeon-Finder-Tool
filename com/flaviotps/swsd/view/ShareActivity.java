@@ -1,0 +1,52 @@
+package com.flaviotps.swsd.view;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.view.View;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.HashMap;
+import kotlin.Metadata;
+
+@Metadata(bv={1, 0, 3}, d1={"\000\032\n\002\030\002\n\002\030\002\n\002\b\002\n\002\020\002\n\002\b\004\n\002\030\002\n\000\030\0002\0020\001B\005?\006\002\020\002J\b\020\003\032\0020\004H\026J\b\020\005\032\0020\004H\026J\b\020\006\032\0020\004H\026J\022\020\007\032\0020\0042\b\020\b\032\004\030\0010\tH\024?\006\n"}, d2={"Lcom/flaviotps/swsd/view/ShareActivity;", "Lcom/flaviotps/swsd/view/BaseActivity;", "()V", "afterStart", "", "bindListeners", "bindViews", "onCreate", "savedInstanceState", "Landroid/os/Bundle;", "app_release"}, k=1, mv={1, 1, 16})
+public final class ShareActivity
+  extends BaseActivity
+{
+  private HashMap _$_findViewCache;
+  
+  public ShareActivity() {}
+  
+  public void _$_clearFindViewByIdCache()
+  {
+    HashMap localHashMap = _$_findViewCache;
+    if (localHashMap != null) {
+      localHashMap.clear();
+    }
+  }
+  
+  public View _$_findCachedViewById(int paramInt)
+  {
+    if (_$_findViewCache == null) {
+      _$_findViewCache = new HashMap();
+    }
+    View localView2 = (View)_$_findViewCache.get(Integer.valueOf(paramInt));
+    View localView1 = localView2;
+    if (localView2 == null)
+    {
+      localView1 = findViewById(paramInt);
+      _$_findViewCache.put(Integer.valueOf(paramInt), localView1);
+    }
+    return localView1;
+  }
+  
+  public void afterStart() {}
+  
+  public void bindListeners() {}
+  
+  public void bindViews() {}
+  
+  protected void onCreate(Bundle paramBundle)
+  {
+    super.onCreate(paramBundle);
+    setContentView(2131558431);
+  }
+}

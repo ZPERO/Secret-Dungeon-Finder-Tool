@@ -1,0 +1,169 @@
+package com.google.firebase.database.tubesock;
+
+import android.util.Base64;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+class WebSocketHandshake
+{
+  private static final String WEBSOCKET_VERSION = "13";
+  private Map<String, String> extraHeaders = null;
+  private String nonce = null;
+  private String protocol = null;
+  private URI uri = null;
+  
+  public WebSocketHandshake(URI paramURI, String paramString, Map paramMap)
+  {
+    uri = paramURI;
+    protocol = paramString;
+    extraHeaders = paramMap;
+    nonce = createNonce();
+  }
+  
+  private String createNonce()
+  {
+    byte[] arrayOfByte = new byte[16];
+    int i = 0;
+    while (i < 16)
+    {
+      arrayOfByte[i] = ((byte)rand(0, 255));
+      i += 1;
+    }
+    return Base64.encodeToString(arrayOfByte, 2);
+  }
+  
+  private String generateHeader(LinkedHashMap paramLinkedHashMap)
+  {
+    String str1 = new String();
+    Iterator localIterator = paramLinkedHashMap.keySet().iterator();
+    while (localIterator.hasNext())
+    {
+      String str2 = (String)localIterator.next();
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append(str1);
+      localStringBuilder.append(str2);
+      localStringBuilder.append(": ");
+      localStringBuilder.append((String)paramLinkedHashMap.get(str2));
+      localStringBuilder.append("\r\n");
+      str1 = localStringBuilder.toString();
+    }
+    return str1;
+  }
+  
+  private int rand(int paramInt1, int paramInt2)
+  {
+    double d1 = Math.random();
+    double d2 = paramInt2;
+    Double.isNaN(d2);
+    double d3 = paramInt1;
+    Double.isNaN(d3);
+    return (int)(d1 * d2 + d3);
+  }
+  
+  public byte[] getHandshake()
+  {
+    Object localObject3 = uri.getPath();
+    Object localObject1 = uri.getQuery();
+    Object localObject2 = new StringBuilder();
+    ((StringBuilder)localObject2).append((String)localObject3);
+    if (localObject1 == null)
+    {
+      localObject1 = "";
+    }
+    else
+    {
+      localObject3 = new StringBuilder();
+      ((StringBuilder)localObject3).append("?");
+      ((StringBuilder)localObject3).append((String)localObject1);
+      localObject1 = ((StringBuilder)localObject3).toString();
+    }
+    ((StringBuilder)localObject2).append((String)localObject1);
+    localObject3 = ((StringBuilder)localObject2).toString();
+    localObject2 = uri.getHost();
+    localObject1 = localObject2;
+    if (uri.getPort() != -1)
+    {
+      localObject1 = new StringBuilder();
+      ((StringBuilder)localObject1).append((String)localObject2);
+      ((StringBuilder)localObject1).append(":");
+      ((StringBuilder)localObject1).append(uri.getPort());
+      localObject1 = ((StringBuilder)localObject1).toString();
+    }
+    localObject2 = new LinkedHashMap();
+    ((LinkedHashMap)localObject2).put("Host", localObject1);
+    ((LinkedHashMap)localObject2).put("Upgrade", "websocket");
+    ((LinkedHashMap)localObject2).put("Connection", "Upgrade");
+    ((LinkedHashMap)localObject2).put("Sec-WebSocket-Version", "13");
+    ((LinkedHashMap)localObject2).put("Sec-WebSocket-Key", nonce);
+    localObject1 = protocol;
+    if (localObject1 != null) {
+      ((LinkedHashMap)localObject2).put("Sec-WebSocket-Protocol", localObject1);
+    }
+    localObject1 = extraHeaders;
+    if (localObject1 != null)
+    {
+      localObject1 = ((Map)localObject1).keySet().iterator();
+      while (((Iterator)localObject1).hasNext())
+      {
+        String str = (String)((Iterator)localObject1).next();
+        if (!((LinkedHashMap)localObject2).containsKey(str)) {
+          ((LinkedHashMap)localObject2).put(str, (String)extraHeaders.get(str));
+        }
+      }
+    }
+    localObject1 = new StringBuilder();
+    ((StringBuilder)localObject1).append("GET ");
+    ((StringBuilder)localObject1).append((String)localObject3);
+    ((StringBuilder)localObject1).append(" HTTP/1.1\r\n");
+    localObject1 = ((StringBuilder)localObject1).toString();
+    localObject3 = new StringBuilder();
+    ((StringBuilder)localObject3).append((String)localObject1);
+    ((StringBuilder)localObject3).append(generateHeader((LinkedHashMap)localObject2));
+    localObject1 = ((StringBuilder)localObject3).toString();
+    localObject2 = new StringBuilder();
+    ((StringBuilder)localObject2).append((String)localObject1);
+    ((StringBuilder)localObject2).append("\r\n");
+    localObject1 = ((StringBuilder)localObject2).toString().getBytes(Charset.defaultCharset());
+    localObject2 = new byte[localObject1.length];
+    System.arraycopy(localObject1, 0, localObject2, 0, localObject1.length);
+    return localObject2;
+  }
+  
+  public void verifyServerHandshakeHeaders(HashMap paramHashMap)
+  {
+    if (((String)paramHashMap.get("Upgrade")).toLowerCase(Locale.US).equals("websocket"))
+    {
+      if (((String)paramHashMap.get("Connection")).toLowerCase(Locale.US).equals("upgrade")) {
+        return;
+      }
+      throw new WebSocketException("connection failed: missing header field in server handshake: Connection");
+    }
+    throw new WebSocketException("connection failed: missing header field in server handshake: Upgrade");
+  }
+  
+  public void verifyServerStatusLine(String paramString)
+  {
+    int i = Integer.parseInt(paramString.substring(9, 12));
+    if (i != 407)
+    {
+      if (i != 404)
+      {
+        if (i == 101) {
+          return;
+        }
+        paramString = new StringBuilder();
+        paramString.append("connection failed: unknown status code ");
+        paramString.append(i);
+        throw new WebSocketException(paramString.toString());
+      }
+      throw new WebSocketException("connection failed: 404 not found");
+    }
+    throw new WebSocketException("connection failed: proxy authentication not supported");
+  }
+}

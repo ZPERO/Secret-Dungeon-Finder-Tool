@@ -1,0 +1,265 @@
+package com.squareup.okhttp;
+
+import com.squareup.okhttp.internal.Util;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.ByteString;
+
+public final class MultipartBuilder
+{
+  public static final MediaType ALTERNATIVE;
+  private static final byte[] COLONSPACE = { 58, 32 };
+  private static final byte[] CRLF = { 13, 10 };
+  private static final byte[] DASHDASH = { 45, 45 };
+  public static final MediaType DIGEST;
+  public static final MediaType FORM;
+  public static final MediaType MIXED = MediaType.parse("multipart/mixed");
+  public static final MediaType PARALLEL;
+  private final ByteString boundary;
+  private final List<RequestBody> partBodies = new ArrayList();
+  private final List<Headers> partHeaders = new ArrayList();
+  private MediaType type = MIXED;
+  
+  static
+  {
+    ALTERNATIVE = MediaType.parse("multipart/alternative");
+    DIGEST = MediaType.parse("multipart/digest");
+    PARALLEL = MediaType.parse("multipart/parallel");
+    FORM = MediaType.parse("multipart/form-data");
+  }
+  
+  public MultipartBuilder()
+  {
+    this(UUID.randomUUID().toString());
+  }
+  
+  public MultipartBuilder(String paramString)
+  {
+    boundary = ByteString.encodeUtf8(paramString);
+  }
+  
+  private static StringBuilder appendQuotedString(StringBuilder paramStringBuilder, String paramString)
+  {
+    paramStringBuilder.append('"');
+    int j = paramString.length();
+    int i = 0;
+    while (i < j)
+    {
+      char c = paramString.charAt(i);
+      if (c != '\n')
+      {
+        if (c != '\r')
+        {
+          if (c != '"') {
+            paramStringBuilder.append(c);
+          } else {
+            paramStringBuilder.append("%22");
+          }
+        }
+        else {
+          paramStringBuilder.append("%0D");
+        }
+      }
+      else {
+        paramStringBuilder.append("%0A");
+      }
+      i += 1;
+    }
+    paramStringBuilder.append('"');
+    return paramStringBuilder;
+  }
+  
+  public MultipartBuilder addFormDataPart(String paramString1, String paramString2)
+  {
+    return addFormDataPart(paramString1, null, RequestBody.create(null, paramString2));
+  }
+  
+  public MultipartBuilder addFormDataPart(String paramString1, String paramString2, RequestBody paramRequestBody)
+  {
+    if (paramString1 != null)
+    {
+      StringBuilder localStringBuilder = new StringBuilder("form-data; name=");
+      appendQuotedString(localStringBuilder, paramString1);
+      if (paramString2 != null)
+      {
+        localStringBuilder.append("; filename=");
+        appendQuotedString(localStringBuilder, paramString2);
+      }
+      return addPart(Headers.of(new String[] { "Content-Disposition", localStringBuilder.toString() }), paramRequestBody);
+    }
+    throw new NullPointerException("name == null");
+  }
+  
+  public MultipartBuilder addPart(Headers paramHeaders, RequestBody paramRequestBody)
+  {
+    if (paramRequestBody != null)
+    {
+      if ((paramHeaders != null) && (paramHeaders.get("Content-Type") != null)) {
+        throw new IllegalArgumentException("Unexpected header: Content-Type");
+      }
+      if ((paramHeaders != null) && (paramHeaders.get("Content-Length") != null)) {
+        throw new IllegalArgumentException("Unexpected header: Content-Length");
+      }
+      partHeaders.add(paramHeaders);
+      partBodies.add(paramRequestBody);
+      return this;
+    }
+    throw new NullPointerException("body == null");
+  }
+  
+  public MultipartBuilder addPart(RequestBody paramRequestBody)
+  {
+    return addPart(null, paramRequestBody);
+  }
+  
+  public RequestBody build()
+  {
+    if (!partHeaders.isEmpty()) {
+      return new MultipartRequestBody(type, boundary, partHeaders, partBodies);
+    }
+    throw new IllegalStateException("Multipart body must have at least one part.");
+  }
+  
+  public MultipartBuilder type(MediaType paramMediaType)
+  {
+    if (paramMediaType != null)
+    {
+      if (paramMediaType.type().equals("multipart"))
+      {
+        type = paramMediaType;
+        return this;
+      }
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("multipart != ");
+      localStringBuilder.append(paramMediaType);
+      throw new IllegalArgumentException(localStringBuilder.toString());
+    }
+    throw new NullPointerException("type == null");
+  }
+  
+  private static final class MultipartRequestBody
+    extends RequestBody
+  {
+    private final ByteString boundary;
+    private long contentLength = -1L;
+    private final MediaType contentType;
+    private final List<RequestBody> partBodies;
+    private final List<Headers> partHeaders;
+    
+    public MultipartRequestBody(MediaType paramMediaType, ByteString paramByteString, List<Headers> paramList, List<RequestBody> paramList1)
+    {
+      if (paramMediaType != null)
+      {
+        boundary = paramByteString;
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append(paramMediaType);
+        localStringBuilder.append("; boundary=");
+        localStringBuilder.append(paramByteString.utf8());
+        contentType = MediaType.parse(localStringBuilder.toString());
+        partHeaders = Util.immutableList(paramList);
+        partBodies = Util.immutableList(paramList1);
+        return;
+      }
+      throw new NullPointerException("type == null");
+    }
+    
+    private long writeOrCountBytes(BufferedSink paramBufferedSink, boolean paramBoolean)
+      throws IOException
+    {
+      Object localObject1;
+      RequestBody localRequestBody;
+      if (paramBoolean)
+      {
+        localObject1 = new Buffer();
+        paramBufferedSink = (BufferedSink)localObject1;
+      }
+      else
+      {
+        localRequestBody = null;
+        localObject1 = paramBufferedSink;
+        paramBufferedSink = localRequestBody;
+      }
+      int k = partHeaders.size();
+      long l1 = 0L;
+      int i = 0;
+      while (i < k)
+      {
+        Object localObject2 = (Headers)partHeaders.get(i);
+        localRequestBody = (RequestBody)partBodies.get(i);
+        ((BufferedSink)localObject1).write(MultipartBuilder.DASHDASH);
+        ((BufferedSink)localObject1).write(boundary);
+        ((BufferedSink)localObject1).write(MultipartBuilder.CRLF);
+        if (localObject2 != null)
+        {
+          int m = ((Headers)localObject2).size();
+          int j = 0;
+          while (j < m)
+          {
+            ((BufferedSink)localObject1).writeUtf8(((Headers)localObject2).name(j)).write(MultipartBuilder.COLONSPACE).writeUtf8(((Headers)localObject2).value(j)).write(MultipartBuilder.CRLF);
+            j += 1;
+          }
+        }
+        localObject2 = localRequestBody.contentType();
+        if (localObject2 != null) {
+          ((BufferedSink)localObject1).writeUtf8("Content-Type: ").writeUtf8(((MediaType)localObject2).toString()).write(MultipartBuilder.CRLF);
+        }
+        l2 = localRequestBody.contentLength();
+        if (l2 != -1L)
+        {
+          ((BufferedSink)localObject1).writeUtf8("Content-Length: ").writeDecimalLong(l2).write(MultipartBuilder.CRLF);
+        }
+        else if (paramBoolean)
+        {
+          paramBufferedSink.clear();
+          return -1L;
+        }
+        ((BufferedSink)localObject1).write(MultipartBuilder.CRLF);
+        if (paramBoolean) {
+          l1 += l2;
+        } else {
+          ((RequestBody)partBodies.get(i)).writeTo((BufferedSink)localObject1);
+        }
+        ((BufferedSink)localObject1).write(MultipartBuilder.CRLF);
+        i += 1;
+      }
+      ((BufferedSink)localObject1).write(MultipartBuilder.DASHDASH);
+      ((BufferedSink)localObject1).write(boundary);
+      ((BufferedSink)localObject1).write(MultipartBuilder.DASHDASH);
+      ((BufferedSink)localObject1).write(MultipartBuilder.CRLF);
+      long l2 = l1;
+      if (paramBoolean)
+      {
+        l2 = l1 + paramBufferedSink.size();
+        paramBufferedSink.clear();
+      }
+      return l2;
+    }
+    
+    public long contentLength()
+      throws IOException
+    {
+      long l = contentLength;
+      if (l != -1L) {
+        return l;
+      }
+      l = writeOrCountBytes(null, true);
+      contentLength = l;
+      return l;
+    }
+    
+    public MediaType contentType()
+    {
+      return contentType;
+    }
+    
+    public void writeTo(BufferedSink paramBufferedSink)
+      throws IOException
+    {
+      writeOrCountBytes(paramBufferedSink, false);
+    }
+  }
+}

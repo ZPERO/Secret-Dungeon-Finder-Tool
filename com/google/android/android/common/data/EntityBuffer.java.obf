@@ -1,0 +1,152 @@
+package com.google.android.gms.common.data;
+
+import java.util.ArrayList;
+
+public abstract class EntityBuffer<T>
+  extends AbstractDataBuffer<T>
+{
+  private boolean zamd = false;
+  private ArrayList<Integer> zame;
+  
+  protected EntityBuffer(DataHolder paramDataHolder)
+  {
+    super(paramDataHolder);
+  }
+  
+  private final void zacb()
+  {
+    try
+    {
+      if (zamd) {
+        break label223;
+      }
+      j = mDataHolder.getCount();
+      zame = new ArrayList();
+      if (j <= 0) {
+        break label218;
+      }
+      zame.add(Integer.valueOf(0));
+      str2 = getPrimaryDataMarkerColumn();
+      i = mDataHolder.getWindowIndex(0);
+      localObject1 = mDataHolder.getString(str2, 0, i);
+      i = 1;
+    }
+    finally
+    {
+      for (;;)
+      {
+        int j;
+        String str2;
+        int i;
+        Object localObject1;
+        int k;
+        String str1;
+        Object localObject4;
+        for (;;)
+        {
+          label218:
+          label223:
+          throw localObject2;
+        }
+        i += 1;
+        Object localObject3 = localObject4;
+      }
+    }
+    if (i < j)
+    {
+      k = mDataHolder.getWindowIndex(i);
+      str1 = mDataHolder.getString(str2, i, k);
+      if (str1 != null)
+      {
+        localObject4 = localObject1;
+        if (!str1.equals(localObject1))
+        {
+          zame.add(Integer.valueOf(i));
+          localObject4 = str1;
+        }
+      }
+      else
+      {
+        localObject1 = new StringBuilder(String.valueOf(str2).length() + 78);
+        ((StringBuilder)localObject1).append("Missing value for markerColumn: ");
+        ((StringBuilder)localObject1).append(str2);
+        ((StringBuilder)localObject1).append(", at row: ");
+        ((StringBuilder)localObject1).append(i);
+        ((StringBuilder)localObject1).append(", for window: ");
+        ((StringBuilder)localObject1).append(k);
+        throw new NullPointerException(((StringBuilder)localObject1).toString());
+      }
+    }
+    else
+    {
+      zamd = true;
+      return;
+    }
+  }
+  
+  private final int zah(int paramInt)
+  {
+    if ((paramInt >= 0) && (paramInt < zame.size())) {
+      return ((Integer)zame.get(paramInt)).intValue();
+    }
+    StringBuilder localStringBuilder = new StringBuilder(53);
+    localStringBuilder.append("Position ");
+    localStringBuilder.append(paramInt);
+    localStringBuilder.append(" is out of bounds for this buffer");
+    throw new IllegalArgumentException(localStringBuilder.toString());
+  }
+  
+  public final T get(int paramInt)
+  {
+    zacb();
+    int m = zah(paramInt);
+    int k = 0;
+    int i = k;
+    if (paramInt >= 0) {
+      if (paramInt == zame.size())
+      {
+        i = k;
+      }
+      else
+      {
+        int j;
+        if (paramInt == zame.size() - 1)
+        {
+          i = mDataHolder.getCount();
+          j = ((Integer)zame.get(paramInt)).intValue();
+        }
+        else
+        {
+          i = ((Integer)zame.get(paramInt + 1)).intValue();
+          j = ((Integer)zame.get(paramInt)).intValue();
+        }
+        i -= j;
+        if (i == 1)
+        {
+          paramInt = zah(paramInt);
+          j = mDataHolder.getWindowIndex(paramInt);
+          String str = getChildDataMarkerColumn();
+          if ((str != null) && (mDataHolder.getString(str, paramInt, j) == null)) {
+            i = k;
+          }
+        }
+      }
+    }
+    return getEntry(m, i);
+  }
+  
+  protected String getChildDataMarkerColumn()
+  {
+    return null;
+  }
+  
+  public int getCount()
+  {
+    zacb();
+    return zame.size();
+  }
+  
+  protected abstract T getEntry(int paramInt1, int paramInt2);
+  
+  protected abstract String getPrimaryDataMarkerColumn();
+}

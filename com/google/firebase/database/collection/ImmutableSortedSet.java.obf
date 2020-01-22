@@ -1,0 +1,135 @@
+package com.google.firebase.database.collection;
+
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map.Entry;
+
+public class ImmutableSortedSet<T>
+  implements Iterable<T>
+{
+  private final ImmutableSortedMap<T, Void> zzk;
+  
+  private ImmutableSortedSet(ImmutableSortedMap<T, Void> paramImmutableSortedMap)
+  {
+    zzk = paramImmutableSortedMap;
+  }
+  
+  public ImmutableSortedSet(List<T> paramList, Comparator<T> paramComparator)
+  {
+    zzk = ImmutableSortedMap.Builder.buildFrom(paramList, Collections.emptyMap(), ImmutableSortedMap.Builder.identityTranslator(), paramComparator);
+  }
+  
+  public boolean contains(T paramT)
+  {
+    return zzk.containsKey(paramT);
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (!(paramObject instanceof ImmutableSortedSet)) {
+      return false;
+    }
+    paramObject = (ImmutableSortedSet)paramObject;
+    return zzk.equals(zzk);
+  }
+  
+  public T getMaxEntry()
+  {
+    return zzk.getMaxKey();
+  }
+  
+  public T getMinEntry()
+  {
+    return zzk.getMinKey();
+  }
+  
+  public T getPredecessorEntry(T paramT)
+  {
+    return zzk.getPredecessorKey(paramT);
+  }
+  
+  public int hashCode()
+  {
+    return zzk.hashCode();
+  }
+  
+  public int indexOf(T paramT)
+  {
+    return zzk.indexOf(paramT);
+  }
+  
+  public ImmutableSortedSet<T> insert(T paramT)
+  {
+    return new ImmutableSortedSet(zzk.insert(paramT, null));
+  }
+  
+  public boolean isEmpty()
+  {
+    return zzk.isEmpty();
+  }
+  
+  public Iterator<T> iterator()
+  {
+    return new WrappedEntryIterator(zzk.iterator());
+  }
+  
+  public Iterator<T> iteratorFrom(T paramT)
+  {
+    return new WrappedEntryIterator(zzk.iteratorFrom(paramT));
+  }
+  
+  public ImmutableSortedSet<T> remove(T paramT)
+  {
+    paramT = zzk.remove(paramT);
+    if (paramT == zzk) {
+      return this;
+    }
+    return new ImmutableSortedSet(paramT);
+  }
+  
+  public Iterator<T> reverseIterator()
+  {
+    return new WrappedEntryIterator(zzk.reverseIterator());
+  }
+  
+  public Iterator<T> reverseIteratorFrom(T paramT)
+  {
+    return new WrappedEntryIterator(zzk.reverseIteratorFrom(paramT));
+  }
+  
+  public int size()
+  {
+    return zzk.size();
+  }
+  
+  private static class WrappedEntryIterator<T>
+    implements Iterator<T>
+  {
+    private final Iterator<Map.Entry<T, Void>> zzl;
+    
+    public WrappedEntryIterator(Iterator<Map.Entry<T, Void>> paramIterator)
+    {
+      zzl = paramIterator;
+    }
+    
+    public boolean hasNext()
+    {
+      return zzl.hasNext();
+    }
+    
+    public T next()
+    {
+      return ((Map.Entry)zzl.next()).getKey();
+    }
+    
+    public void remove()
+    {
+      zzl.remove();
+    }
+  }
+}

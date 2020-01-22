@@ -1,0 +1,316 @@
+package com.google.android.android.internal.measurement;
+
+import java.io.IOException;
+import java.util.Arrays;
+
+public final class zzyc
+{
+  private static final zzyc zzcco = new zzyc(0, new int[0], new Object[0], false);
+  private int count;
+  private boolean zzbtu;
+  private int zzbyn = -1;
+  private Object[] zzcba;
+  private int[] zzccp;
+  
+  private zzyc()
+  {
+    this(0, new int[8], new Object[8], true);
+  }
+  
+  private zzyc(int paramInt, int[] paramArrayOfInt, Object[] paramArrayOfObject, boolean paramBoolean)
+  {
+    count = paramInt;
+    zzccp = paramArrayOfInt;
+    zzcba = paramArrayOfObject;
+    zzbtu = paramBoolean;
+  }
+  
+  private static void a(int paramInt, Object paramObject, zzyw paramZzyw)
+    throws IOException
+  {
+    int i = paramInt >>> 3;
+    paramInt &= 0x7;
+    if (paramInt != 0)
+    {
+      if (paramInt != 1)
+      {
+        if (paramInt != 2)
+        {
+          if (paramInt != 3)
+          {
+            if (paramInt == 5)
+            {
+              paramZzyw.valueOf(i, ((Integer)paramObject).intValue());
+              return;
+            }
+            throw new RuntimeException(zzvt.zzwo());
+          }
+          if (paramZzyw.zzvj() == zzvm.zze.zzbze)
+          {
+            paramZzyw.zzbk(i);
+            ((zzyc)paramObject).visitFrame(paramZzyw);
+            paramZzyw.zzbl(i);
+            return;
+          }
+          paramZzyw.zzbl(i);
+          ((zzyc)paramObject).visitFrame(paramZzyw);
+          paramZzyw.zzbk(i);
+          return;
+        }
+        paramZzyw.e(i, (zzud)paramObject);
+        return;
+      }
+      paramZzyw.valueOf(i, ((Long)paramObject).longValue());
+      return;
+    }
+    paramZzyw.toString(i, ((Long)paramObject).longValue());
+  }
+  
+  static zzyc create(zzyc paramZzyc1, zzyc paramZzyc2)
+  {
+    int i = count + count;
+    int[] arrayOfInt = Arrays.copyOf(zzccp, i);
+    System.arraycopy(zzccp, 0, arrayOfInt, count, count);
+    Object[] arrayOfObject = Arrays.copyOf(zzcba, i);
+    System.arraycopy(zzcba, 0, arrayOfObject, count, count);
+    return new zzyc(i, arrayOfInt, arrayOfObject, true);
+  }
+  
+  public static zzyc zzyf()
+  {
+    return zzcco;
+  }
+  
+  static zzyc zzyg()
+  {
+    return new zzyc();
+  }
+  
+  final void append(int paramInt, Object paramObject)
+  {
+    if (zzbtu)
+    {
+      int i = count;
+      if (i == zzccp.length)
+      {
+        if (i < 4) {
+          i = 8;
+        } else {
+          i >>= 1;
+        }
+        i = count + i;
+        zzccp = Arrays.copyOf(zzccp, i);
+        zzcba = Arrays.copyOf(zzcba, i);
+      }
+      int[] arrayOfInt = zzccp;
+      i = count;
+      arrayOfInt[i] = paramInt;
+      zzcba[i] = paramObject;
+      count = (i + 1);
+      return;
+    }
+    throw new UnsupportedOperationException();
+  }
+  
+  final void element(zzyw paramZzyw)
+    throws IOException
+  {
+    if (paramZzyw.zzvj() == zzvm.zze.zzbzf)
+    {
+      i = count - 1;
+      while (i >= 0)
+      {
+        paramZzyw.f(zzccp[i] >>> 3, zzcba[i]);
+        i -= 1;
+      }
+      return;
+    }
+    int i = 0;
+    while (i < count)
+    {
+      paramZzyw.f(zzccp[i] >>> 3, zzcba[i]);
+      i += 1;
+    }
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (paramObject == null) {
+      return false;
+    }
+    if (!(paramObject instanceof zzyc)) {
+      return false;
+    }
+    paramObject = (zzyc)paramObject;
+    int j = count;
+    if (j == count)
+    {
+      Object localObject = zzccp;
+      int[] arrayOfInt = zzccp;
+      int i = 0;
+      while (i < j)
+      {
+        if (localObject[i] != arrayOfInt[i])
+        {
+          i = 0;
+          break label84;
+        }
+        i += 1;
+      }
+      i = 1;
+      label84:
+      if (i != 0)
+      {
+        localObject = zzcba;
+        paramObject = zzcba;
+        j = count;
+        i = 0;
+        while (i < j)
+        {
+          if (!localObject[i].equals(paramObject[i]))
+          {
+            i = 0;
+            break label138;
+          }
+          i += 1;
+        }
+        i = 1;
+        label138:
+        return i != 0;
+      }
+    }
+    return false;
+  }
+  
+  public final int hashCode()
+  {
+    int n = count;
+    Object localObject = zzccp;
+    int m = 0;
+    int k = 17;
+    int j = 0;
+    int i = 17;
+    while (j < n)
+    {
+      i = i * 31 + localObject[j];
+      j += 1;
+    }
+    localObject = zzcba;
+    int i1 = count;
+    j = m;
+    while (j < i1)
+    {
+      k = k * 31 + localObject[j].hashCode();
+      j += 1;
+    }
+    return ((n + 527) * 31 + i) * 31 + k;
+  }
+  
+  final void index(StringBuilder paramStringBuilder, int paramInt)
+  {
+    int i = 0;
+    while (i < count)
+    {
+      zzww.create(paramStringBuilder, paramInt, String.valueOf(zzccp[i] >>> 3), zzcba[i]);
+      i += 1;
+    }
+  }
+  
+  public final void visitFrame(zzyw paramZzyw)
+    throws IOException
+  {
+    if (count == 0) {
+      return;
+    }
+    if (paramZzyw.zzvj() == zzvm.zze.zzbze)
+    {
+      i = 0;
+      while (i < count)
+      {
+        a(zzccp[i], zzcba[i], paramZzyw);
+        i += 1;
+      }
+      return;
+    }
+    int i = count - 1;
+    while (i >= 0)
+    {
+      a(zzccp[i], zzcba[i], paramZzyw);
+      i -= 1;
+    }
+  }
+  
+  public final void zzsm()
+  {
+    zzbtu = false;
+  }
+  
+  public final int zzvu()
+  {
+    int i = zzbyn;
+    if (i != -1) {
+      return i;
+    }
+    int j = 0;
+    int k = 0;
+    while (j < count)
+    {
+      int m = zzccp[j];
+      i = m >>> 3;
+      m &= 0x7;
+      if (m != 0)
+      {
+        if (m != 1)
+        {
+          if (m != 2)
+          {
+            if (m != 3)
+            {
+              if (m == 5) {
+                i = zzut.getPath(i, ((Integer)zzcba[j]).intValue());
+              } else {
+                throw new IllegalStateException(zzvt.zzwo());
+              }
+            }
+            else {
+              i = (zzut.zzbb(i) << 1) + ((zzyc)zzcba[j]).zzvu();
+            }
+          }
+          else {
+            i = zzut.getShares(i, (zzud)zzcba[j]);
+          }
+        }
+        else {
+          i = zzut.a(i, ((Long)zzcba[j]).longValue());
+        }
+      }
+      else {
+        i = zzut.valueString(i, ((Long)zzcba[j]).longValue());
+      }
+      k += i;
+      j += 1;
+    }
+    zzbyn = k;
+    return k;
+  }
+  
+  public final int zzyh()
+  {
+    int i = zzbyn;
+    if (i != -1) {
+      return i;
+    }
+    i = 0;
+    int j = 0;
+    while (i < count)
+    {
+      j += zzut.skipChar(zzccp[i] >>> 3, (zzud)zzcba[i]);
+      i += 1;
+    }
+    zzbyn = j;
+    return j;
+  }
+}

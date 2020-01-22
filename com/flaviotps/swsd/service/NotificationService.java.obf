@@ -1,0 +1,166 @@
+package com.flaviotps.swsd.service;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.content.res.Resources;
+import android.media.RingtoneManager;
+import android.os.Build.VERSION;
+import android.widget.RemoteViews;
+import androidx.core.app.NotificationCompat.Builder;
+import androidx.preference.PreferenceManager;
+import com.flaviotps.swsd.enum.MonsterElement;
+import com.flaviotps.swsd.enum.NotificationType;
+import com.flaviotps.swsd.enum.NotificationType.Companion;
+import com.flaviotps.swsd.model.FriendRequestModel;
+import com.flaviotps.swsd.model.MonsterModel;
+import com.flaviotps.swsd.model.SecretDungeonModel;
+import com.flaviotps.swsd.model.TokenModel;
+import com.flaviotps.swsd.repository.TokenRepository;
+import com.flaviotps.swsd.repository.TokenRepository.Companion;
+import com.flaviotps.swsd.utils.ParseUtils;
+import com.flaviotps.swsd.utils.ParseUtils.Companion;
+import com.flaviotps.swsd.view.MainActivity;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import kotlin.Lazy;
+import kotlin.LazyKt;
+import kotlin.Metadata;
+import kotlin.TypeCastException;
+import kotlin.jvm.functions.Function0;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.jvm.internal.Lambda;
+import kotlin.reflect.KProperty;
+import kotlin.text.StringsKt;
+
+@Metadata(bv={1, 0, 3}, d1={"\000@\n\002\030\002\n\002\030\002\n\002\b\002\n\002\030\002\n\002\b\005\n\002\020\013\n\000\n\002\020\"\n\002\020\016\n\000\n\002\030\002\n\000\n\002\020\002\n\000\n\002\030\002\n\002\b\006\n\002\030\002\n\002\b\003\030\0002\0020\001B\005?\006\002\020\002J \020\t\032\0020\n2\016\020\013\032\n\022\004\022\0020\r\030\0010\f2\006\020\016\032\0020\017H\002J\020\020\020\032\0020\0212\006\020\022\032\0020\023H\026J\020\020\024\032\0020\0212\006\020\025\032\0020\rH\026J\022\020\026\032\0020\0212\b\020\027\032\004\030\0010\rH\002J\020\020\030\032\0020\0212\006\020\031\032\0020\032H\002J\020\020\033\032\0020\0212\006\020\034\032\0020\017H\002R\033\020\003\032\0020\0048BX??\002?\006\f\n\004\b\007\020\b\032\004\b\005\020\006?\006\035"}, d2={"Lcom/flaviotps/swsd/service/NotificationService;", "Lcom/google/firebase/messaging/FirebaseMessagingService;", "()V", "tokenRepository", "Lcom/flaviotps/swsd/repository/TokenRepository;", "getTokenRepository", "()Lcom/flaviotps/swsd/repository/TokenRepository;", "tokenRepository$delegate", "Lkotlin/Lazy;", "isFilteredDungeon", "", "monsterSet", "", "", "sd", "Lcom/flaviotps/swsd/model/SecretDungeonModel;", "onMessageReceived", "", "remoteMessage", "Lcom/google/firebase/messaging/RemoteMessage;", "onNewToken", "token", "saveTokenUID", "key", "sendFriendRequestNotification", "friendRequestModel", "Lcom/flaviotps/swsd/model/FriendRequestModel;", "sendSecretDungeonNotification", "secretDungeonModel", "app_release"}, k=1, mv={1, 1, 16})
+public final class NotificationService
+  extends FirebaseMessagingService
+{
+  private final Lazy tokenRepository$delegate = LazyKt.lazy((Function0)tokenRepository.2.INSTANCE);
+  
+  public NotificationService() {}
+  
+  private final TokenRepository getTokenRepository()
+  {
+    Lazy localLazy = tokenRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[0];
+    return (TokenRepository)localLazy.getValue();
+  }
+  
+  private final boolean isFilteredDungeon(Set<String> paramSet, SecretDungeonModel paramSecretDungeonModel)
+  {
+    if (paramSet != null)
+    {
+      if (paramSet.isEmpty()) {
+        return true;
+      }
+      paramSet = paramSet.iterator();
+      while (paramSet.hasNext()) {
+        if (StringsKt.equals(StringsKt.replace$default((String)paramSet.next(), " ", "", false, 4, null), StringsKt.replace$default(paramSecretDungeonModel.getMonster().getGenericName(), " ", "", false, 4, null), true)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+  
+  private final void saveTokenUID(String paramString)
+  {
+    PreferenceManager.getDefaultSharedPreferences((Context)this).edit().putString("PREF_UID_TOKEN", paramString).apply();
+  }
+  
+  private final void sendFriendRequestNotification(FriendRequestModel paramFriendRequestModel)
+  {
+    Object localObject = new RemoteViews(getPackageName(), 2131558462);
+    ((RemoteViews)localObject).setTextViewText(2131361970, (CharSequence)ParseUtils.Companion.trim$default(ParseUtils.Companion, paramFriendRequestModel.getNickname(), 0, 2, null));
+    String str = getString(2131820638);
+    Intrinsics.checkExpressionValueIsNotNull(str, "getString(R.string.friend_request)");
+    ((RemoteViews)localObject).setTextViewText(2131361961, (CharSequence)StringsKt.replace$default(str, "%s", paramFriendRequestModel.getMonster(), false, 4, null));
+    ((RemoteViews)localObject).setImageViewResource(2131361986, getResources().getIdentifier(paramFriendRequestModel.getImage(), "drawable", getPackageName()));
+    paramFriendRequestModel = RingtoneManager.getDefaultUri(2);
+    Intrinsics.checkExpressionValueIsNotNull(paramFriendRequestModel, "RingtoneManager.getDefau?anager.TYPE_NOTIFICATION)");
+    paramFriendRequestModel = new NotificationCompat.Builder((Context)this, "SWSD").setSmallIcon(2131230899).setContentTitle((CharSequence)getString(2131820573)).setCustomContentView((RemoteViews)localObject).setAutoCancel(true).setSound(paramFriendRequestModel).setContent((RemoteViews)localObject);
+    localObject = getSystemService("notification");
+    if (localObject != null)
+    {
+      localObject = (NotificationManager)localObject;
+      if (Build.VERSION.SDK_INT >= 26) {
+        ((NotificationManager)localObject).createNotificationChannel(new NotificationChannel("SWSD", (CharSequence)getString(2131820653), 3));
+      }
+      ((NotificationManager)localObject).notify(1, paramFriendRequestModel.build());
+      return;
+    }
+    throw new TypeCastException("null cannot be cast to non-null type android.app.NotificationManager");
+  }
+  
+  private final void sendSecretDungeonNotification(SecretDungeonModel paramSecretDungeonModel)
+  {
+    Object localObject1 = (Context)this;
+    if (isFilteredDungeon(PreferenceManager.getDefaultSharedPreferences((Context)localObject1).getStringSet("filter_monsters", null), paramSecretDungeonModel))
+    {
+      Object localObject2 = new Intent((Context)localObject1, MainActivity.class);
+      ((Intent)localObject2).addFlags(67108864);
+      localObject2 = PendingIntent.getActivity((Context)localObject1, 0, (Intent)localObject2, 1073741824);
+      RemoteViews localRemoteViews = new RemoteViews(getPackageName(), 2131558465);
+      localRemoteViews.setTextViewText(2131361920, (CharSequence)paramSecretDungeonModel.getMonster().getGenericName());
+      localRemoteViews.setTextViewText(2131361939, (CharSequence)ParseUtils.Companion.trim$default(ParseUtils.Companion, paramSecretDungeonModel.getInGameName(), 0, 2, null));
+      localRemoteViews.setImageViewResource(2131361986, getResources().getIdentifier(paramSecretDungeonModel.getMonster().getImage(), "drawable", getPackageName()));
+      localRemoteViews.setImageViewResource(2131361943, paramSecretDungeonModel.getMonster().getElement().getIcon());
+      paramSecretDungeonModel = RingtoneManager.getDefaultUri(2);
+      Intrinsics.checkExpressionValueIsNotNull(paramSecretDungeonModel, "RingtoneManager.getDefau?anager.TYPE_NOTIFICATION)");
+      paramSecretDungeonModel = new NotificationCompat.Builder((Context)localObject1, "SWSD").setSmallIcon(2131230899).setContentTitle((CharSequence)getString(2131820573)).setCustomContentView(localRemoteViews).setAutoCancel(true).setSound(paramSecretDungeonModel).setContentIntent((PendingIntent)localObject2).setContent(localRemoteViews);
+      localObject1 = getSystemService("notification");
+      if (localObject1 != null)
+      {
+        localObject1 = (NotificationManager)localObject1;
+        if (Build.VERSION.SDK_INT >= 26) {
+          ((NotificationManager)localObject1).createNotificationChannel(new NotificationChannel("SWSD", (CharSequence)getString(2131820653), 3));
+        }
+        ((NotificationManager)localObject1).notify(0, paramSecretDungeonModel.build());
+        return;
+      }
+      throw new TypeCastException("null cannot be cast to non-null type android.app.NotificationManager");
+    }
+  }
+  
+  public void onMessageReceived(RemoteMessage paramRemoteMessage)
+  {
+    Intrinsics.checkParameterIsNotNull(paramRemoteMessage, "remoteMessage");
+    Object localObject = paramRemoteMessage.getData();
+    Intrinsics.checkExpressionValueIsNotNull(localObject, "remoteMessage.data");
+    if ((((Map)localObject).isEmpty() ^ true))
+    {
+      localObject = NotificationType.Companion.getNotificationType(String.valueOf(paramRemoteMessage.getData().get(getString(2131820654))));
+      if (localObject == NotificationType.SECRET_DUNGEON)
+      {
+        localObject = ParseUtils.Companion;
+        paramRemoteMessage = paramRemoteMessage.getData();
+        Intrinsics.checkExpressionValueIsNotNull(paramRemoteMessage, "remoteMessage.data");
+        sendSecretDungeonNotification(((ParseUtils.Companion)localObject).parseSecretDungeon(paramRemoteMessage));
+        return;
+      }
+      if ((localObject == NotificationType.FRIEND_REQUEST) && (PreferenceManager.getDefaultSharedPreferences((Context)this).getBoolean("request", true)))
+      {
+        localObject = ParseUtils.Companion;
+        paramRemoteMessage = paramRemoteMessage.getData();
+        Intrinsics.checkExpressionValueIsNotNull(paramRemoteMessage, "remoteMessage.data");
+        sendFriendRequestNotification(((ParseUtils.Companion)localObject).parseFriendRequest(paramRemoteMessage));
+      }
+    }
+  }
+  
+  public void onNewToken(String paramString)
+  {
+    Intrinsics.checkParameterIsNotNull(paramString, "token");
+    saveTokenUID(getTokenRepository().save(new TokenModel(paramString, false, false, 6, null)));
+  }
+}

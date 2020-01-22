@@ -1,0 +1,282 @@
+package okio;
+
+import java.io.IOException;
+import javax.annotation.Nullable;
+
+public final class Pipe
+{
+  final Buffer buffer = new Buffer();
+  @Nullable
+  private Sink foldedSink;
+  final long maxBufferSize;
+  private final Sink sink = new PipeSink();
+  boolean sinkClosed;
+  private final Source source = new PipeSource();
+  boolean sourceClosed;
+  
+  public Pipe(long paramLong)
+  {
+    if (paramLong >= 1L)
+    {
+      maxBufferSize = paramLong;
+      return;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("maxBufferSize < 1: ");
+    localStringBuilder.append(paramLong);
+    throw new IllegalArgumentException(localStringBuilder.toString());
+  }
+  
+  public void fold(Sink arg1)
+    throws IOException
+  {
+    synchronized (buffer)
+    {
+      for (;;)
+      {
+        if (foldedSink == null)
+        {
+          if (buffer.exhausted())
+          {
+            sourceClosed = true;
+            foldedSink = ???;
+            return;
+          }
+          boolean bool = sinkClosed;
+          Buffer localBuffer2 = new Buffer();
+          localBuffer2.write(buffer, buffer.size);
+          buffer.notifyAll();
+          try
+          {
+            ???.write(localBuffer2, size);
+            if (bool) {
+              ???.close();
+            } else {
+              ???.flush();
+            }
+          }
+          finally {}
+        }
+      }
+    }
+    synchronized (buffer)
+    {
+      sourceClosed = true;
+      buffer.notifyAll();
+      throw localObject1;
+    }
+  }
+  
+  public final Sink sink()
+  {
+    return sink;
+  }
+  
+  public final Source source()
+  {
+    return source;
+  }
+  
+  final class PipeSink
+    implements Sink
+  {
+    final PushableTimeout timeout = new PushableTimeout();
+    
+    PipeSink() {}
+    
+    public void close()
+      throws IOException
+    {
+      synchronized (buffer)
+      {
+        if (sinkClosed) {
+          return;
+        }
+        Sink localSink;
+        if (foldedSink != null)
+        {
+          localSink = foldedSink;
+        }
+        else
+        {
+          if ((sourceClosed) && (buffer.size() > 0L)) {
+            throw new IOException("source is closed");
+          }
+          sinkClosed = true;
+          buffer.notifyAll();
+          localSink = null;
+        }
+        if (localSink != null)
+        {
+          timeout.push(localSink.timeout());
+          try
+          {
+            localSink.close();
+            return;
+          }
+          finally
+          {
+            timeout.pop();
+          }
+        }
+        return;
+      }
+    }
+    
+    public void flush()
+      throws IOException
+    {
+      for (;;)
+      {
+        synchronized (buffer)
+        {
+          if (!sinkClosed)
+          {
+            Sink localSink;
+            if (foldedSink != null)
+            {
+              localSink = foldedSink;
+            }
+            else
+            {
+              if ((!sourceClosed) || (buffer.size() <= 0L)) {
+                break label138;
+              }
+              throw new IOException("source is closed");
+            }
+            if (localSink != null)
+            {
+              timeout.push(localSink.timeout());
+              try
+              {
+                localSink.flush();
+                return;
+              }
+              finally
+              {
+                timeout.pop();
+              }
+            }
+          }
+          else
+          {
+            throw new IllegalStateException("closed");
+          }
+        }
+        label138:
+        Object localObject3 = null;
+      }
+    }
+    
+    public Timeout timeout()
+    {
+      return timeout;
+    }
+    
+    public void write(Buffer paramBuffer, long paramLong)
+      throws IOException
+    {
+      Sink localSink;
+      label153:
+      label225:
+      synchronized (buffer)
+      {
+        if (!sinkClosed)
+        {
+          for (;;)
+          {
+            if (paramLong <= 0L) {
+              break label225;
+            }
+            if (foldedSink != null)
+            {
+              localSink = foldedSink;
+              break label153;
+            }
+            if (sourceClosed) {
+              break;
+            }
+            long l = maxBufferSize - buffer.size();
+            if (l == 0L)
+            {
+              timeout.waitUntilNotified(buffer);
+            }
+            else
+            {
+              l = Math.min(l, paramLong);
+              buffer.write(paramBuffer, l);
+              paramLong -= l;
+              buffer.notifyAll();
+            }
+          }
+          throw new IOException("source is closed");
+          if (localSink != null)
+          {
+            timeout.push(localSink.timeout());
+            try
+            {
+              localSink.write(paramBuffer, paramLong);
+              return;
+            }
+            finally
+            {
+              timeout.pop();
+            }
+          }
+          return;
+        }
+        throw new IllegalStateException("closed");
+      }
+    }
+  }
+  
+  final class PipeSource
+    implements Source
+  {
+    final Timeout timeout = new Timeout();
+    
+    PipeSource() {}
+    
+    public void close()
+      throws IOException
+    {
+      synchronized (buffer)
+      {
+        sourceClosed = true;
+        buffer.notifyAll();
+        return;
+      }
+    }
+    
+    public long read(Buffer paramBuffer, long paramLong)
+      throws IOException
+    {
+      synchronized (buffer)
+      {
+        if (!sourceClosed)
+        {
+          while (buffer.size() == 0L)
+          {
+            if (sinkClosed) {
+              return -1L;
+            }
+            timeout.waitUntilNotified(buffer);
+          }
+          paramLong = buffer.read(paramBuffer, paramLong);
+          buffer.notifyAll();
+          return paramLong;
+        }
+        throw new IllegalStateException("closed");
+      }
+      for (;;)
+      {
+        throw paramBuffer;
+      }
+    }
+    
+    public Timeout timeout()
+    {
+      return timeout;
+    }
+  }
+}

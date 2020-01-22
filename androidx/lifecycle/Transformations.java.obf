@@ -1,0 +1,74 @@
+package androidx.lifecycle;
+
+import androidx.arch.core.util.Function;
+
+public class Transformations
+{
+  private Transformations() {}
+  
+  public static <X> LiveData<X> distinctUntilChanged(LiveData<X> paramLiveData)
+  {
+    MediatorLiveData localMediatorLiveData = new MediatorLiveData();
+    localMediatorLiveData.addSource(paramLiveData, new Observer()
+    {
+      boolean mFirstTime = true;
+      
+      public void onChanged(X paramAnonymousX)
+      {
+        Object localObject = val$outputLiveData.getValue();
+        if ((mFirstTime) || ((localObject == null) && (paramAnonymousX != null)) || ((localObject != null) && (!localObject.equals(paramAnonymousX))))
+        {
+          mFirstTime = false;
+          val$outputLiveData.setValue(paramAnonymousX);
+        }
+      }
+    });
+    return localMediatorLiveData;
+  }
+  
+  public static <X, Y> LiveData<Y> map(LiveData<X> paramLiveData, final Function<X, Y> paramFunction)
+  {
+    MediatorLiveData localMediatorLiveData = new MediatorLiveData();
+    localMediatorLiveData.addSource(paramLiveData, new Observer()
+    {
+      public void onChanged(X paramAnonymousX)
+      {
+        val$result.setValue(paramFunction.apply(paramAnonymousX));
+      }
+    });
+    return localMediatorLiveData;
+  }
+  
+  public static <X, Y> LiveData<Y> switchMap(LiveData<X> paramLiveData, Function<X, LiveData<Y>> paramFunction)
+  {
+    final MediatorLiveData localMediatorLiveData = new MediatorLiveData();
+    localMediatorLiveData.addSource(paramLiveData, new Observer()
+    {
+      LiveData<Y> mSource;
+      
+      public void onChanged(X paramAnonymousX)
+      {
+        paramAnonymousX = (LiveData)val$switchMapFunction.apply(paramAnonymousX);
+        LiveData localLiveData = mSource;
+        if (localLiveData == paramAnonymousX) {
+          return;
+        }
+        if (localLiveData != null) {
+          localMediatorLiveData.removeSource(localLiveData);
+        }
+        mSource = paramAnonymousX;
+        paramAnonymousX = mSource;
+        if (paramAnonymousX != null) {
+          localMediatorLiveData.addSource(paramAnonymousX, new Observer()
+          {
+            public void onChanged(Y paramAnonymous2Y)
+            {
+              val$result.setValue(paramAnonymous2Y);
+            }
+          });
+        }
+      }
+    });
+    return localMediatorLiveData;
+  }
+}

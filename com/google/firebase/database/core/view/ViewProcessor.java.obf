@@ -1,0 +1,553 @@
+package com.google.firebase.database.core.view;
+
+import com.google.firebase.database.core.CompoundWrite;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.WriteTreeRef;
+import com.google.firebase.database.core.operation.AckUserWrite;
+import com.google.firebase.database.core.operation.Merge;
+import com.google.firebase.database.core.operation.Operation;
+import com.google.firebase.database.core.operation.OperationSource;
+import com.google.firebase.database.core.operation.Overwrite;
+import com.google.firebase.database.core.utilities.ImmutableTree;
+import com.google.firebase.database.core.view.filter.ChildChangeAccumulator;
+import com.google.firebase.database.core.view.filter.NodeFilter;
+import com.google.firebase.database.core.view.filter.NodeFilter.CompleteChildSource;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.ChildrenNode;
+import com.google.firebase.database.snapshot.EmptyNode;
+import com.google.firebase.database.snapshot.Index;
+import com.google.firebase.database.snapshot.IndexedNode;
+import com.google.firebase.database.snapshot.KeyIndex;
+import com.google.firebase.database.snapshot.NamedNode;
+import com.google.firebase.database.snapshot.Node;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class ViewProcessor
+{
+  private static NodeFilter.CompleteChildSource NO_COMPLETE_SOURCE = new NodeFilter.CompleteChildSource()
+  {
+    public NamedNode getChildAfterChild(Index paramAnonymousIndex, NamedNode paramAnonymousNamedNode, boolean paramAnonymousBoolean)
+    {
+      return null;
+    }
+    
+    public Node getCompleteChild(ChildKey paramAnonymousChildKey)
+    {
+      return null;
+    }
+  };
+  private final NodeFilter filter;
+  
+  public ViewProcessor(NodeFilter paramNodeFilter)
+  {
+    filter = paramNodeFilter;
+  }
+  
+  private ViewCache ackUserWrite(ViewCache paramViewCache, Path paramPath, ImmutableTree<Boolean> paramImmutableTree, WriteTreeRef paramWriteTreeRef, Node paramNode, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    if (paramWriteTreeRef.shadowingWrite(paramPath) != null) {
+      return paramViewCache;
+    }
+    boolean bool = paramViewCache.getServerCache().isFiltered();
+    Object localObject2 = paramViewCache.getServerCache();
+    if (paramImmutableTree.getValue() != null)
+    {
+      if (((paramPath.isEmpty()) && (((CacheNode)localObject2).isFullyInitialized())) || (((CacheNode)localObject2).isCompleteForPath(paramPath))) {
+        return applyServerOverwrite(paramViewCache, paramPath, ((CacheNode)localObject2).getNode().getChild(paramPath), paramWriteTreeRef, paramNode, bool, paramChildChangeAccumulator);
+      }
+      paramImmutableTree = paramViewCache;
+      if (paramPath.isEmpty())
+      {
+        paramImmutableTree = CompoundWrite.emptyWrite();
+        localObject1 = ((CacheNode)localObject2).getNode().iterator();
+        while (((Iterator)localObject1).hasNext())
+        {
+          localObject2 = (NamedNode)((Iterator)localObject1).next();
+          paramImmutableTree = paramImmutableTree.addWrite(((NamedNode)localObject2).getName(), ((NamedNode)localObject2).getNode());
+        }
+        paramImmutableTree = applyServerMerge(paramViewCache, paramPath, paramImmutableTree, paramWriteTreeRef, paramNode, bool, paramChildChangeAccumulator);
+      }
+      return paramImmutableTree;
+    }
+    Object localObject1 = CompoundWrite.emptyWrite();
+    Iterator localIterator = paramImmutableTree.iterator();
+    paramImmutableTree = (ImmutableTree<Boolean>)localObject1;
+    while (localIterator.hasNext())
+    {
+      localObject1 = (Path)((Map.Entry)localIterator.next()).getKey();
+      Path localPath = paramPath.child((Path)localObject1);
+      if (((CacheNode)localObject2).isCompleteForPath(localPath)) {
+        paramImmutableTree = paramImmutableTree.addWrite((Path)localObject1, ((CacheNode)localObject2).getNode().getChild(localPath));
+      }
+    }
+    return applyServerMerge(paramViewCache, paramPath, paramImmutableTree, paramWriteTreeRef, paramNode, bool, paramChildChangeAccumulator);
+  }
+  
+  private ViewCache applyServerMerge(ViewCache paramViewCache, Path paramPath, CompoundWrite paramCompoundWrite, WriteTreeRef paramWriteTreeRef, Node paramNode, boolean paramBoolean, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    if ((paramViewCache.getServerCache().getNode().isEmpty()) && (!paramViewCache.getServerCache().isFullyInitialized())) {
+      return paramViewCache;
+    }
+    if (paramPath.isEmpty()) {
+      paramPath = paramCompoundWrite;
+    } else {
+      paramPath = CompoundWrite.emptyWrite().addWrites(paramPath, paramCompoundWrite);
+    }
+    paramCompoundWrite = paramViewCache.getServerCache().getNode();
+    Object localObject1 = paramPath.childCompoundWrites();
+    Object localObject2 = ((Map)localObject1).entrySet().iterator();
+    paramPath = paramViewCache;
+    Object localObject4;
+    Object localObject3;
+    while (((Iterator)localObject2).hasNext())
+    {
+      localObject4 = (Map.Entry)((Iterator)localObject2).next();
+      localObject3 = (ChildKey)((Map.Entry)localObject4).getKey();
+      if (paramCompoundWrite.hasChild((ChildKey)localObject3))
+      {
+        Node localNode = paramCompoundWrite.getImmediateChild((ChildKey)localObject3);
+        localObject4 = ((CompoundWrite)((Map.Entry)localObject4).getValue()).apply(localNode);
+        paramPath = applyServerOverwrite(paramPath, new Path(new ChildKey[] { localObject3 }), (Node)localObject4, paramWriteTreeRef, paramNode, paramBoolean, paramChildChangeAccumulator);
+      }
+    }
+    localObject1 = ((Map)localObject1).entrySet().iterator();
+    while (((Iterator)localObject1).hasNext())
+    {
+      localObject3 = (Map.Entry)((Iterator)localObject1).next();
+      localObject2 = (ChildKey)((Map.Entry)localObject3).getKey();
+      localObject4 = (CompoundWrite)((Map.Entry)localObject3).getValue();
+      int i;
+      if ((!paramViewCache.getServerCache().isCompleteForChild((ChildKey)localObject2)) && (((CompoundWrite)localObject4).rootWrite() == null)) {
+        i = 1;
+      } else {
+        i = 0;
+      }
+      if ((!paramCompoundWrite.hasChild((ChildKey)localObject2)) && (i == 0))
+      {
+        localObject4 = paramCompoundWrite.getImmediateChild((ChildKey)localObject2);
+        localObject3 = ((CompoundWrite)((Map.Entry)localObject3).getValue()).apply((Node)localObject4);
+        paramPath = applyServerOverwrite(paramPath, new Path(new ChildKey[] { localObject2 }), (Node)localObject3, paramWriteTreeRef, paramNode, paramBoolean, paramChildChangeAccumulator);
+      }
+    }
+    return paramPath;
+  }
+  
+  private ViewCache applyServerOverwrite(ViewCache paramViewCache, Path paramPath, Node paramNode1, WriteTreeRef paramWriteTreeRef, Node paramNode2, boolean paramBoolean, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    CacheNode localCacheNode = paramViewCache.getServerCache();
+    NodeFilter localNodeFilter = filter;
+    if (!paramBoolean) {
+      localNodeFilter = localNodeFilter.getIndexedFilter();
+    }
+    paramBoolean = paramPath.isEmpty();
+    boolean bool = true;
+    if (paramBoolean) {
+      paramNode1 = localNodeFilter.updateFullNode(localCacheNode.getIndexedNode(), IndexedNode.from(paramNode1, localNodeFilter.getIndex()), null);
+    }
+    for (;;)
+    {
+      break;
+      ChildKey localChildKey;
+      Path localPath;
+      if ((localNodeFilter.filtersNodes()) && (!localCacheNode.isFiltered()))
+      {
+        localChildKey = paramPath.getFront();
+        localPath = paramPath.popFront();
+        paramNode1 = localCacheNode.getNode().getImmediateChild(localChildKey).updateChild(localPath, paramNode1);
+        paramNode1 = localCacheNode.getIndexedNode().updateChild(localChildKey, paramNode1);
+        paramNode1 = localNodeFilter.updateFullNode(localCacheNode.getIndexedNode(), paramNode1, null);
+      }
+      else
+      {
+        localChildKey = paramPath.getFront();
+        if ((!localCacheNode.isCompleteForPath(paramPath)) && (paramPath.size() > 1)) {
+          return paramViewCache;
+        }
+        localPath = paramPath.popFront();
+        paramNode1 = localCacheNode.getNode().getImmediateChild(localChildKey).updateChild(localPath, paramNode1);
+        if (localChildKey.isPriorityChildName()) {
+          paramNode1 = localNodeFilter.updatePriority(localCacheNode.getIndexedNode(), paramNode1);
+        } else {
+          paramNode1 = localNodeFilter.updateChild(localCacheNode.getIndexedNode(), localChildKey, paramNode1, localPath, NO_COMPLETE_SOURCE, null);
+        }
+      }
+    }
+    paramBoolean = bool;
+    if (!localCacheNode.isFullyInitialized()) {
+      if (paramPath.isEmpty()) {
+        paramBoolean = bool;
+      } else {
+        paramBoolean = false;
+      }
+    }
+    paramViewCache = paramViewCache.updateServerSnap(paramNode1, paramBoolean, localNodeFilter.filtersNodes());
+    return generateEventCacheAfterServerEvent(paramViewCache, paramPath, paramWriteTreeRef, new WriteTreeCompleteChildSource(paramWriteTreeRef, paramViewCache, paramNode2), paramChildChangeAccumulator);
+  }
+  
+  private ViewCache applyUserMerge(ViewCache paramViewCache, Path paramPath, CompoundWrite paramCompoundWrite, WriteTreeRef paramWriteTreeRef, Node paramNode, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    Iterator localIterator = paramCompoundWrite.iterator();
+    Object localObject1 = paramViewCache;
+    Object localObject2;
+    while (localIterator.hasNext())
+    {
+      localObject2 = (Map.Entry)localIterator.next();
+      Path localPath = paramPath.child((Path)((Map.Entry)localObject2).getKey());
+      if (cacheHasChild(paramViewCache, localPath.getFront())) {
+        localObject1 = applyUserOverwrite((ViewCache)localObject1, localPath, (Node)((Map.Entry)localObject2).getValue(), paramWriteTreeRef, paramNode, paramChildChangeAccumulator);
+      }
+    }
+    localIterator = paramCompoundWrite.iterator();
+    paramCompoundWrite = (CompoundWrite)localObject1;
+    while (localIterator.hasNext())
+    {
+      localObject1 = (Map.Entry)localIterator.next();
+      localObject2 = paramPath.child((Path)((Map.Entry)localObject1).getKey());
+      if (!cacheHasChild(paramViewCache, ((Path)localObject2).getFront())) {
+        paramCompoundWrite = applyUserOverwrite(paramCompoundWrite, (Path)localObject2, (Node)((Map.Entry)localObject1).getValue(), paramWriteTreeRef, paramNode, paramChildChangeAccumulator);
+      }
+    }
+    return paramCompoundWrite;
+  }
+  
+  private ViewCache applyUserOverwrite(ViewCache paramViewCache, Path paramPath, Node paramNode1, WriteTreeRef paramWriteTreeRef, Node paramNode2, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    CacheNode localCacheNode = paramViewCache.getEventCache();
+    paramWriteTreeRef = new WriteTreeCompleteChildSource(paramWriteTreeRef, paramViewCache, paramNode2);
+    if (paramPath.isEmpty())
+    {
+      paramPath = IndexedNode.from(paramNode1, filter.getIndex());
+      return paramViewCache.updateEventSnap(filter.updateFullNode(paramViewCache.getEventCache().getIndexedNode(), paramPath, paramChildChangeAccumulator), true, filter.filtersNodes());
+    }
+    paramNode2 = paramPath.getFront();
+    if (paramNode2.isPriorityChildName()) {
+      return paramViewCache.updateEventSnap(filter.updatePriority(paramViewCache.getEventCache().getIndexedNode(), paramNode1), localCacheNode.isFullyInitialized(), localCacheNode.isFiltered());
+    }
+    Path localPath = paramPath.popFront();
+    Node localNode = localCacheNode.getNode().getImmediateChild(paramNode2);
+    if (localPath.isEmpty()) {}
+    for (;;)
+    {
+      paramPath = paramNode1;
+      break;
+      paramPath = paramWriteTreeRef.getCompleteChild(paramNode2);
+      if (paramPath != null)
+      {
+        if ((localPath.getBack().isPriorityChildName()) && (paramPath.getChild(localPath.getParent()).isEmpty())) {
+          break;
+        }
+        paramNode1 = paramPath.updateChild(localPath, paramNode1);
+      }
+      else
+      {
+        paramNode1 = EmptyNode.Empty();
+      }
+    }
+    paramNode1 = paramViewCache;
+    if (!localNode.equals(paramPath)) {
+      paramNode1 = paramViewCache.updateEventSnap(filter.updateChild(localCacheNode.getIndexedNode(), paramNode2, paramPath, localPath, paramWriteTreeRef, paramChildChangeAccumulator), localCacheNode.isFullyInitialized(), filter.filtersNodes());
+    }
+    return paramNode1;
+  }
+  
+  private static boolean cacheHasChild(ViewCache paramViewCache, ChildKey paramChildKey)
+  {
+    return paramViewCache.getEventCache().isCompleteForChild(paramChildKey);
+  }
+  
+  private ViewCache generateEventCacheAfterServerEvent(ViewCache paramViewCache, Path paramPath, WriteTreeRef paramWriteTreeRef, NodeFilter.CompleteChildSource paramCompleteChildSource, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    CacheNode localCacheNode = paramViewCache.getEventCache();
+    if (paramWriteTreeRef.shadowingWrite(paramPath) != null) {
+      return paramViewCache;
+    }
+    if (paramPath.isEmpty())
+    {
+      if (paramViewCache.getServerCache().isFiltered())
+      {
+        paramCompleteChildSource = paramViewCache.getCompleteServerSnap();
+        if (!(paramCompleteChildSource instanceof ChildrenNode)) {
+          paramCompleteChildSource = EmptyNode.Empty();
+        }
+        paramWriteTreeRef = paramWriteTreeRef.calcCompleteEventChildren(paramCompleteChildSource);
+      }
+      else
+      {
+        paramWriteTreeRef = paramWriteTreeRef.calcCompleteEventCache(paramViewCache.getCompleteServerSnap());
+      }
+      paramWriteTreeRef = IndexedNode.from(paramWriteTreeRef, filter.getIndex());
+      paramWriteTreeRef = filter.updateFullNode(paramViewCache.getEventCache().getIndexedNode(), paramWriteTreeRef, paramChildChangeAccumulator);
+    }
+    else
+    {
+      ChildKey localChildKey = paramPath.getFront();
+      if (localChildKey.isPriorityChildName())
+      {
+        paramWriteTreeRef = paramWriteTreeRef.calcEventCacheAfterServerOverwrite(paramPath, localCacheNode.getNode(), paramViewCache.getServerCache().getNode());
+        if (paramWriteTreeRef != null) {
+          paramWriteTreeRef = filter.updatePriority(localCacheNode.getIndexedNode(), paramWriteTreeRef);
+        } else {
+          paramWriteTreeRef = localCacheNode.getIndexedNode();
+        }
+      }
+      else
+      {
+        Path localPath = paramPath.popFront();
+        if (localCacheNode.isCompleteForChild(localChildKey))
+        {
+          Node localNode = paramViewCache.getServerCache().getNode();
+          paramWriteTreeRef = paramWriteTreeRef.calcEventCacheAfterServerOverwrite(paramPath, localCacheNode.getNode(), localNode);
+          if (paramWriteTreeRef != null) {
+            paramWriteTreeRef = localCacheNode.getNode().getImmediateChild(localChildKey).updateChild(localPath, paramWriteTreeRef);
+          } else {
+            paramWriteTreeRef = localCacheNode.getNode().getImmediateChild(localChildKey);
+          }
+        }
+        else
+        {
+          paramWriteTreeRef = paramWriteTreeRef.calcCompleteChild(localChildKey, paramViewCache.getServerCache());
+        }
+        if (paramWriteTreeRef != null) {
+          paramWriteTreeRef = filter.updateChild(localCacheNode.getIndexedNode(), localChildKey, paramWriteTreeRef, localPath, paramCompleteChildSource, paramChildChangeAccumulator);
+        } else {
+          paramWriteTreeRef = localCacheNode.getIndexedNode();
+        }
+      }
+    }
+    boolean bool;
+    if ((!localCacheNode.isFullyInitialized()) && (!paramPath.isEmpty())) {
+      bool = false;
+    } else {
+      bool = true;
+    }
+    return paramViewCache.updateEventSnap(paramWriteTreeRef, bool, filter.filtersNodes());
+  }
+  
+  private ViewCache listenComplete(ViewCache paramViewCache, Path paramPath, WriteTreeRef paramWriteTreeRef, Node paramNode, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    paramNode = paramViewCache.getServerCache();
+    IndexedNode localIndexedNode = paramNode.getIndexedNode();
+    boolean bool;
+    if ((!paramNode.isFullyInitialized()) && (!paramPath.isEmpty())) {
+      bool = false;
+    } else {
+      bool = true;
+    }
+    return generateEventCacheAfterServerEvent(paramViewCache.updateServerSnap(localIndexedNode, bool, paramNode.isFiltered()), paramPath, paramWriteTreeRef, NO_COMPLETE_SOURCE, paramChildChangeAccumulator);
+  }
+  
+  private void maybeAddValueEvent(ViewCache paramViewCache1, ViewCache paramViewCache2, List<Change> paramList)
+  {
+    paramViewCache2 = paramViewCache2.getEventCache();
+    if (paramViewCache2.isFullyInitialized())
+    {
+      int i;
+      if ((!paramViewCache2.getNode().isLeafNode()) && (!paramViewCache2.getNode().isEmpty())) {
+        i = 0;
+      } else {
+        i = 1;
+      }
+      if ((!paramList.isEmpty()) || (!paramViewCache1.getEventCache().isFullyInitialized()) || ((i != 0) && (!paramViewCache2.getNode().equals(paramViewCache1.getCompleteEventSnap()))) || (!paramViewCache2.getNode().getPriority().equals(paramViewCache1.getCompleteEventSnap().getPriority()))) {
+        paramList.add(Change.valueChange(paramViewCache2.getIndexedNode()));
+      }
+    }
+  }
+  
+  public ProcessorResult applyOperation(ViewCache paramViewCache, Operation paramOperation, WriteTreeRef paramWriteTreeRef, Node paramNode)
+  {
+    ChildChangeAccumulator localChildChangeAccumulator = new ChildChangeAccumulator();
+    int i = 2.$SwitchMap$com$google$firebase$database$core$operation$Operation$OperationType[paramOperation.getType().ordinal()];
+    boolean bool;
+    if (i != 1)
+    {
+      if (i != 2)
+      {
+        if (i != 3)
+        {
+          if (i == 4)
+          {
+            paramOperation = listenComplete(paramViewCache, paramOperation.getPath(), paramWriteTreeRef, paramNode, localChildChangeAccumulator);
+          }
+          else
+          {
+            paramViewCache = new StringBuilder();
+            paramViewCache.append("Unknown operation: ");
+            paramViewCache.append(paramOperation.getType());
+            throw new AssertionError(paramViewCache.toString());
+          }
+        }
+        else
+        {
+          paramOperation = (AckUserWrite)paramOperation;
+          if (!paramOperation.isRevert()) {
+            paramOperation = ackUserWrite(paramViewCache, paramOperation.getPath(), paramOperation.getAffectedTree(), paramWriteTreeRef, paramNode, localChildChangeAccumulator);
+          } else {
+            paramOperation = revertUserWrite(paramViewCache, paramOperation.getPath(), paramWriteTreeRef, paramNode, localChildChangeAccumulator);
+          }
+        }
+      }
+      else
+      {
+        paramOperation = (Merge)paramOperation;
+        if (paramOperation.getSource().isFromUser())
+        {
+          paramOperation = applyUserMerge(paramViewCache, paramOperation.getPath(), paramOperation.getChildren(), paramWriteTreeRef, paramNode, localChildChangeAccumulator);
+        }
+        else
+        {
+          if ((!paramOperation.getSource().isTagged()) && (!paramViewCache.getServerCache().isFiltered())) {
+            bool = false;
+          } else {
+            bool = true;
+          }
+          paramOperation = applyServerMerge(paramViewCache, paramOperation.getPath(), paramOperation.getChildren(), paramWriteTreeRef, paramNode, bool, localChildChangeAccumulator);
+        }
+      }
+    }
+    else
+    {
+      paramOperation = (Overwrite)paramOperation;
+      if (paramOperation.getSource().isFromUser())
+      {
+        paramOperation = applyUserOverwrite(paramViewCache, paramOperation.getPath(), paramOperation.getSnapshot(), paramWriteTreeRef, paramNode, localChildChangeAccumulator);
+      }
+      else
+      {
+        if ((!paramOperation.getSource().isTagged()) && ((!paramViewCache.getServerCache().isFiltered()) || (paramOperation.getPath().isEmpty()))) {
+          bool = false;
+        } else {
+          bool = true;
+        }
+        paramOperation = applyServerOverwrite(paramViewCache, paramOperation.getPath(), paramOperation.getSnapshot(), paramWriteTreeRef, paramNode, bool, localChildChangeAccumulator);
+      }
+    }
+    paramWriteTreeRef = new ArrayList(localChildChangeAccumulator.getChanges());
+    maybeAddValueEvent(paramViewCache, paramOperation, paramWriteTreeRef);
+    return new ProcessorResult(paramOperation, paramWriteTreeRef);
+  }
+  
+  public ViewCache revertUserWrite(ViewCache paramViewCache, Path paramPath, WriteTreeRef paramWriteTreeRef, Node paramNode, ChildChangeAccumulator paramChildChangeAccumulator)
+  {
+    if (paramWriteTreeRef.shadowingWrite(paramPath) != null) {
+      return paramViewCache;
+    }
+    WriteTreeCompleteChildSource localWriteTreeCompleteChildSource = new WriteTreeCompleteChildSource(paramWriteTreeRef, paramViewCache, paramNode);
+    IndexedNode localIndexedNode = paramViewCache.getEventCache().getIndexedNode();
+    if ((!paramPath.isEmpty()) && (!paramPath.getFront().isPriorityChildName()))
+    {
+      ChildKey localChildKey = paramPath.getFront();
+      paramNode = paramWriteTreeRef.calcCompleteChild(localChildKey, paramViewCache.getServerCache());
+      Node localNode = paramNode;
+      if (paramNode == null)
+      {
+        localNode = paramNode;
+        if (paramViewCache.getServerCache().isCompleteForChild(localChildKey)) {
+          localNode = localIndexedNode.getNode().getImmediateChild(localChildKey);
+        }
+      }
+      if (localNode != null)
+      {
+        paramNode = filter.updateChild(localIndexedNode, localChildKey, localNode, paramPath.popFront(), localWriteTreeCompleteChildSource, paramChildChangeAccumulator);
+      }
+      else
+      {
+        paramNode = localIndexedNode;
+        if (localNode == null)
+        {
+          paramNode = localIndexedNode;
+          if (paramViewCache.getEventCache().getNode().hasChild(localChildKey)) {
+            paramNode = filter.updateChild(localIndexedNode, localChildKey, EmptyNode.Empty(), paramPath.popFront(), localWriteTreeCompleteChildSource, paramChildChangeAccumulator);
+          }
+        }
+      }
+      paramPath = paramNode;
+      if (paramNode.getNode().isEmpty())
+      {
+        paramPath = paramNode;
+        if (paramViewCache.getServerCache().isFullyInitialized())
+        {
+          localNode = paramWriteTreeRef.calcCompleteEventCache(paramViewCache.getCompleteServerSnap());
+          paramPath = paramNode;
+          if (localNode.isLeafNode())
+          {
+            paramPath = IndexedNode.from(localNode, filter.getIndex());
+            paramPath = filter.updateFullNode(paramNode, paramPath, paramChildChangeAccumulator);
+          }
+        }
+      }
+    }
+    else
+    {
+      if (paramViewCache.getServerCache().isFullyInitialized()) {
+        paramPath = paramWriteTreeRef.calcCompleteEventCache(paramViewCache.getCompleteServerSnap());
+      } else {
+        paramPath = paramWriteTreeRef.calcCompleteEventChildren(paramViewCache.getServerCache().getNode());
+      }
+      paramPath = IndexedNode.from(paramPath, filter.getIndex());
+      paramPath = filter.updateFullNode(localIndexedNode, paramPath, paramChildChangeAccumulator);
+    }
+    boolean bool;
+    if ((!paramViewCache.getServerCache().isFullyInitialized()) && (paramWriteTreeRef.shadowingWrite(Path.getEmptyPath()) == null)) {
+      bool = false;
+    } else {
+      bool = true;
+    }
+    return paramViewCache.updateEventSnap(paramPath, bool, filter.filtersNodes());
+  }
+  
+  public static class ProcessorResult
+  {
+    public final List<Change> changes;
+    public final ViewCache viewCache;
+    
+    public ProcessorResult(ViewCache paramViewCache, List<Change> paramList)
+    {
+      viewCache = paramViewCache;
+      changes = paramList;
+    }
+  }
+  
+  private static class WriteTreeCompleteChildSource
+    implements NodeFilter.CompleteChildSource
+  {
+    private final Node optCompleteServerCache;
+    private final ViewCache viewCache;
+    private final WriteTreeRef writes;
+    
+    public WriteTreeCompleteChildSource(WriteTreeRef paramWriteTreeRef, ViewCache paramViewCache, Node paramNode)
+    {
+      writes = paramWriteTreeRef;
+      viewCache = paramViewCache;
+      optCompleteServerCache = paramNode;
+    }
+    
+    public NamedNode getChildAfterChild(Index paramIndex, NamedNode paramNamedNode, boolean paramBoolean)
+    {
+      Node localNode = optCompleteServerCache;
+      if (localNode == null) {
+        localNode = viewCache.getCompleteServerSnap();
+      }
+      return writes.calcNextNodeAfterPost(localNode, paramNamedNode, paramBoolean, paramIndex);
+    }
+    
+    public Node getCompleteChild(ChildKey paramChildKey)
+    {
+      Object localObject = viewCache.getEventCache();
+      if (((CacheNode)localObject).isCompleteForChild(paramChildKey)) {
+        return ((CacheNode)localObject).getNode().getImmediateChild(paramChildKey);
+      }
+      localObject = optCompleteServerCache;
+      if (localObject != null) {
+        localObject = new CacheNode(IndexedNode.from((Node)localObject, KeyIndex.getInstance()), true, false);
+      } else {
+        localObject = viewCache.getServerCache();
+      }
+      return writes.calcCompleteChild(paramChildKey, (CacheNode)localObject);
+    }
+  }
+}

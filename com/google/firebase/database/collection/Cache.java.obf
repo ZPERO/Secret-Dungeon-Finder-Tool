@@ -1,0 +1,228 @@
+package com.google.firebase.database.collection;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public final class zzc<K, V>
+  extends ImmutableSortedMap<K, V>
+{
+  private Comparator<K> zzc;
+  private LLRBNode<K, V> zzt;
+  
+  private zzc(LLRBNode<K, V> paramLLRBNode, Comparator<K> paramComparator)
+  {
+    zzt = paramLLRBNode;
+    zzc = paramComparator;
+  }
+  
+  public static <A, B> zzc<A, B> zzb(Map<A, B> paramMap, Comparator<A> paramComparator)
+  {
+    return zze.zzb(new ArrayList(paramMap.keySet()), paramMap, ImmutableSortedMap.Builder.identityTranslator(), paramComparator);
+  }
+  
+  private final LLRBNode<K, V> zzc(K paramK)
+  {
+    LLRBNode localLLRBNode = zzt;
+    while (!localLLRBNode.isEmpty())
+    {
+      int i = zzc.compare(paramK, localLLRBNode.getKey());
+      if (i < 0)
+      {
+        localLLRBNode = localLLRBNode.getLeft();
+      }
+      else
+      {
+        if (i == 0) {
+          return localLLRBNode;
+        }
+        localLLRBNode = localLLRBNode.getRight();
+      }
+    }
+    return null;
+  }
+  
+  public final boolean containsKey(K paramK)
+  {
+    return zzc(paramK) != null;
+  }
+  
+  public final V get(K paramK)
+  {
+    paramK = zzc(paramK);
+    if (paramK != null) {
+      return paramK.getValue();
+    }
+    return null;
+  }
+  
+  public final Comparator<K> getComparator()
+  {
+    return zzc;
+  }
+  
+  public final K getMaxKey()
+  {
+    return zzt.getMax().getKey();
+  }
+  
+  public final K getMinKey()
+  {
+    return zzt.getMin().getKey();
+  }
+  
+  public final K getPredecessorKey(K paramK)
+  {
+    Object localObject1 = zzt;
+    Object localObject2 = null;
+    while (!((LLRBNode)localObject1).isEmpty())
+    {
+      int i = zzc.compare(paramK, ((LLRBNode)localObject1).getKey());
+      if (i == 0)
+      {
+        if (!((LLRBNode)localObject1).getLeft().isEmpty())
+        {
+          for (paramK = ((LLRBNode)localObject1).getLeft(); !paramK.getRight().isEmpty(); paramK = paramK.getRight()) {}
+          return paramK.getKey();
+        }
+        if (localObject2 != null) {
+          return localObject2.getKey();
+        }
+        return null;
+      }
+      if (i < 0)
+      {
+        localObject1 = ((LLRBNode)localObject1).getLeft();
+      }
+      else
+      {
+        LLRBNode localLLRBNode = ((LLRBNode)localObject1).getRight();
+        localObject2 = localObject1;
+        localObject1 = localLLRBNode;
+      }
+    }
+    paramK = String.valueOf(paramK);
+    localObject1 = new StringBuilder(String.valueOf(paramK).length() + 50);
+    ((StringBuilder)localObject1).append("Couldn't find predecessor key of non-present key: ");
+    ((StringBuilder)localObject1).append(paramK);
+    paramK = new IllegalArgumentException(((StringBuilder)localObject1).toString());
+    for (;;)
+    {
+      throw paramK;
+    }
+  }
+  
+  public final K getSuccessorKey(K paramK)
+  {
+    Object localObject1 = zzt;
+    Object localObject2 = null;
+    while (!((LLRBNode)localObject1).isEmpty())
+    {
+      int i = zzc.compare(((LLRBNode)localObject1).getKey(), paramK);
+      if (i == 0)
+      {
+        if (!((LLRBNode)localObject1).getRight().isEmpty())
+        {
+          for (paramK = ((LLRBNode)localObject1).getRight(); !paramK.getLeft().isEmpty(); paramK = paramK.getLeft()) {}
+          return paramK.getKey();
+        }
+        if (localObject2 != null) {
+          return localObject2.getKey();
+        }
+        return null;
+      }
+      if (i < 0)
+      {
+        localObject1 = ((LLRBNode)localObject1).getRight();
+      }
+      else
+      {
+        LLRBNode localLLRBNode = ((LLRBNode)localObject1).getLeft();
+        localObject2 = localObject1;
+        localObject1 = localLLRBNode;
+      }
+    }
+    paramK = String.valueOf(paramK);
+    localObject1 = new StringBuilder(String.valueOf(paramK).length() + 48);
+    ((StringBuilder)localObject1).append("Couldn't find successor key of non-present key: ");
+    ((StringBuilder)localObject1).append(paramK);
+    paramK = new IllegalArgumentException(((StringBuilder)localObject1).toString());
+    for (;;)
+    {
+      throw paramK;
+    }
+  }
+  
+  public final void inOrderTraversal(LLRBNode.NodeVisitor<K, V> paramNodeVisitor)
+  {
+    zzt.inOrderTraversal(paramNodeVisitor);
+  }
+  
+  public final int indexOf(K paramK)
+  {
+    LLRBNode localLLRBNode = zzt;
+    int i = 0;
+    while (!localLLRBNode.isEmpty())
+    {
+      int j = zzc.compare(paramK, localLLRBNode.getKey());
+      if (j == 0) {
+        return i + localLLRBNode.getLeft().size();
+      }
+      if (j < 0)
+      {
+        localLLRBNode = localLLRBNode.getLeft();
+      }
+      else
+      {
+        i += localLLRBNode.getLeft().size() + 1;
+        localLLRBNode = localLLRBNode.getRight();
+      }
+    }
+    return -1;
+  }
+  
+  public final ImmutableSortedMap<K, V> insert(K paramK, V paramV)
+  {
+    return new zzc(zzt.insert(paramK, paramV, zzc).copy(null, null, LLRBNode.Color.zzo, null, null), zzc);
+  }
+  
+  public final boolean isEmpty()
+  {
+    return zzt.isEmpty();
+  }
+  
+  public final Iterator<Map.Entry<K, V>> iterator()
+  {
+    return new ImmutableSortedMapIterator(zzt, null, zzc, false);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> iteratorFrom(K paramK)
+  {
+    return new ImmutableSortedMapIterator(zzt, paramK, zzc, false);
+  }
+  
+  public final ImmutableSortedMap<K, V> remove(K paramK)
+  {
+    if (!containsKey(paramK)) {
+      return this;
+    }
+    return new zzc(zzt.remove(paramK, zzc).copy(null, null, LLRBNode.Color.zzo, null, null), zzc);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> reverseIterator()
+  {
+    return new ImmutableSortedMapIterator(zzt, null, zzc, true);
+  }
+  
+  public final Iterator<Map.Entry<K, V>> reverseIteratorFrom(K paramK)
+  {
+    return new ImmutableSortedMapIterator(zzt, paramK, zzc, true);
+  }
+  
+  public final int size()
+  {
+    return zzt.size();
+  }
+}

@@ -1,0 +1,707 @@
+package com.squareup.okhttp.internal.framed;
+
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.List;
+import okio.AsyncTimeout;
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Sink;
+import okio.Source;
+import okio.Timeout;
+
+public final class FramedStream
+{
+  long bytesLeftInWriteWindow;
+  private final FramedConnection connection;
+  private ErrorCode errorCode = null;
+  private final int id;
+  private final StreamTimeout readTimeout = new StreamTimeout();
+  private final List<Header> requestHeaders;
+  private List<Header> responseHeaders;
+  final FramedDataSink sink;
+  private final FramedDataSource source;
+  long unacknowledgedBytesRead = 0L;
+  private final StreamTimeout writeTimeout = new StreamTimeout();
+  
+  FramedStream(int paramInt, FramedConnection paramFramedConnection, boolean paramBoolean1, boolean paramBoolean2, List<Header> paramList)
+  {
+    if (paramFramedConnection != null)
+    {
+      if (paramList != null)
+      {
+        id = paramInt;
+        connection = paramFramedConnection;
+        bytesLeftInWriteWindow = peerSettings.getInitialWindowSize(65536);
+        source = new FramedDataSource(okHttpSettings.getInitialWindowSize(65536), null);
+        sink = new FramedDataSink();
+        FramedDataSource.access$102(source, paramBoolean2);
+        FramedDataSink.access$202(sink, paramBoolean1);
+        requestHeaders = paramList;
+        return;
+      }
+      throw new NullPointerException("requestHeaders == null");
+    }
+    throw new NullPointerException("connection == null");
+  }
+  
+  private void cancelStreamIfNecessary()
+    throws IOException
+  {
+    for (;;)
+    {
+      try
+      {
+        if ((source.finished) || (!source.closed)) {
+          break label91;
+        }
+        if (sink.finished) {
+          break label86;
+        }
+        if (!sink.closed) {
+          break label91;
+        }
+      }
+      finally {}
+      boolean bool = isOpen();
+      if (i != 0)
+      {
+        close(ErrorCode.CANCEL);
+        return;
+      }
+      if (!bool) {
+        connection.removeStream(id);
+      }
+      return;
+      label86:
+      int i = 1;
+      continue;
+      label91:
+      i = 0;
+    }
+  }
+  
+  private void checkOutNotClosed()
+    throws IOException
+  {
+    if (!sink.closed)
+    {
+      if (!sink.finished)
+      {
+        if (errorCode == null) {
+          return;
+        }
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("stream was reset: ");
+        localStringBuilder.append(errorCode);
+        throw new IOException(localStringBuilder.toString());
+      }
+      throw new IOException("stream finished");
+    }
+    throw new IOException("stream closed");
+  }
+  
+  private boolean closeInternal(ErrorCode paramErrorCode)
+  {
+    try
+    {
+      if (errorCode != null) {
+        return false;
+      }
+      if ((source.finished) && (sink.finished)) {
+        return false;
+      }
+      errorCode = paramErrorCode;
+      notifyAll();
+      connection.removeStream(id);
+      return true;
+    }
+    finally {}
+  }
+  
+  private void waitForIo()
+    throws InterruptedIOException
+  {
+    try
+    {
+      wait();
+      return;
+    }
+    catch (InterruptedException localInterruptedException)
+    {
+      for (;;) {}
+    }
+    throw new InterruptedIOException();
+  }
+  
+  void addBytesToWriteWindow(long paramLong)
+  {
+    bytesLeftInWriteWindow += paramLong;
+    if (paramLong > 0L) {
+      notifyAll();
+    }
+  }
+  
+  public void close(ErrorCode paramErrorCode)
+    throws IOException
+  {
+    if (!closeInternal(paramErrorCode)) {
+      return;
+    }
+    connection.writeSynReset(id, paramErrorCode);
+  }
+  
+  public void closeLater(ErrorCode paramErrorCode)
+  {
+    if (!closeInternal(paramErrorCode)) {
+      return;
+    }
+    connection.writeSynResetLater(id, paramErrorCode);
+  }
+  
+  public FramedConnection getConnection()
+  {
+    return connection;
+  }
+  
+  public ErrorCode getErrorCode()
+  {
+    try
+    {
+      ErrorCode localErrorCode = errorCode;
+      return localErrorCode;
+    }
+    finally
+    {
+      localObject = finally;
+      throw localObject;
+    }
+  }
+  
+  public int getId()
+  {
+    return id;
+  }
+  
+  public List<Header> getRequestHeaders()
+  {
+    return requestHeaders;
+  }
+  
+  public List<Header> getResponseHeaders()
+    throws IOException
+  {
+    try
+    {
+      readTimeout.enter();
+      try
+      {
+        while ((responseHeaders == null) && (errorCode == null)) {
+          waitForIo();
+        }
+        readTimeout.exitAndThrowIfTimedOut();
+        if (responseHeaders != null)
+        {
+          localObject1 = responseHeaders;
+          return localObject1;
+        }
+        Object localObject1 = new StringBuilder();
+        ((StringBuilder)localObject1).append("stream was reset: ");
+        ((StringBuilder)localObject1).append(errorCode);
+        throw new IOException(((StringBuilder)localObject1).toString());
+      }
+      finally
+      {
+        readTimeout.exitAndThrowIfTimedOut();
+      }
+      throw localObject3;
+    }
+    finally {}
+    for (;;) {}
+  }
+  
+  public Sink getSink()
+  {
+    try
+    {
+      if ((responseHeaders == null) && (!isLocallyInitiated())) {
+        throw new IllegalStateException("reply before requesting the sink");
+      }
+      return sink;
+    }
+    finally {}
+  }
+  
+  public Source getSource()
+  {
+    return source;
+  }
+  
+  public boolean isLocallyInitiated()
+  {
+    int i;
+    if ((id & 0x1) == 1) {
+      i = 1;
+    } else {
+      i = 0;
+    }
+    return connection.client == i;
+  }
+  
+  public boolean isOpen()
+  {
+    try
+    {
+      Object localObject1 = errorCode;
+      if (localObject1 != null) {
+        return false;
+      }
+      if (((source.finished) || (source.closed)) && ((sink.finished) || (sink.closed)))
+      {
+        localObject1 = responseHeaders;
+        if (localObject1 != null) {
+          return false;
+        }
+      }
+      return true;
+    }
+    finally {}
+  }
+  
+  public Timeout readTimeout()
+  {
+    return readTimeout;
+  }
+  
+  void receiveData(BufferedSource paramBufferedSource, int paramInt)
+    throws IOException
+  {
+    source.receive(paramBufferedSource, paramInt);
+  }
+  
+  void receiveFin()
+  {
+    try
+    {
+      FramedDataSource.access$102(source, true);
+      boolean bool = isOpen();
+      notifyAll();
+      if (!bool) {
+        connection.removeStream(id);
+      }
+      return;
+    }
+    finally {}
+  }
+  
+  void receiveHeaders(List<Header> paramList, HeadersMode paramHeadersMode)
+  {
+    Object localObject = null;
+    boolean bool = true;
+    try
+    {
+      if (responseHeaders == null)
+      {
+        if (paramHeadersMode.failIfHeadersAbsent())
+        {
+          paramList = ErrorCode.PROTOCOL_ERROR;
+        }
+        else
+        {
+          responseHeaders = paramList;
+          bool = isOpen();
+          notifyAll();
+          paramList = localObject;
+        }
+      }
+      else if (paramHeadersMode.failIfHeadersPresent())
+      {
+        paramList = ErrorCode.STREAM_IN_USE;
+      }
+      else
+      {
+        paramHeadersMode = new ArrayList();
+        paramHeadersMode.addAll(responseHeaders);
+        paramHeadersMode.addAll(paramList);
+        responseHeaders = paramHeadersMode;
+        paramList = localObject;
+      }
+      if (paramList != null)
+      {
+        closeLater(paramList);
+        return;
+      }
+      if (!bool) {
+        connection.removeStream(id);
+      }
+      return;
+    }
+    finally {}
+  }
+  
+  void receiveRstStream(ErrorCode paramErrorCode)
+  {
+    try
+    {
+      if (errorCode == null)
+      {
+        errorCode = paramErrorCode;
+        notifyAll();
+      }
+      return;
+    }
+    finally
+    {
+      paramErrorCode = finally;
+      throw paramErrorCode;
+    }
+  }
+  
+  public void reply(List<Header> paramList, boolean paramBoolean)
+    throws IOException
+  {
+    boolean bool = false;
+    if (paramList != null) {}
+    try
+    {
+      if (responseHeaders == null)
+      {
+        responseHeaders = paramList;
+        if (!paramBoolean)
+        {
+          FramedDataSink.access$202(sink, true);
+          bool = true;
+        }
+        connection.writeSynReply(id, bool, paramList);
+        if (bool) {
+          connection.flush();
+        }
+        return;
+      }
+      throw new IllegalStateException("reply already sent");
+    }
+    finally
+    {
+      for (;;) {}
+    }
+    throw new NullPointerException("responseHeaders == null");
+    throw paramList;
+  }
+  
+  public Timeout writeTimeout()
+  {
+    return writeTimeout;
+  }
+  
+  final class FramedDataSink
+    implements Sink
+  {
+    private static final long EMIT_BUFFER_SIZE = 16384L;
+    private boolean closed;
+    private boolean finished;
+    private final Buffer sendBuffer = new Buffer();
+    
+    FramedDataSink() {}
+    
+    private void emitDataFrame(boolean paramBoolean)
+      throws IOException
+    {
+      label236:
+      synchronized (FramedStream.this)
+      {
+        writeTimeout.enter();
+        try
+        {
+          while ((bytesLeftInWriteWindow <= 0L) && (!finished) && (!closed) && (errorCode == null)) {
+            FramedStream.this.waitForIo();
+          }
+          writeTimeout.exitAndThrowIfTimedOut();
+          FramedStream.this.checkOutNotClosed();
+          long l = Math.min(bytesLeftInWriteWindow, sendBuffer.size());
+          FramedStream localFramedStream = FramedStream.this;
+          bytesLeftInWriteWindow -= l;
+          writeTimeout.enter();
+          try
+          {
+            ??? = connection;
+            int i = id;
+            if ((!paramBoolean) || (l != sendBuffer.size())) {
+              break label236;
+            }
+            paramBoolean = true;
+            ((FramedConnection)???).writeData(i, paramBoolean, sendBuffer, l);
+            return;
+          }
+          finally
+          {
+            writeTimeout.exitAndThrowIfTimedOut();
+          }
+          localObject4 = finally;
+        }
+        finally
+        {
+          writeTimeout.exitAndThrowIfTimedOut();
+        }
+      }
+    }
+    
+    public void close()
+      throws IOException
+    {
+      synchronized (FramedStream.this)
+      {
+        if (closed) {
+          return;
+        }
+        if (!sink.finished)
+        {
+          if (sendBuffer.size() > 0L) {
+            while (sendBuffer.size() > 0L) {
+              emitDataFrame(true);
+            }
+          }
+          connection.writeData(id, true, null, 0L);
+        }
+        synchronized (FramedStream.this)
+        {
+          closed = true;
+          connection.flush();
+          FramedStream.this.cancelStreamIfNecessary();
+          return;
+        }
+      }
+      for (;;)
+      {
+        throw localObject2;
+      }
+    }
+    
+    public void flush()
+      throws IOException
+    {
+      synchronized (FramedStream.this)
+      {
+        FramedStream.this.checkOutNotClosed();
+        while (sendBuffer.size() > 0L)
+        {
+          emitDataFrame(false);
+          connection.flush();
+        }
+        return;
+      }
+      for (;;)
+      {
+        throw localObject;
+      }
+    }
+    
+    public Timeout timeout()
+    {
+      return writeTimeout;
+    }
+    
+    public void write(Buffer paramBuffer, long paramLong)
+      throws IOException
+    {
+      sendBuffer.write(paramBuffer, paramLong);
+      while (sendBuffer.size() >= 16384L) {
+        emitDataFrame(false);
+      }
+    }
+  }
+  
+  private final class FramedDataSource
+    implements Source
+  {
+    private boolean closed;
+    private boolean finished;
+    private final long maxByteCount;
+    private final Buffer readBuffer = new Buffer();
+    private final Buffer receiveBuffer = new Buffer();
+    
+    private FramedDataSource(long paramLong)
+    {
+      maxByteCount = paramLong;
+    }
+    
+    private void checkNotClosed()
+      throws IOException
+    {
+      if (!closed)
+      {
+        if (errorCode == null) {
+          return;
+        }
+        StringBuilder localStringBuilder = new StringBuilder();
+        localStringBuilder.append("stream was reset: ");
+        localStringBuilder.append(errorCode);
+        throw new IOException(localStringBuilder.toString());
+      }
+      throw new IOException("stream closed");
+    }
+    
+    private void waitUntilReadable()
+      throws IOException
+    {
+      readTimeout.enter();
+      try
+      {
+        while ((readBuffer.size() == 0L) && (!finished) && (!closed) && (errorCode == null)) {
+          FramedStream.this.waitForIo();
+        }
+        readTimeout.exitAndThrowIfTimedOut();
+        return;
+      }
+      finally
+      {
+        readTimeout.exitAndThrowIfTimedOut();
+      }
+      for (;;)
+      {
+        throw localObject;
+      }
+    }
+    
+    public void close()
+      throws IOException
+    {
+      synchronized (FramedStream.this)
+      {
+        closed = true;
+        readBuffer.clear();
+        notifyAll();
+        FramedStream.this.cancelStreamIfNecessary();
+        return;
+      }
+    }
+    
+    public long read(Buffer arg1, long paramLong)
+      throws IOException
+    {
+      if (paramLong >= 0L) {
+        synchronized (FramedStream.this)
+        {
+          waitUntilReadable();
+          checkNotClosed();
+          if (readBuffer.size() == 0L) {
+            return -1L;
+          }
+          paramLong = readBuffer.read(???, Math.min(paramLong, readBuffer.size()));
+          ??? = FramedStream.this;
+          unacknowledgedBytesRead += paramLong;
+          if (unacknowledgedBytesRead >= connection.okHttpSettings.getInitialWindowSize(65536) / 2)
+          {
+            connection.writeWindowUpdateLater(id, unacknowledgedBytesRead);
+            unacknowledgedBytesRead = 0L;
+          }
+          synchronized (connection)
+          {
+            ??? = connection;
+            unacknowledgedBytesRead += paramLong;
+            if (connection.unacknowledgedBytesRead >= connection.okHttpSettings.getInitialWindowSize(65536) / 2)
+            {
+              connection.writeWindowUpdateLater(0, connection.unacknowledgedBytesRead);
+              connection.unacknowledgedBytesRead = 0L;
+            }
+            return paramLong;
+          }
+        }
+      }
+      ??? = new StringBuilder();
+      ???.append("byteCount < 0: ");
+      ???.append(paramLong);
+      throw new IllegalArgumentException(???.toString());
+    }
+    
+    void receive(BufferedSource paramBufferedSource, long paramLong)
+      throws IOException
+    {
+      if (paramLong > 0L) {}
+      for (;;)
+      {
+        synchronized (FramedStream.this)
+        {
+          boolean bool = finished;
+          long l1 = readBuffer.size();
+          long l2 = maxByteCount;
+          int j = 1;
+          if (l1 + paramLong <= l2) {
+            break label200;
+          }
+          i = 1;
+          if (i != 0)
+          {
+            paramBufferedSource.skip(paramLong);
+            closeLater(ErrorCode.FLOW_CONTROL_ERROR);
+            return;
+          }
+          if (bool)
+          {
+            paramBufferedSource.skip(paramLong);
+            return;
+          }
+          l1 = paramBufferedSource.read(receiveBuffer, paramLong);
+          if (l1 != -1L)
+          {
+            paramLong -= l1;
+            synchronized (FramedStream.this)
+            {
+              if (readBuffer.size() != 0L) {
+                break label206;
+              }
+              i = j;
+              readBuffer.writeAll(receiveBuffer);
+              if (i != 0) {
+                notifyAll();
+              }
+            }
+          }
+          throw new EOFException();
+        }
+        return;
+        label200:
+        int i = 0;
+        continue;
+        label206:
+        i = 0;
+      }
+    }
+    
+    public Timeout timeout()
+    {
+      return readTimeout;
+    }
+  }
+  
+  class StreamTimeout
+    extends AsyncTimeout
+  {
+    StreamTimeout() {}
+    
+    public void exitAndThrowIfTimedOut()
+      throws IOException
+    {
+      if (!exit()) {
+        return;
+      }
+      throw newTimeoutException(null);
+    }
+    
+    protected IOException newTimeoutException(IOException paramIOException)
+    {
+      SocketTimeoutException localSocketTimeoutException = new SocketTimeoutException("timeout");
+      if (paramIOException != null) {
+        localSocketTimeoutException.initCause(paramIOException);
+      }
+      return localSocketTimeoutException;
+    }
+    
+    protected void timedOut()
+    {
+      closeLater(ErrorCode.CANCEL);
+    }
+  }
+}

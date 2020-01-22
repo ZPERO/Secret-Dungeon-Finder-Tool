@@ -1,0 +1,134 @@
+package com.google.firebase.database.core;
+
+import com.google.firebase.database.core.view.QuerySpec;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+
+public class ZombieEventManager
+  implements EventRegistrationZombieListener
+{
+  private static ZombieEventManager defaultInstance = new ZombieEventManager();
+  final HashMap<EventRegistration, List<EventRegistration>> globalEventRegistrations = new HashMap();
+  
+  private ZombieEventManager() {}
+  
+  public static ZombieEventManager getInstance()
+  {
+    return defaultInstance;
+  }
+  
+  private void unRecordEventRegistration(EventRegistration paramEventRegistration)
+  {
+    int i;
+    label203:
+    label210:
+    synchronized (globalEventRegistrations)
+    {
+      Object localObject = (List)globalEventRegistrations.get(paramEventRegistration);
+      int j = 0;
+      if (localObject != null)
+      {
+        i = 0;
+        if (i < ((List)localObject).size())
+        {
+          if (((List)localObject).get(i) != paramEventRegistration) {
+            break label203;
+          }
+          ((List)localObject).remove(i);
+        }
+        if (((List)localObject).isEmpty()) {
+          globalEventRegistrations.remove(paramEventRegistration);
+        }
+      }
+      if (!paramEventRegistration.getQuerySpec().isDefault())
+      {
+        localObject = paramEventRegistration.clone(QuerySpec.defaultQueryAtPath(paramEventRegistration.getQuerySpec().getPath()));
+        List localList = (List)globalEventRegistrations.get(localObject);
+        if (localList != null)
+        {
+          i = j;
+          if (i < localList.size())
+          {
+            if (localList.get(i) != paramEventRegistration) {
+              break label210;
+            }
+            localList.remove(i);
+          }
+          if (localList.isEmpty()) {
+            globalEventRegistrations.remove(localObject);
+          }
+        }
+      }
+      return;
+    }
+  }
+  
+  public void onZombied(EventRegistration paramEventRegistration)
+  {
+    unRecordEventRegistration(paramEventRegistration);
+  }
+  
+  public void recordEventRegistration(EventRegistration paramEventRegistration)
+  {
+    synchronized (globalEventRegistrations)
+    {
+      List localList = (List)globalEventRegistrations.get(paramEventRegistration);
+      Object localObject = localList;
+      if (localList == null)
+      {
+        localObject = new ArrayList();
+        globalEventRegistrations.put(paramEventRegistration, localObject);
+      }
+      ((List)localObject).add(paramEventRegistration);
+      if (!paramEventRegistration.getQuerySpec().isDefault())
+      {
+        EventRegistration localEventRegistration = paramEventRegistration.clone(QuerySpec.defaultQueryAtPath(paramEventRegistration.getQuerySpec().getPath()));
+        localList = (List)globalEventRegistrations.get(localEventRegistration);
+        localObject = localList;
+        if (localList == null)
+        {
+          localObject = new ArrayList();
+          globalEventRegistrations.put(localEventRegistration, localObject);
+        }
+        ((List)localObject).add(paramEventRegistration);
+      }
+      paramEventRegistration.setIsUserInitiated(true);
+      paramEventRegistration.setOnZombied(this);
+      return;
+    }
+  }
+  
+  public void zombifyForRemove(EventRegistration paramEventRegistration)
+  {
+    int i;
+    label138:
+    synchronized (globalEventRegistrations)
+    {
+      List localList = (List)globalEventRegistrations.get(paramEventRegistration);
+      if ((localList != null) && (!localList.isEmpty())) {
+        if (paramEventRegistration.getQuerySpec().isDefault())
+        {
+          paramEventRegistration = new HashSet();
+          i = localList.size() - 1;
+          if (i >= 0)
+          {
+            EventRegistration localEventRegistration = (EventRegistration)localList.get(i);
+            if (paramEventRegistration.contains(localEventRegistration.getQuerySpec())) {
+              break label138;
+            }
+            paramEventRegistration.add(localEventRegistration.getQuerySpec());
+            localEventRegistration.zombify();
+            break label138;
+          }
+        }
+        else
+        {
+          ((EventRegistration)localList.get(0)).zombify();
+        }
+      }
+      return;
+    }
+  }
+}

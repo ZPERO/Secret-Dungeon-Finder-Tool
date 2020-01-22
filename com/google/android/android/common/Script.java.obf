@@ -1,0 +1,84 @@
+package com.google.android.gms.common;
+
+import android.os.IBinder;
+import android.os.Parcel;
+import android.os.Parcelable.Creator;
+import android.os.RemoteException;
+import android.util.Log;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+import com.google.android.gms.common.internal.zzi;
+import com.google.android.gms.common.internal.zzj;
+import com.google.android.gms.dynamic.ObjectWrapper;
+import com.google.android.gms.internal.common.zzb;
+import javax.annotation.Nullable;
+
+public final class zzk
+  extends AbstractSafeParcelable
+{
+  public static final Parcelable.Creator<zzk> CREATOR = new zzl();
+  private final boolean zzaa;
+  private final String zzy;
+  @Nullable
+  private final zze zzz;
+  
+  zzk(String paramString, @Nullable IBinder paramIBinder, boolean paramBoolean)
+  {
+    zzy = paramString;
+    zzz = zza(paramIBinder);
+    zzaa = paramBoolean;
+  }
+  
+  zzk(String paramString, @Nullable zze paramZze, boolean paramBoolean)
+  {
+    zzy = paramString;
+    zzz = paramZze;
+    zzaa = paramBoolean;
+  }
+  
+  @Nullable
+  private static zze zza(@Nullable IBinder paramIBinder)
+  {
+    if (paramIBinder == null) {
+      return null;
+    }
+    try
+    {
+      paramIBinder = zzj.zzb(paramIBinder).zzb();
+      if (paramIBinder == null) {
+        paramIBinder = null;
+      } else {
+        paramIBinder = (byte[])ObjectWrapper.unwrap(paramIBinder);
+      }
+      if (paramIBinder != null) {
+        return new zzf(paramIBinder);
+      }
+      Log.e("GoogleCertificatesQuery", "Could not unwrap certificate");
+      return null;
+    }
+    catch (RemoteException paramIBinder)
+    {
+      Log.e("GoogleCertificatesQuery", "Could not unwrap certificate", paramIBinder);
+    }
+    return null;
+  }
+  
+  public final void writeToParcel(Parcel paramParcel, int paramInt)
+  {
+    paramInt = SafeParcelWriter.beginObjectHeader(paramParcel);
+    SafeParcelWriter.writeString(paramParcel, 1, zzy, false);
+    Object localObject = zzz;
+    if (localObject == null)
+    {
+      Log.w("GoogleCertificatesQuery", "certificate binder is null");
+      localObject = null;
+    }
+    else
+    {
+      localObject = ((zzb)localObject).asBinder();
+    }
+    SafeParcelWriter.writeIBinder(paramParcel, 2, (IBinder)localObject, false);
+    SafeParcelWriter.writeBoolean(paramParcel, 3, zzaa);
+    SafeParcelWriter.finishObjectHeader(paramParcel, paramInt);
+  }
+}

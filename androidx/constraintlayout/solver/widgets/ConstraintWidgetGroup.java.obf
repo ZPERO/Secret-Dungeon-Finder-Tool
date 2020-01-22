@@ -1,0 +1,229 @@
+package androidx.constraintlayout.solver.widgets;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class ConstraintWidgetGroup
+{
+  public List<ConstraintWidget> mConstrainedGroup;
+  public final int[] mGroupDimensions = { mGroupWidth, mGroupHeight };
+  int mGroupHeight = -1;
+  int mGroupWidth = -1;
+  public boolean mSkipSolver = false;
+  List<ConstraintWidget> mStartHorizontalWidgets = new ArrayList();
+  List<ConstraintWidget> mStartVerticalWidgets = new ArrayList();
+  List<ConstraintWidget> mUnresolvedWidgets = new ArrayList();
+  HashSet<ConstraintWidget> mWidgetsToSetHorizontal = new HashSet();
+  HashSet<ConstraintWidget> mWidgetsToSetVertical = new HashSet();
+  List<ConstraintWidget> mWidgetsToSolve = new ArrayList();
+  
+  ConstraintWidgetGroup(List<ConstraintWidget> paramList)
+  {
+    mConstrainedGroup = paramList;
+  }
+  
+  ConstraintWidgetGroup(List<ConstraintWidget> paramList, boolean paramBoolean)
+  {
+    mConstrainedGroup = paramList;
+    mSkipSolver = paramBoolean;
+  }
+  
+  private void getWidgetsToSolveTraversal(ArrayList<ConstraintWidget> paramArrayList, ConstraintWidget paramConstraintWidget)
+  {
+    if (mGroupsToSolver) {
+      return;
+    }
+    paramArrayList.add(paramConstraintWidget);
+    mGroupsToSolver = true;
+    if (paramConstraintWidget.isFullyResolved()) {
+      return;
+    }
+    boolean bool = paramConstraintWidget instanceof Helper;
+    int j = 0;
+    Object localObject;
+    if (bool)
+    {
+      localObject = (Helper)paramConstraintWidget;
+      k = mWidgetsCount;
+      i = 0;
+      while (i < k)
+      {
+        getWidgetsToSolveTraversal(paramArrayList, mWidgets[i]);
+        i += 1;
+      }
+    }
+    int k = mListAnchors.length;
+    int i = j;
+    while (i < k)
+    {
+      localObject = mListAnchors[i].mTarget;
+      if (localObject != null)
+      {
+        ConstraintWidget localConstraintWidget = mOwner;
+        if ((localObject != null) && (localConstraintWidget != paramConstraintWidget.getParent())) {
+          getWidgetsToSolveTraversal(paramArrayList, localConstraintWidget);
+        }
+      }
+      i += 1;
+    }
+  }
+  
+  private void updateResolvedDimension(ConstraintWidget paramConstraintWidget)
+  {
+    if (mOptimizerMeasurable)
+    {
+      if (paramConstraintWidget.isFullyResolved()) {
+        return;
+      }
+      ConstraintAnchor localConstraintAnchor = mRight.mTarget;
+      int k = 0;
+      if (localConstraintAnchor != null) {
+        j = 1;
+      } else {
+        j = 0;
+      }
+      if (j != 0) {
+        localConstraintAnchor = mRight.mTarget;
+      } else {
+        localConstraintAnchor = mLeft.mTarget;
+      }
+      if (localConstraintAnchor != null)
+      {
+        if (!mOwner.mOptimizerMeasured) {
+          updateResolvedDimension(mOwner);
+        }
+        if (mType == ConstraintAnchor.Type.RIGHT)
+        {
+          i = mOwner.mX;
+          i = mOwner.getWidth() + i;
+          break label148;
+        }
+        if (mType == ConstraintAnchor.Type.LEFT)
+        {
+          i = mOwner.mX;
+          break label148;
+        }
+      }
+      int i = 0;
+      label148:
+      if (j != 0) {
+        i -= mRight.getMargin();
+      } else {
+        i += mLeft.getMargin() + paramConstraintWidget.getWidth();
+      }
+      paramConstraintWidget.setHorizontalDimension(i - paramConstraintWidget.getWidth(), i);
+      if (mBaseline.mTarget != null)
+      {
+        localConstraintAnchor = mBaseline.mTarget;
+        if (!mOwner.mOptimizerMeasured) {
+          updateResolvedDimension(mOwner);
+        }
+        i = mOwner.mY + mOwner.mBaselineDistance - mBaselineDistance;
+        paramConstraintWidget.setVerticalDimension(i, mHeight + i);
+        mOptimizerMeasured = true;
+        return;
+      }
+      if (mBottom.mTarget != null) {
+        k = 1;
+      }
+      if (k != 0) {
+        localConstraintAnchor = mBottom.mTarget;
+      } else {
+        localConstraintAnchor = mTop.mTarget;
+      }
+      int j = i;
+      if (localConstraintAnchor != null)
+      {
+        if (!mOwner.mOptimizerMeasured) {
+          updateResolvedDimension(mOwner);
+        }
+        if (mType == ConstraintAnchor.Type.BOTTOM)
+        {
+          j = mOwner.mY + mOwner.getHeight();
+        }
+        else
+        {
+          j = i;
+          if (mType == ConstraintAnchor.Type.TOP) {
+            j = mOwner.mY;
+          }
+        }
+      }
+      if (k != 0) {
+        i = j - mBottom.getMargin();
+      } else {
+        i = j + (mTop.getMargin() + paramConstraintWidget.getHeight());
+      }
+      paramConstraintWidget.setVerticalDimension(i - paramConstraintWidget.getHeight(), i);
+      mOptimizerMeasured = true;
+    }
+  }
+  
+  void addWidgetsToSet(ConstraintWidget paramConstraintWidget, int paramInt)
+  {
+    if (paramInt == 0)
+    {
+      mWidgetsToSetHorizontal.add(paramConstraintWidget);
+      return;
+    }
+    if (paramInt == 1) {
+      mWidgetsToSetVertical.add(paramConstraintWidget);
+    }
+  }
+  
+  public List<ConstraintWidget> getStartWidgets(int paramInt)
+  {
+    if (paramInt == 0) {
+      return mStartHorizontalWidgets;
+    }
+    if (paramInt == 1) {
+      return mStartVerticalWidgets;
+    }
+    return null;
+  }
+  
+  Set<ConstraintWidget> getWidgetsToSet(int paramInt)
+  {
+    if (paramInt == 0) {
+      return mWidgetsToSetHorizontal;
+    }
+    if (paramInt == 1) {
+      return mWidgetsToSetVertical;
+    }
+    return null;
+  }
+  
+  List<ConstraintWidget> getWidgetsToSolve()
+  {
+    if (!mWidgetsToSolve.isEmpty()) {
+      return mWidgetsToSolve;
+    }
+    int j = mConstrainedGroup.size();
+    int i = 0;
+    while (i < j)
+    {
+      ConstraintWidget localConstraintWidget = (ConstraintWidget)mConstrainedGroup.get(i);
+      if (!mOptimizerMeasurable) {
+        getWidgetsToSolveTraversal((ArrayList)mWidgetsToSolve, localConstraintWidget);
+      }
+      i += 1;
+    }
+    mUnresolvedWidgets.clear();
+    mUnresolvedWidgets.addAll(mConstrainedGroup);
+    mUnresolvedWidgets.removeAll(mWidgetsToSolve);
+    return mWidgetsToSolve;
+  }
+  
+  void updateUnresolvedWidgets()
+  {
+    int j = mUnresolvedWidgets.size();
+    int i = 0;
+    while (i < j)
+    {
+      updateResolvedDimension((ConstraintWidget)mUnresolvedWidgets.get(i));
+      i += 1;
+    }
+  }
+}

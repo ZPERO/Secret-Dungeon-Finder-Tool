@@ -1,0 +1,61 @@
+package com.flaviotps.swsd.viewmodel;
+
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
+import com.flaviotps.swsd.repository.AppRepository;
+import com.flaviotps.swsd.repository.AppRepository.Companion;
+import com.flaviotps.swsd.repository.TokenRepository;
+import com.flaviotps.swsd.repository.TokenRepository.Companion;
+import kotlin.Lazy;
+import kotlin.LazyKt__LazyJVMKt;
+import kotlin.Metadata;
+import kotlin.jvm.functions.Function0;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.jvm.internal.Lambda;
+import kotlin.reflect.KProperty;
+
+@Metadata(bv={1, 0, 3}, d1={"\0000\n\002\030\002\n\002\030\002\n\002\b\002\n\002\030\002\n\002\b\005\n\002\030\002\n\002\020\016\n\002\b\005\n\002\030\002\n\002\b\004\n\002\030\002\n\002\b\002\030\0002\0020\001B\005?\006\002\020\002J\f\020\025\032\b\022\004\022\0020\0260\nJ\f\020\027\032\b\022\004\022\0020\0130\nR\033\020\003\032\0020\0048BX??\002?\006\f\n\004\b\007\020\b\032\004\b\005\020\006R \020\t\032\b\022\004\022\0020\0130\nX?\016?\006\016\n\000\032\004\b\f\020\r\"\004\b\016\020\017R\033\020\020\032\0020\0218BX??\002?\006\f\n\004\b\024\020\b\032\004\b\022\020\023?\006\030"}, d2={"Lcom/flaviotps/swsd/viewmodel/SplashViewModel;", "Landroidx/lifecycle/ViewModel;", "()V", "appRepository", "Lcom/flaviotps/swsd/repository/AppRepository;", "getAppRepository", "()Lcom/flaviotps/swsd/repository/AppRepository;", "appRepository$delegate", "Lkotlin/Lazy;", "token", "Landroidx/lifecycle/MutableLiveData;", "", "getToken", "()Landroidx/lifecycle/MutableLiveData;", "setToken", "(Landroidx/lifecycle/MutableLiveData;)V", "tokenRepository", "Lcom/flaviotps/swsd/repository/TokenRepository;", "getTokenRepository", "()Lcom/flaviotps/swsd/repository/TokenRepository;", "tokenRepository$delegate", "getAppInfo", "Lcom/flaviotps/swsd/model/AppInfoModel;", "load", "app_release"}, k=1, mv={1, 1, 16})
+public final class SplashViewModel
+  extends ViewModel
+{
+  private final Lazy appRepository$delegate = LazyKt__LazyJVMKt.lazy((Function0)appRepository.2.INSTANCE);
+  private MutableLiveData<String> token = getTokenRepository().load();
+  private final Lazy tokenRepository$delegate = LazyKt__LazyJVMKt.lazy((Function0)tokenRepository.2.INSTANCE);
+  
+  public SplashViewModel() {}
+  
+  private final AppRepository getAppRepository()
+  {
+    Lazy localLazy = appRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[1];
+    return (AppRepository)localLazy.getValue();
+  }
+  
+  private final TokenRepository getTokenRepository()
+  {
+    Lazy localLazy = tokenRepository$delegate;
+    KProperty localKProperty = $$delegatedProperties[0];
+    return (TokenRepository)localLazy.getValue();
+  }
+  
+  public final MutableLiveData getAppInfo()
+  {
+    return getAppRepository().getAppInfo();
+  }
+  
+  public final MutableLiveData getToken()
+  {
+    return token;
+  }
+  
+  public final MutableLiveData load()
+  {
+    return token;
+  }
+  
+  public final void setToken(MutableLiveData paramMutableLiveData)
+  {
+    Intrinsics.checkParameterIsNotNull(paramMutableLiveData, "<set-?>");
+    token = paramMutableLiveData;
+  }
+}

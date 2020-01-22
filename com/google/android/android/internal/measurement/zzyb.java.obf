@@ -1,0 +1,90 @@
+package com.google.android.gms.internal.measurement;
+
+import java.io.IOException;
+
+abstract class zzyb<T, B>
+{
+  zzyb() {}
+  
+  abstract void zza(B paramB, int paramInt, long paramLong);
+  
+  abstract void zza(B paramB, int paramInt, zzud paramZzud);
+  
+  abstract void zza(B paramB, int paramInt, T paramT);
+  
+  abstract void zza(T paramT, zzyw paramZzyw)
+    throws IOException;
+  
+  abstract boolean zza(zzxi paramZzxi);
+  
+  final boolean zza(B paramB, zzxi paramZzxi)
+    throws IOException
+  {
+    int j = paramZzxi.getTag();
+    int i = j >>> 3;
+    j &= 0x7;
+    if (j != 0)
+    {
+      if (j != 1)
+      {
+        if (j != 2)
+        {
+          if (j != 3)
+          {
+            if (j != 4)
+            {
+              if (j == 5)
+              {
+                zzc(paramB, i, paramZzxi.zzul());
+                return true;
+              }
+              throw zzvt.zzwo();
+            }
+            return false;
+          }
+          Object localObject = zzye();
+          while ((paramZzxi.zzve() != Integer.MAX_VALUE) && (zza(localObject, paramZzxi))) {}
+          if ((0x4 | i << 3) == paramZzxi.getTag())
+          {
+            zza(paramB, i, zzab(localObject));
+            return true;
+          }
+          throw zzvt.zzwn();
+        }
+        zza(paramB, i, paramZzxi.zzuo());
+        return true;
+      }
+      zzb(paramB, i, paramZzxi.zzuk());
+      return true;
+    }
+    zza(paramB, i, paramZzxi.zzui());
+    return true;
+  }
+  
+  abstract T zzab(B paramB);
+  
+  abstract int zzae(T paramT);
+  
+  abstract T zzah(Object paramObject);
+  
+  abstract B zzai(Object paramObject);
+  
+  abstract int zzaj(T paramT);
+  
+  abstract void zzb(B paramB, int paramInt, long paramLong);
+  
+  abstract void zzc(B paramB, int paramInt1, int paramInt2);
+  
+  abstract void zzc(T paramT, zzyw paramZzyw)
+    throws IOException;
+  
+  abstract void zzf(Object paramObject, T paramT);
+  
+  abstract void zzg(Object paramObject, B paramB);
+  
+  abstract T zzh(T paramT1, T paramT2);
+  
+  abstract void zzu(Object paramObject);
+  
+  abstract B zzye();
+}

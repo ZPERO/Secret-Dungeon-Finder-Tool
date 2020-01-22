@@ -1,0 +1,178 @@
+package com.google.firebase.database.tubesock;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
+import java.util.ArrayList;
+import java.util.List;
+
+class MessageBuilderFactory
+{
+  MessageBuilderFactory() {}
+  
+  static Builder builder(byte paramByte)
+  {
+    if (paramByte == 2) {
+      return new BinaryBuilder();
+    }
+    return new TextBuilder();
+  }
+  
+  static class BinaryBuilder
+    implements MessageBuilderFactory.Builder
+  {
+    private int pendingByteCount = 0;
+    private List<byte[]> pendingBytes = new ArrayList();
+    
+    BinaryBuilder() {}
+    
+    public boolean appendBytes(byte[] paramArrayOfByte)
+    {
+      pendingBytes.add(paramArrayOfByte);
+      pendingByteCount += paramArrayOfByte.length;
+      return true;
+    }
+    
+    public WebSocketMessage toMessage()
+    {
+      byte[] arrayOfByte1 = new byte[pendingByteCount];
+      int i = 0;
+      int j = 0;
+      while (i < pendingBytes.size())
+      {
+        byte[] arrayOfByte2 = (byte[])pendingBytes.get(i);
+        System.arraycopy(arrayOfByte2, 0, arrayOfByte1, j, arrayOfByte2.length);
+        j += arrayOfByte2.length;
+        i += 1;
+      }
+      return new WebSocketMessage(arrayOfByte1);
+    }
+  }
+  
+  static abstract interface Builder
+  {
+    public abstract boolean appendBytes(byte[] paramArrayOfByte);
+    
+    public abstract WebSocketMessage toMessage();
+  }
+  
+  static class TextBuilder
+    implements MessageBuilderFactory.Builder
+  {
+    private static ThreadLocal<CharsetDecoder> localDecoder = new ThreadLocal()
+    {
+      protected CharsetDecoder initialValue()
+      {
+        CharsetDecoder localCharsetDecoder = Charset.forName("UTF8").newDecoder();
+        localCharsetDecoder.onMalformedInput(CodingErrorAction.REPORT);
+        localCharsetDecoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+        return localCharsetDecoder;
+      }
+    };
+    private static ThreadLocal<CharsetEncoder> localEncoder = new ThreadLocal()
+    {
+      protected CharsetEncoder initialValue()
+      {
+        CharsetEncoder localCharsetEncoder = Charset.forName("UTF8").newEncoder();
+        localCharsetEncoder.onMalformedInput(CodingErrorAction.REPORT);
+        localCharsetEncoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+        return localCharsetEncoder;
+      }
+    };
+    private StringBuilder builder = new StringBuilder();
+    private ByteBuffer carryOver;
+    
+    TextBuilder() {}
+    
+    private String decodeString(byte[] paramArrayOfByte)
+    {
+      try
+      {
+        paramArrayOfByte = ByteBuffer.wrap(paramArrayOfByte);
+        paramArrayOfByte = ((CharsetDecoder)localDecoder.get()).decode(paramArrayOfByte).toString();
+        return paramArrayOfByte;
+      }
+      catch (CharacterCodingException paramArrayOfByte)
+      {
+        for (;;) {}
+      }
+      return null;
+    }
+    
+    private String decodeStringStreaming(byte[] paramArrayOfByte)
+    {
+      try
+      {
+        ByteBuffer localByteBuffer = getBuffer(paramArrayOfByte);
+        int i = (int)(localByteBuffer.remaining() * ((CharsetDecoder)localDecoder.get()).averageCharsPerByte());
+        paramArrayOfByte = CharBuffer.allocate(i);
+        for (;;)
+        {
+          Object localObject = ((CharsetDecoder)localDecoder.get()).decode(localByteBuffer, paramArrayOfByte, false);
+          if (((CoderResult)localObject).isError()) {
+            return null;
+          }
+          if (((CoderResult)localObject).isUnderflow())
+          {
+            if (localByteBuffer.remaining() > 0) {
+              carryOver = localByteBuffer;
+            }
+            localObject = CharBuffer.wrap(paramArrayOfByte);
+            ((CharsetEncoder)localEncoder.get()).encode((CharBuffer)localObject);
+            paramArrayOfByte.flip();
+            return paramArrayOfByte.toString();
+          }
+          if (((CoderResult)localObject).isOverflow())
+          {
+            i = i * 2 + 1;
+            localObject = CharBuffer.allocate(i);
+            paramArrayOfByte.flip();
+            ((CharBuffer)localObject).put(paramArrayOfByte);
+            paramArrayOfByte = (byte[])localObject;
+          }
+        }
+        return null;
+      }
+      catch (CharacterCodingException paramArrayOfByte) {}
+    }
+    
+    private ByteBuffer getBuffer(byte[] paramArrayOfByte)
+    {
+      ByteBuffer localByteBuffer = carryOver;
+      if (localByteBuffer != null)
+      {
+        localByteBuffer = ByteBuffer.allocate(paramArrayOfByte.length + localByteBuffer.remaining());
+        localByteBuffer.put(carryOver);
+        carryOver = null;
+        localByteBuffer.put(paramArrayOfByte);
+        localByteBuffer.flip();
+        return localByteBuffer;
+      }
+      return ByteBuffer.wrap(paramArrayOfByte);
+    }
+    
+    public boolean appendBytes(byte[] paramArrayOfByte)
+    {
+      paramArrayOfByte = decodeString(paramArrayOfByte);
+      if (paramArrayOfByte != null)
+      {
+        builder.append(paramArrayOfByte);
+        return true;
+      }
+      return false;
+    }
+    
+    public WebSocketMessage toMessage()
+    {
+      if (carryOver != null) {
+        return null;
+      }
+      return new WebSocketMessage(builder.toString());
+    }
+  }
+}

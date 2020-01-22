@@ -1,0 +1,454 @@
+package com.squareup.okhttp.internal;
+
+import com.squareup.okhttp.HttpUrl;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import okio.Buffer;
+import okio.ByteString;
+import okio.Source;
+
+public final class Util
+{
+  public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+  public static final String[] EMPTY_STRING_ARRAY = new String[0];
+  public static final Charset UTF_8 = Charset.forName("UTF-8");
+  
+  private Util() {}
+  
+  public static void checkOffsetAndCount(long paramLong1, long paramLong2, long paramLong3)
+  {
+    if (((paramLong2 | paramLong3) >= 0L) && (paramLong2 <= paramLong1) && (paramLong1 - paramLong2 >= paramLong3)) {
+      return;
+    }
+    throw new ArrayIndexOutOfBoundsException();
+  }
+  
+  /* Error */
+  public static void closeAll(Closeable paramCloseable1, Closeable paramCloseable2)
+    throws IOException
+  {
+    // Byte code:
+    //   0: aload_0
+    //   1: invokeinterface 48 1 0
+    //   6: aconst_null
+    //   7: astore_0
+    //   8: goto +4 -> 12
+    //   11: astore_0
+    //   12: aload_1
+    //   13: invokeinterface 48 1 0
+    //   18: aload_0
+    //   19: astore_1
+    //   20: goto +12 -> 32
+    //   23: astore_2
+    //   24: aload_0
+    //   25: astore_1
+    //   26: aload_0
+    //   27: ifnonnull +5 -> 32
+    //   30: aload_2
+    //   31: astore_1
+    //   32: aload_1
+    //   33: ifnonnull +4 -> 37
+    //   36: return
+    //   37: aload_1
+    //   38: instanceof 43
+    //   41: ifne +36 -> 77
+    //   44: aload_1
+    //   45: instanceof 50
+    //   48: ifne +24 -> 72
+    //   51: aload_1
+    //   52: instanceof 52
+    //   55: ifeq +8 -> 63
+    //   58: aload_1
+    //   59: checkcast 52	java/lang/Error
+    //   62: athrow
+    //   63: new 54	java/lang/AssertionError
+    //   66: dup
+    //   67: aload_1
+    //   68: invokespecial 57	java/lang/AssertionError:<init>	(Ljava/lang/Object;)V
+    //   71: athrow
+    //   72: aload_1
+    //   73: checkcast 50	java/lang/RuntimeException
+    //   76: athrow
+    //   77: aload_1
+    //   78: checkcast 43	java/io/IOException
+    //   81: athrow
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	82	0	paramCloseable1	Closeable
+    //   0	82	1	paramCloseable2	Closeable
+    //   23	8	2	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   0	6	11	finally
+    //   12	18	23	finally
+  }
+  
+  public static void closeQuietly(Closeable paramCloseable)
+  {
+    if (paramCloseable != null) {}
+    try
+    {
+      paramCloseable.close();
+      return;
+    }
+    catch (RuntimeException paramCloseable)
+    {
+      throw paramCloseable;
+      return;
+    }
+    catch (Exception paramCloseable) {}
+  }
+  
+  public static void closeQuietly(ServerSocket paramServerSocket)
+  {
+    if (paramServerSocket != null) {}
+    try
+    {
+      paramServerSocket.close();
+      return;
+    }
+    catch (RuntimeException paramServerSocket)
+    {
+      throw paramServerSocket;
+      return;
+    }
+    catch (Exception paramServerSocket) {}
+  }
+  
+  public static void closeQuietly(Socket paramSocket)
+  {
+    if (paramSocket != null) {}
+    try
+    {
+      paramSocket.close();
+      return;
+    }
+    catch (RuntimeException paramSocket)
+    {
+      throw paramSocket;
+    }
+    catch (AssertionError paramSocket)
+    {
+      if (isAndroidGetsocknameError(paramSocket)) {
+        return;
+      }
+      throw paramSocket;
+      return;
+    }
+    catch (Exception paramSocket) {}
+  }
+  
+  public static String[] concat(String[] paramArrayOfString, String paramString)
+  {
+    String[] arrayOfString = new String[paramArrayOfString.length + 1];
+    System.arraycopy(paramArrayOfString, 0, arrayOfString, 0, paramArrayOfString.length);
+    arrayOfString[(arrayOfString.length - 1)] = paramString;
+    return arrayOfString;
+  }
+  
+  public static boolean contains(String[] paramArrayOfString, String paramString)
+  {
+    return Arrays.asList(paramArrayOfString).contains(paramString);
+  }
+  
+  public static boolean discard(Source paramSource, int paramInt, TimeUnit paramTimeUnit)
+  {
+    try
+    {
+      boolean bool = skipAll(paramSource, paramInt, paramTimeUnit);
+      return bool;
+    }
+    catch (IOException paramSource)
+    {
+      for (;;) {}
+    }
+    return false;
+  }
+  
+  public static boolean equal(Object paramObject1, Object paramObject2)
+  {
+    return (paramObject1 == paramObject2) || ((paramObject1 != null) && (paramObject1.equals(paramObject2)));
+  }
+  
+  public static String hostHeader(HttpUrl paramHttpUrl)
+  {
+    if (paramHttpUrl.port() != HttpUrl.defaultPort(paramHttpUrl.scheme()))
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append(paramHttpUrl.host());
+      localStringBuilder.append(":");
+      localStringBuilder.append(paramHttpUrl.port());
+      return localStringBuilder.toString();
+    }
+    return paramHttpUrl.host();
+  }
+  
+  public static <T> List<T> immutableList(List<T> paramList)
+  {
+    return Collections.unmodifiableList(new ArrayList(paramList));
+  }
+  
+  public static <T> List<T> immutableList(T... paramVarArgs)
+  {
+    return Collections.unmodifiableList(Arrays.asList((Object[])paramVarArgs.clone()));
+  }
+  
+  public static <K, V> Map<K, V> immutableMap(Map<K, V> paramMap)
+  {
+    return Collections.unmodifiableMap(new LinkedHashMap(paramMap));
+  }
+  
+  private static <T> List<T> intersect(T[] paramArrayOfT1, T[] paramArrayOfT2)
+  {
+    ArrayList localArrayList = new ArrayList();
+    int k = paramArrayOfT1.length;
+    int i = 0;
+    while (i < k)
+    {
+      T ? = paramArrayOfT1[i];
+      int m = paramArrayOfT2.length;
+      int j = 0;
+      while (j < m)
+      {
+        T ? = paramArrayOfT2[j];
+        if (?.equals(?))
+        {
+          localArrayList.add(?);
+          break;
+        }
+        j += 1;
+      }
+      i += 1;
+    }
+    return localArrayList;
+  }
+  
+  public static <T> T[] intersect(Class<T> paramClass, T[] paramArrayOfT1, T[] paramArrayOfT2)
+  {
+    paramArrayOfT1 = intersect(paramArrayOfT1, paramArrayOfT2);
+    return paramArrayOfT1.toArray((Object[])Array.newInstance(paramClass, paramArrayOfT1.size()));
+  }
+  
+  public static boolean isAndroidGetsocknameError(AssertionError paramAssertionError)
+  {
+    return (paramAssertionError.getCause() != null) && (paramAssertionError.getMessage() != null) && (paramAssertionError.getMessage().contains("getsockname failed"));
+  }
+  
+  public static String md5Hex(String paramString)
+  {
+    try
+    {
+      paramString = ByteString.of(MessageDigest.getInstance("MD5").digest(paramString.getBytes("UTF-8"))).hex();
+      return paramString;
+    }
+    catch (UnsupportedEncodingException paramString) {}catch (NoSuchAlgorithmException paramString) {}
+    throw new AssertionError(paramString);
+  }
+  
+  public static ByteString sha1(ByteString paramByteString)
+  {
+    try
+    {
+      paramByteString = ByteString.of(MessageDigest.getInstance("SHA-1").digest(paramByteString.toByteArray()));
+      return paramByteString;
+    }
+    catch (NoSuchAlgorithmException paramByteString)
+    {
+      throw new AssertionError(paramByteString);
+    }
+  }
+  
+  public static String shaBase64(String paramString)
+  {
+    try
+    {
+      paramString = ByteString.of(MessageDigest.getInstance("SHA-1").digest(paramString.getBytes("UTF-8"))).base64();
+      return paramString;
+    }
+    catch (UnsupportedEncodingException paramString) {}catch (NoSuchAlgorithmException paramString) {}
+    throw new AssertionError(paramString);
+  }
+  
+  /* Error */
+  public static boolean skipAll(Source paramSource, int paramInt, TimeUnit paramTimeUnit)
+    throws IOException
+  {
+    // Byte code:
+    //   0: invokestatic 256	java/lang/System:nanoTime	()J
+    //   3: lstore 5
+    //   5: aload_0
+    //   6: invokeinterface 262 1 0
+    //   11: invokevirtual 268	okio/Timeout:hasDeadline	()Z
+    //   14: ifeq +19 -> 33
+    //   17: aload_0
+    //   18: invokeinterface 262 1 0
+    //   23: invokevirtual 271	okio/Timeout:deadlineNanoTime	()J
+    //   26: lload 5
+    //   28: lsub
+    //   29: lstore_3
+    //   30: goto +7 -> 37
+    //   33: ldc2_w 272
+    //   36: lstore_3
+    //   37: aload_0
+    //   38: invokeinterface 262 1 0
+    //   43: lload_3
+    //   44: aload_2
+    //   45: iload_1
+    //   46: i2l
+    //   47: invokevirtual 279	java/util/concurrent/TimeUnit:toNanos	(J)J
+    //   50: invokestatic 285	java/lang/Math:min	(JJ)J
+    //   53: lload 5
+    //   55: ladd
+    //   56: invokevirtual 288	okio/Timeout:deadlineNanoTime	(J)Lokio/Timeout;
+    //   59: pop
+    //   60: new 290	okio/Buffer
+    //   63: dup
+    //   64: invokespecial 291	okio/Buffer:<init>	()V
+    //   67: astore_2
+    //   68: aload_0
+    //   69: aload_2
+    //   70: ldc2_w 292
+    //   73: invokeinterface 297 4 0
+    //   78: ldc2_w 298
+    //   81: lcmp
+    //   82: ifeq +10 -> 92
+    //   85: aload_2
+    //   86: invokevirtual 302	okio/Buffer:clear	()V
+    //   89: goto -21 -> 68
+    //   92: lload_3
+    //   93: ldc2_w 272
+    //   96: lcmp
+    //   97: ifne +15 -> 112
+    //   100: aload_0
+    //   101: invokeinterface 262 1 0
+    //   106: invokevirtual 305	okio/Timeout:clearDeadline	()Lokio/Timeout;
+    //   109: pop
+    //   110: iconst_1
+    //   111: ireturn
+    //   112: aload_0
+    //   113: invokeinterface 262 1 0
+    //   118: lload 5
+    //   120: lload_3
+    //   121: ladd
+    //   122: invokevirtual 288	okio/Timeout:deadlineNanoTime	(J)Lokio/Timeout;
+    //   125: pop
+    //   126: iconst_1
+    //   127: ireturn
+    //   128: astore_2
+    //   129: lload_3
+    //   130: ldc2_w 272
+    //   133: lcmp
+    //   134: ifne +16 -> 150
+    //   137: aload_0
+    //   138: invokeinterface 262 1 0
+    //   143: invokevirtual 305	okio/Timeout:clearDeadline	()Lokio/Timeout;
+    //   146: pop
+    //   147: goto +17 -> 164
+    //   150: aload_0
+    //   151: invokeinterface 262 1 0
+    //   156: lload 5
+    //   158: lload_3
+    //   159: ladd
+    //   160: invokevirtual 288	okio/Timeout:deadlineNanoTime	(J)Lokio/Timeout;
+    //   163: pop
+    //   164: aload_2
+    //   165: athrow
+    //   166: lload_3
+    //   167: ldc2_w 272
+    //   170: lcmp
+    //   171: ifne +15 -> 186
+    //   174: aload_0
+    //   175: invokeinterface 262 1 0
+    //   180: invokevirtual 305	okio/Timeout:clearDeadline	()Lokio/Timeout;
+    //   183: pop
+    //   184: iconst_0
+    //   185: ireturn
+    //   186: aload_0
+    //   187: invokeinterface 262 1 0
+    //   192: lload 5
+    //   194: lload_3
+    //   195: ladd
+    //   196: invokevirtual 288	okio/Timeout:deadlineNanoTime	(J)Lokio/Timeout;
+    //   199: pop
+    //   200: iconst_0
+    //   201: ireturn
+    //   202: astore_2
+    //   203: goto -37 -> 166
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	206	0	paramSource	Source
+    //   0	206	1	paramInt	int
+    //   0	206	2	paramTimeUnit	TimeUnit
+    //   29	166	3	l1	long
+    //   3	190	5	l2	long
+    // Exception table:
+    //   from	to	target	type
+    //   60	68	128	finally
+    //   68	89	128	finally
+    //   60	68	202	java/io/InterruptedIOException
+    //   68	89	202	java/io/InterruptedIOException
+  }
+  
+  public static ThreadFactory threadFactory(String paramString, final boolean paramBoolean)
+  {
+    new ThreadFactory()
+    {
+      public Thread newThread(Runnable paramAnonymousRunnable)
+      {
+        paramAnonymousRunnable = new Thread(paramAnonymousRunnable, val$name);
+        paramAnonymousRunnable.setDaemon(paramBoolean);
+        return paramAnonymousRunnable;
+      }
+    };
+  }
+  
+  public static String toHumanReadableAscii(String paramString)
+  {
+    int m = paramString.length();
+    int i = 0;
+    int j;
+    for (;;)
+    {
+      localObject = paramString;
+      if (i >= m) {
+        break label119;
+      }
+      j = paramString.codePointAt(i);
+      if ((j <= 31) || (j >= 127)) {
+        break;
+      }
+      i += Character.charCount(j);
+    }
+    Object localObject = new Buffer();
+    ((Buffer)localObject).writeUtf8(paramString, 0, i);
+    while (i < m)
+    {
+      int k = paramString.codePointAt(i);
+      if ((k > 31) && (k < 127)) {
+        j = k;
+      } else {
+        j = 63;
+      }
+      ((Buffer)localObject).writeUtf8CodePoint(j);
+      i += Character.charCount(k);
+    }
+    localObject = ((Buffer)localObject).readUtf8();
+    label119:
+    return localObject;
+  }
+}

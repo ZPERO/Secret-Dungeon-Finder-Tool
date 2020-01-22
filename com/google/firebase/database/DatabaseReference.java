@@ -1,0 +1,306 @@
+package com.google.firebase.database;
+
+import com.google.android.android.tasks.Task;
+import com.google.firebase.database.core.CompoundWrite;
+import com.google.firebase.database.core.DatabaseConfig;
+import com.google.firebase.database.core.Path;
+import com.google.firebase.database.core.Repo;
+import com.google.firebase.database.core.RepoManager;
+import com.google.firebase.database.core.ValidationPath;
+import com.google.firebase.database.core.utilities.Pair;
+import com.google.firebase.database.core.utilities.ParsedUrl;
+import com.google.firebase.database.core.utilities.PushIdGenerator;
+import com.google.firebase.database.core.utilities.Utilities;
+import com.google.firebase.database.core.utilities.Validation;
+import com.google.firebase.database.core.utilities.encoding.CustomClassMapper;
+import com.google.firebase.database.snapshot.ChildKey;
+import com.google.firebase.database.snapshot.Node;
+import com.google.firebase.database.snapshot.NodeUtilities;
+import com.google.firebase.database.snapshot.PriorityUtilities;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.Map;
+
+public class DatabaseReference
+  extends Query
+{
+  private static DatabaseConfig defaultConfig;
+  
+  DatabaseReference(Repo paramRepo, Path paramPath)
+  {
+    super(paramRepo, paramPath);
+  }
+  
+  private DatabaseReference(ParsedUrl paramParsedUrl, DatabaseConfig paramDatabaseConfig)
+  {
+    this(RepoManager.getRepo(paramDatabaseConfig, repoInfo), path);
+  }
+  
+  DatabaseReference(String paramString, DatabaseConfig paramDatabaseConfig)
+  {
+    this(Utilities.parseUrl(paramString), paramDatabaseConfig);
+  }
+  
+  private static DatabaseConfig getDefaultConfig()
+  {
+    try
+    {
+      if (defaultConfig == null) {
+        defaultConfig = new DatabaseConfig();
+      }
+      DatabaseConfig localDatabaseConfig = defaultConfig;
+      return localDatabaseConfig;
+    }
+    catch (Throwable localThrowable)
+    {
+      throw localThrowable;
+    }
+  }
+  
+  public static void goOffline()
+  {
+    goOffline(getDefaultConfig());
+  }
+  
+  static void goOffline(DatabaseConfig paramDatabaseConfig)
+  {
+    RepoManager.interrupt(paramDatabaseConfig);
+  }
+  
+  public static void goOnline()
+  {
+    goOnline(getDefaultConfig());
+  }
+  
+  static void goOnline(DatabaseConfig paramDatabaseConfig)
+  {
+    RepoManager.resume(paramDatabaseConfig);
+  }
+  
+  private Task setPriorityInternal(final Node paramNode, final CompletionListener paramCompletionListener)
+  {
+    Validation.validateWritablePath(getPath());
+    paramCompletionListener = Utilities.wrapOnComplete(paramCompletionListener);
+    repo.scheduleNow(new Runnable()
+    {
+      public void run()
+      {
+        repo.setValue(getPath().child(ChildKey.getPriorityKey()), paramNode, (DatabaseReference.CompletionListener)paramCompletionListener.getSecond());
+      }
+    });
+    return (Task)paramCompletionListener.getFirst();
+  }
+  
+  private Task setValueInternal(final Object paramObject, final Node paramNode, CompletionListener paramCompletionListener)
+  {
+    Validation.validateWritablePath(getPath());
+    ValidationPath.validateWithObject(getPath(), paramObject);
+    paramObject = CustomClassMapper.convertToPlainJavaTypes(paramObject);
+    Validation.validateWritableObject(paramObject);
+    paramObject = NodeUtilities.NodeFromJSON(paramObject, paramNode);
+    paramNode = Utilities.wrapOnComplete(paramCompletionListener);
+    repo.scheduleNow(new Runnable()
+    {
+      public void run()
+      {
+        repo.setValue(getPath(), paramObject, (DatabaseReference.CompletionListener)paramNode.getSecond());
+      }
+    });
+    return (Task)paramNode.getFirst();
+  }
+  
+  private Task updateChildrenInternal(final Map paramMap, final CompletionListener paramCompletionListener)
+  {
+    if (paramMap != null)
+    {
+      paramMap = CustomClassMapper.convertToPlainJavaTypes(paramMap);
+      final CompoundWrite localCompoundWrite = CompoundWrite.fromPathMerge(Validation.parseAndValidateUpdate(getPath(), paramMap));
+      paramCompletionListener = Utilities.wrapOnComplete(paramCompletionListener);
+      repo.scheduleNow(new Runnable()
+      {
+        public void run()
+        {
+          repo.updateChildren(getPath(), localCompoundWrite, (DatabaseReference.CompletionListener)paramCompletionListener.getSecond(), paramMap);
+        }
+      });
+      return (Task)paramCompletionListener.getFirst();
+    }
+    throw new NullPointerException("Can't pass null for argument 'update' in updateChildren()");
+  }
+  
+  public DatabaseReference child(String paramString)
+  {
+    if (paramString != null)
+    {
+      if (getPath().isEmpty()) {
+        Validation.validateRootPathString(paramString);
+      } else {
+        Validation.validatePathString(paramString);
+      }
+      paramString = getPath().child(new Path(paramString));
+      return new DatabaseReference(repo, paramString);
+    }
+    throw new NullPointerException("Can't pass null for argument 'pathString' in child()");
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    return ((paramObject instanceof DatabaseReference)) && (toString().equals(paramObject.toString()));
+  }
+  
+  public FirebaseDatabase getDatabase()
+  {
+    return repo.getDatabase();
+  }
+  
+  public String getKey()
+  {
+    if (getPath().isEmpty()) {
+      return null;
+    }
+    return getPath().getBack().asString();
+  }
+  
+  public DatabaseReference getParent()
+  {
+    Path localPath = getPath().getParent();
+    if (localPath != null) {
+      return new DatabaseReference(repo, localPath);
+    }
+    return null;
+  }
+  
+  public DatabaseReference getRoot()
+  {
+    return new DatabaseReference(repo, new Path(""));
+  }
+  
+  public int hashCode()
+  {
+    return toString().hashCode();
+  }
+  
+  public OnDisconnect onDisconnect()
+  {
+    Validation.validateWritablePath(getPath());
+    return new OnDisconnect(repo, getPath());
+  }
+  
+  public DatabaseReference push()
+  {
+    ChildKey localChildKey = ChildKey.fromString(PushIdGenerator.generatePushChildName(repo.getServerTime()));
+    return new DatabaseReference(repo, getPath().child(localChildKey));
+  }
+  
+  public Task removeValue()
+  {
+    return setValue(null);
+  }
+  
+  public void removeValue(CompletionListener paramCompletionListener)
+  {
+    setValue(null, paramCompletionListener);
+  }
+  
+  public void runTransaction(Transaction.Handler paramHandler)
+  {
+    runTransaction(paramHandler, true);
+  }
+  
+  public void runTransaction(final Transaction.Handler paramHandler, final boolean paramBoolean)
+  {
+    if (paramHandler != null)
+    {
+      Validation.validateWritablePath(getPath());
+      repo.scheduleNow(new Runnable()
+      {
+        public void run()
+        {
+          repo.startTransaction(getPath(), paramHandler, paramBoolean);
+        }
+      });
+      return;
+    }
+    throw new NullPointerException("Can't pass null for argument 'handler' in runTransaction()");
+  }
+  
+  void setHijackHash(final boolean paramBoolean)
+  {
+    repo.scheduleNow(new Runnable()
+    {
+      public void run()
+      {
+        repo.setHijackHash(paramBoolean);
+      }
+    });
+  }
+  
+  public Task setPriority(Object paramObject)
+  {
+    return setPriorityInternal(PriorityUtilities.parsePriority(path, paramObject), null);
+  }
+  
+  public void setPriority(Object paramObject, CompletionListener paramCompletionListener)
+  {
+    setPriorityInternal(PriorityUtilities.parsePriority(path, paramObject), paramCompletionListener);
+  }
+  
+  public Task setValue(Object paramObject)
+  {
+    return setValueInternal(paramObject, PriorityUtilities.parsePriority(path, null), null);
+  }
+  
+  public Task setValue(Object paramObject1, Object paramObject2)
+  {
+    return setValueInternal(paramObject1, PriorityUtilities.parsePriority(path, paramObject2), null);
+  }
+  
+  public void setValue(Object paramObject, CompletionListener paramCompletionListener)
+  {
+    setValueInternal(paramObject, PriorityUtilities.parsePriority(path, null), paramCompletionListener);
+  }
+  
+  public void setValue(Object paramObject1, Object paramObject2, CompletionListener paramCompletionListener)
+  {
+    setValueInternal(paramObject1, PriorityUtilities.parsePriority(path, paramObject2), paramCompletionListener);
+  }
+  
+  public String toString()
+  {
+    Object localObject = getParent();
+    if (localObject == null) {
+      return repo.toString();
+    }
+    try
+    {
+      localStringBuilder = new StringBuilder();
+      localStringBuilder.append(((DatabaseReference)localObject).toString());
+      localStringBuilder.append("/");
+      localStringBuilder.append(URLEncoder.encode(getKey(), "UTF-8").replace("+", "%20"));
+      localObject = localStringBuilder.toString();
+      return localObject;
+    }
+    catch (UnsupportedEncodingException localUnsupportedEncodingException)
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("Failed to URLEncode key: ");
+      localStringBuilder.append(getKey());
+      throw new DatabaseException(localStringBuilder.toString(), localUnsupportedEncodingException);
+    }
+  }
+  
+  public Task updateChildren(Map paramMap)
+  {
+    return updateChildrenInternal(paramMap, null);
+  }
+  
+  public void updateChildren(Map paramMap, CompletionListener paramCompletionListener)
+  {
+    updateChildrenInternal(paramMap, paramCompletionListener);
+  }
+  
+  public static abstract interface CompletionListener
+  {
+    public abstract void onComplete(DatabaseError paramDatabaseError, DatabaseReference paramDatabaseReference);
+  }
+}

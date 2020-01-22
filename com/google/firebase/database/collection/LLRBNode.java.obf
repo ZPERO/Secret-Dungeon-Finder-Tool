@@ -1,0 +1,60 @@
+package com.google.firebase.database.collection;
+
+import java.util.Comparator;
+
+public abstract interface LLRBNode<K, V>
+{
+  public abstract LLRBNode<K, V> copy(K paramK, V paramV, Color paramColor, LLRBNode<K, V> paramLLRBNode1, LLRBNode<K, V> paramLLRBNode2);
+  
+  public abstract K getKey();
+  
+  public abstract LLRBNode<K, V> getLeft();
+  
+  public abstract LLRBNode<K, V> getMax();
+  
+  public abstract LLRBNode<K, V> getMin();
+  
+  public abstract LLRBNode<K, V> getRight();
+  
+  public abstract V getValue();
+  
+  public abstract void inOrderTraversal(NodeVisitor<K, V> paramNodeVisitor);
+  
+  public abstract LLRBNode<K, V> insert(K paramK, V paramV, Comparator<K> paramComparator);
+  
+  public abstract boolean isEmpty();
+  
+  public abstract boolean isRed();
+  
+  public abstract LLRBNode<K, V> remove(K paramK, Comparator<K> paramComparator);
+  
+  public abstract boolean shortCircuitingInOrderTraversal(ShortCircuitingNodeVisitor<K, V> paramShortCircuitingNodeVisitor);
+  
+  public abstract boolean shortCircuitingReverseOrderTraversal(ShortCircuitingNodeVisitor<K, V> paramShortCircuitingNodeVisitor);
+  
+  public abstract int size();
+  
+  public static enum Color
+  {
+    private Color() {}
+  }
+  
+  public static abstract class NodeVisitor<K, V>
+    implements LLRBNode.ShortCircuitingNodeVisitor<K, V>
+  {
+    public NodeVisitor() {}
+    
+    public boolean shouldContinue(K paramK, V paramV)
+    {
+      visitEntry(paramK, paramV);
+      return true;
+    }
+    
+    public abstract void visitEntry(K paramK, V paramV);
+  }
+  
+  public static abstract interface ShortCircuitingNodeVisitor<K, V>
+  {
+    public abstract boolean shouldContinue(K paramK, V paramV);
+  }
+}

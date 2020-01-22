@@ -1,0 +1,53 @@
+package com.google.android.gms.signin.internal;
+
+import android.os.Parcel;
+import android.os.Parcelable.Creator;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.internal.ResolveAccountResponse;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+
+public final class zaj
+  extends AbstractSafeParcelable
+{
+  public static final Parcelable.Creator<zaj> CREATOR = new zak();
+  private final ConnectionResult zadh;
+  private final int zale;
+  private final ResolveAccountResponse zasb;
+  
+  public zaj(int paramInt)
+  {
+    this(new ConnectionResult(8, null), null);
+  }
+  
+  zaj(int paramInt, ConnectionResult paramConnectionResult, ResolveAccountResponse paramResolveAccountResponse)
+  {
+    zale = paramInt;
+    zadh = paramConnectionResult;
+    zasb = paramResolveAccountResponse;
+  }
+  
+  private zaj(ConnectionResult paramConnectionResult, ResolveAccountResponse paramResolveAccountResponse)
+  {
+    this(1, paramConnectionResult, null);
+  }
+  
+  public final ConnectionResult getConnectionResult()
+  {
+    return zadh;
+  }
+  
+  public final void writeToParcel(Parcel paramParcel, int paramInt)
+  {
+    int i = SafeParcelWriter.beginObjectHeader(paramParcel);
+    SafeParcelWriter.writeInt(paramParcel, 1, zale);
+    SafeParcelWriter.writeParcelable(paramParcel, 2, zadh, paramInt, false);
+    SafeParcelWriter.writeParcelable(paramParcel, 3, zasb, paramInt, false);
+    SafeParcelWriter.finishObjectHeader(paramParcel, i);
+  }
+  
+  public final ResolveAccountResponse zacw()
+  {
+    return zasb;
+  }
+}

@@ -1,0 +1,96 @@
+package com.google.firebase.database.collection;
+
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+final class zze<A, B, C>
+{
+  private final Map<B, C> values;
+  private final List<A> zzu;
+  private final ImmutableSortedMap.Builder.KeyTranslator<A, B> zzv;
+  private LLRBValueNode<A, C> zzw;
+  private LLRBValueNode<A, C> zzx;
+  
+  private zze(List<A> paramList, Map<B, C> paramMap, ImmutableSortedMap.Builder.KeyTranslator<A, B> paramKeyTranslator)
+  {
+    zzu = paramList;
+    values = paramMap;
+    zzv = paramKeyTranslator;
+  }
+  
+  private final LLRBNode<A, C> zza(int paramInt1, int paramInt2)
+  {
+    if (paramInt2 == 0) {
+      return LLRBEmptyNode.getInstance();
+    }
+    if (paramInt2 == 1)
+    {
+      localObject1 = zzu.get(paramInt1);
+      return new LLRBBlackValueNode(localObject1, zzd(localObject1), null, null);
+    }
+    paramInt2 /= 2;
+    int i = paramInt1 + paramInt2;
+    Object localObject1 = zza(paramInt1, paramInt2);
+    LLRBNode localLLRBNode = zza(i + 1, paramInt2);
+    Object localObject2 = zzu.get(i);
+    return new LLRBBlackValueNode(localObject2, zzd(localObject2), (LLRBNode)localObject1, localLLRBNode);
+  }
+  
+  private final void zza(LLRBNode.Color paramColor, int paramInt1, int paramInt2)
+  {
+    LLRBNode localLLRBNode = zza(paramInt2 + 1, paramInt1 - 1);
+    Object localObject = zzu.get(paramInt2);
+    if (paramColor == LLRBNode.Color.zzn) {
+      paramColor = new LLRBRedValueNode(localObject, zzd(localObject), null, localLLRBNode);
+    } else {
+      paramColor = new LLRBBlackValueNode(localObject, zzd(localObject), null, localLLRBNode);
+    }
+    if (zzw == null) {
+      zzw = paramColor;
+    }
+    for (;;)
+    {
+      zzx = paramColor;
+      return;
+      zzx.zza(paramColor);
+    }
+  }
+  
+  public static <A, B, C> zzc<A, C> zzb(List<A> paramList, Map<B, C> paramMap, ImmutableSortedMap.Builder.KeyTranslator<A, B> paramKeyTranslator, Comparator<A> paramComparator)
+  {
+    paramMap = new zze(paramList, paramMap, paramKeyTranslator);
+    Collections.sort(paramList, paramComparator);
+    paramKeyTranslator = new zzf(paramList.size()).iterator();
+    int i = paramList.size();
+    while (paramKeyTranslator.hasNext())
+    {
+      zzh localZzh = (zzh)paramKeyTranslator.next();
+      i -= zzab;
+      if (zzaa)
+      {
+        paramList = LLRBNode.Color.zzo;
+      }
+      else
+      {
+        paramMap.zza(LLRBNode.Color.zzo, zzab, i);
+        i -= zzab;
+        paramList = LLRBNode.Color.zzn;
+      }
+      paramMap.zza(paramList, zzab, i);
+    }
+    paramMap = zzw;
+    paramList = paramMap;
+    if (paramMap == null) {
+      paramList = LLRBEmptyNode.getInstance();
+    }
+    return new zzc(paramList, paramComparator, null);
+  }
+  
+  private final C zzd(A paramA)
+  {
+    return values.get(zzv.translate(paramA));
+  }
+}

@@ -1,0 +1,81 @@
+package com.google.android.material.card;
+
+import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.widget.FrameLayout;
+import androidx.cardview.widget.CardView;
+import com.google.android.material.R.styleable;
+
+class MaterialCardViewHelper
+{
+  private static final int DEFAULT_STROKE_VALUE = -1;
+  private final MaterialCardView materialCardView;
+  private int strokeColor;
+  private int strokeWidth;
+  
+  public MaterialCardViewHelper(MaterialCardView paramMaterialCardView)
+  {
+    materialCardView = paramMaterialCardView;
+  }
+  
+  private void adjustContentPadding()
+  {
+    int i = materialCardView.getContentPaddingLeft();
+    int j = strokeWidth;
+    int k = materialCardView.getContentPaddingTop();
+    int m = strokeWidth;
+    int n = materialCardView.getContentPaddingRight();
+    int i1 = strokeWidth;
+    int i2 = materialCardView.getContentPaddingBottom();
+    int i3 = strokeWidth;
+    materialCardView.setContentPadding(i + j, k + m, n + i1, i2 + i3);
+  }
+  
+  private Drawable createForegroundDrawable()
+  {
+    GradientDrawable localGradientDrawable = new GradientDrawable();
+    localGradientDrawable.setCornerRadius(materialCardView.getRadius());
+    int i = strokeColor;
+    if (i != -1) {
+      localGradientDrawable.setStroke(strokeWidth, i);
+    }
+    return localGradientDrawable;
+  }
+  
+  int getStrokeColor()
+  {
+    return strokeColor;
+  }
+  
+  int getStrokeWidth()
+  {
+    return strokeWidth;
+  }
+  
+  public void loadFromAttributes(TypedArray paramTypedArray)
+  {
+    strokeColor = paramTypedArray.getColor(R.styleable.MaterialCardView_strokeColor, -1);
+    strokeWidth = paramTypedArray.getDimensionPixelSize(R.styleable.MaterialCardView_strokeWidth, 0);
+    updateForeground();
+    adjustContentPadding();
+  }
+  
+  void setStrokeColor(int paramInt)
+  {
+    strokeColor = paramInt;
+    updateForeground();
+  }
+  
+  void setStrokeWidth(int paramInt)
+  {
+    strokeWidth = paramInt;
+    updateForeground();
+    adjustContentPadding();
+  }
+  
+  void updateForeground()
+  {
+    materialCardView.setForeground(createForegroundDrawable());
+  }
+}

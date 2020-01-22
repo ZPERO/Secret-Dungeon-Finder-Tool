@@ -1,0 +1,38 @@
+package com.google.firebase.database.logging;
+
+import android.util.Log;
+import java.util.List;
+
+public class AndroidLogger
+  extends DefaultLogger
+{
+  public AndroidLogger(Logger.Level paramLevel, List paramList)
+  {
+    super(paramLevel, paramList);
+  }
+  
+  protected String buildLogMessage(Logger.Level paramLevel, String paramString1, String paramString2, long paramLong)
+  {
+    return paramString2;
+  }
+  
+  protected void debug(String paramString1, String paramString2)
+  {
+    Log.d(paramString1, paramString2);
+  }
+  
+  protected void error(String paramString1, String paramString2)
+  {
+    Log.e(paramString1, paramString2);
+  }
+  
+  protected void info(String paramString1, String paramString2)
+  {
+    Log.i(paramString1, paramString2);
+  }
+  
+  protected void warn(String paramString1, String paramString2)
+  {
+    Log.w(paramString1, paramString2);
+  }
+}
